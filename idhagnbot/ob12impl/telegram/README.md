@@ -1,0 +1,178 @@
+# IdhagnBot Telegram
+基于 IdhagnBot OBC 和 [Pyrogram](https://github.com/pyrogram/pyrogram) 的 Telegram OneBot V12 协议端。
+
+## 支持的事件
+- message.private
+  - 所有消息事件都有字段（来自 Pyrogram）：tg.protected、tg.media_group_id、tg.original_events、tg.user、tg.chat、tg.sender_chat、tg.forward_from、tg.forward_sender_name、tg.forward_from_chat、tg.forward_from_message_id、tg.forward_signature、tg.forward_date、tg.mentioned、tg.empty、tg.scheduled、tg.from_scheduled、tg.edit_date、tg.author_signature、tg.views、tg.forwards、tg.via_bot、tg.outgoing、tg.reply_markup、tg.reactions
+- message.group
+- message."tg.channel" 注：Telegram 的 Channel 不是 OneBot 标准里的二级群组，加上 tg 前缀以区分。
+  - tg.channel_id: str
+- 🚧开发中🚧
+
+## 支持的动作
+- send_message
+  - 响应 tg.events: list[MessageEvent]
+- delete_message
+  - 参数 no_media_group: bool
+- 🚧开发中🚧
+
+## 支持的消息段
+- text
+  - tg.sub_type
+    - hashtag（仅接收，发送时仅自动添加空格）
+    - cashtag（仅接收，发送时仅自动添加空格）
+    - command（仅接收，发送时仅自动添加空格）
+    - email（仅接收，发送时仅自动添加空格）
+    - phone_number（仅接收，发送时仅自动添加空格）
+    - bank_card（仅接收，发送时仅自动添加空格）
+    - url（仅接收，发送时和 text_link 等价）
+    - text_link
+    - code
+    - pre
+    - blockquote
+    - custom_emoji
+  - tg.url: 在 tg.sub_type 为 url 或 text_link 时为字符串，否则为 None
+  - tg.bold: bool
+  - tg.italic: bool
+  - tg.underline: bool
+  - tg.strikethrough: bool
+  - tg.spoiler: bool
+  - tg.language: 在 tg.sub_type 为 pre 时为字符串，否则为 None
+  - tg.custom_emoji_id: 在 tg.sub_type 为 custom_emoji 时为字符串，否则为 None
+- mention（发送时始终作为 text_mention，除非找不到对应用户）
+  - tg.sub_type（仅接收）
+    - mention
+    - text_mention
+  - tg.bold: bool
+  - tg.italic: bool
+  - tg.underline: bool
+  - tg.strikethrough: bool
+  - tg.spoiler: bool
+  - tg.text: str
+- image（发送时只接受 file_id、tg.sub_type 和 tg.spoiler）
+  - tg.sub_type
+    - photo
+    - sticker
+    - thumbnail（仅接收，只在 tg.thumb 里出现）
+  - tg.unique_id: str
+  - tg.size: int
+  - tg.width: int
+  - tg.height: int
+  - tg.time: float（仅限 tg.sub_type = photo 或 sticker）
+  - tg.thumbs: list[image tg.sub_type=thumbnail]（仅限 tg.sub_type = photo 或 sticker）
+  - tg.ttl: int（仅限 tg.sub_type = photo）
+  - tg.spoiler: bool（仅限 tg.sub_type = photo）
+  - tg.name: str（仅限 tg.sub_type = sticker）
+  - tg.is_animated: bool（仅限 tg.sub_type = sticker）
+  - tg.is_video: bool（仅限 tg.sub_type = sticker）
+  - tg.emoji: str（仅限 tg.sub_type = sticker）
+  - tg.set_name: str（仅限 tg.sub_type = sticker）
+- audio（发送时只接受 file_id）
+  - tg.unique_id: str
+  - tg.name: str
+  - tg.size: int
+  - tg.mime: str
+  - tg.time: float
+  - tg.thumbs: list[image tg.sub_type=thumbnail]
+  - tg.title: str
+  - tg.performer: str
+  - tg.duration: int
+- voice（发送时只接受 file_id）
+  - tg.unique_id: str
+  - tg.size: int
+  - tg.mime: str
+  - tg.time: float
+  - tg.duration: int
+  - tg.waveform: bytes
+- video（发送时只接受 file_id、tg.sub_type 和 tg.spoiler）
+  - tg.sub_type
+    - video
+    - animation
+    - video_note
+  - tg.unique_id: str
+  - tg.name: str（仅限 tg.sub_type = video 或 animation）
+  - tg.size: int
+  - tg.mime: str
+  - tg.time: float
+  - tg.thumbs: list[image tg.sub_type=thumbnail]
+  - tg.width: int（仅限 tg.sub_type = video 或 animation）
+  - tg.height: int（仅限 tg.sub_type = video 或 animation）
+  - tg.duration: int
+  - tg.supports_streaming: str（仅限 tg.sub_type = video）
+  - tg.ttl: str（仅限 tg.sub_type = video）
+  - tg.spoiler: bool（仅限 tg.sub_type = video 或 animation）
+- file（发送时只接受 file_id）
+  - tg.unique_id: str
+  - tg.name: str
+  - tg.size: int
+  - tg.mime: str
+  - tg.time: float
+  - tg.thumbs: list[image tg.sub_type=thumbnail]
+- location
+  - tg.sub_type（发送时如果未指定，根据是否有 title 和 content 决定是 location 还是 venue）
+    - location
+    - venue
+  - tg.foursquare_id: str
+  - tg.foursquare_type: str
+- reply（发送时只接受 message_id）
+  - tg.top_message_id: int
+  - tg.message: MessageEvent
+- tg.protect（仅发送，接收时作为 MessageEvent 的字段）
+- tg.disable_web_page_preview（仅发送，接收时作为 MessageEvent 的字段）
+- tg.disable_notification（仅发送，接收时作为 MessageEvent 的字段）
+- tg.schedule（仅发送，接收时作为 MessageEvent 的字段）
+  - time: int
+- tg.chat_action（暂不支持）（仅发送）
+- tg.contact（暂不支持发送）
+  - phone_number: str
+  - first_name: str
+  - last_name: str
+  - user_id: int
+  - vcard: str
+- tg.poll（暂不支持发送）
+  - id: int
+  - question: str
+  - options: list[dict]
+    - text: str
+    - voter_count: int
+    - data: bytes
+  - total_voter_count: int
+  - is_closed: bool
+  - is_anonymous: bool
+  - sub_type
+    - regular
+    - quiz
+  - allows_multiple_answers: bool
+  - chosen_option_id: int | None
+  - correct_option_id: int | None
+  - open_period: int | None
+- tg.web_page（暂不支持发送）
+  - id: str
+  - url: str
+  - display_url: str
+  - site_name: str
+  - title: str
+  - description: str
+  - preview_type: str
+  - preview: 类型为 image（photo）、audio、file、video（video、animation）的消息段
+  - embed_url: str
+  - embed_type: str
+  - embed_width: int
+  - embed_height: int
+  - duration: int
+  - author: str
+- tg.dice（暂不支持发送）
+  - emoji: str
+  - value: int
+- tg.game（暂不支持发送）
+  - id: int
+  - title: str
+  - short_name: str
+  - description: str
+  - photo: 类型为 image（photo）的消息段
+  - animation: 类型为 video（animation）的消息段或 None
+
+## 备注
+- 接收 Media Group 时会自动将多条消息合为一条，撤回~~或编辑~~ Media Group 时也会同时编辑整个 Media Group（参数 `tg.no_media_group` 会阻止这一行为）
+- 在发送消息时会尽可能合并不同的消息段，包括：合并 Media Group、优先将文本作为媒体的 Caption。但如果不得不发送多条消息（比如文本过长），返回的 message_id 只会包含第一条的 ID，可从返回的 `tg.events` 获取其他消息的 ID。
+- 发送消息时的 file_id 除了 Telegram 的 file_id（不是 unique_id），还可传入 URL 或本地文件路径。 *这其实是 Pyrogram 的特性。* 上传文件的功能正在~~🕊️~~开发中。
