@@ -22,11 +22,20 @@ class LoguruHandler(logging.Handler):
     logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
 
-def config_logger(level: str = "INFO") -> None:
+def config_logger(name: str, level: str = "INFO") -> None:
   logging.basicConfig(level=level, handlers=[LoguruHandler()])
-  logger.configure(handlers=[
-    {"sink": sys.stdout, "level": level, "diagnose": False}
-  ])
+  logger.configure(
+    handlers=[{
+      "sink": sys.stdout,
+      "level": level,
+      "diagnose": False,
+      "format": (
+        "<g>{time:MM-DD HH:mm:ss}</g> [<lvl>{level}</lvl>] "
+        f"<blue>{name}</blue>:"
+        "<c><u>{name}</u></c> | {message}"
+      ),
+    }],
+  )
 
 
 async def wait_shutdown() -> None:

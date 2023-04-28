@@ -853,6 +853,8 @@ def message_to_telegram(message: MessageOB) -> Tuple[SendMessageFlags, List[Send
           f"@{data._user.username}"
           if data._user.username else
           f"@{data._user.first_name} {data._user.last_name}"
+          if data._user.last_name else
+          f"@{data._user.first_name}"
         )
         add_entity(MessageEntityType.TEXT_MENTION, user=data._user)
       else:

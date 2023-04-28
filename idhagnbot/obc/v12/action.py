@@ -1,6 +1,6 @@
-from typing import Any, List, Literal, Optional, Union
+from typing import Any, List, Literal, Optional, Union, Dict
 
-from pydantic import validator
+from pydantic import validator, Field
 
 from idhagnbot.obc.model import Model
 from idhagnbot.obc.v12.event import BotSelf, EventAny, Status, Version
@@ -209,3 +209,145 @@ class SetChannelNameParam(Model):
 SetChannelNameResult = Model
 LeaveChannelParam = GetChannelInfoParam
 LeaveChannelResult = Model
+
+
+class UploadFileBaseParam(Model):
+  type: str
+  name: str
+  sha256: str = ""
+
+
+class UploadFileUrlParam(UploadFileBaseParam):
+  type: Literal["url"]
+  url: str
+  headers: Dict[str, str] = Field(default_factory=dict)
+
+
+class UploadFilePathParam(UploadFileBaseParam):
+  type: Literal["path"]
+  path: str
+
+
+class UploadFileDataParam(UploadFileBaseParam):
+  type: Literal["data"]
+  data: bytes
+
+
+class UploadFileCustomParam(UploadFileBaseParam):
+  @validator("type")
+  def check_detail_type(cls, v: str) -> str:
+    if v in {"url", "path", "data"}:
+      raise ValueError(f"{v} is a standard OneBot type.")
+    return v
+
+
+UploadFileStdParam = Union[
+  UploadFileUrlParam,
+  UploadFilePathParam,
+  UploadFileDataParam,
+]
+UploadFileParam = Union[
+  UploadFileStdParam,
+  UploadFileCustomParam,
+]
+
+
+class UploadFileResult(Model):
+  file_id: str
+
+
+class UploadFileFragmentedPrepareParam(Model):
+  stage: Literal["prepare"]
+  name: str
+  total_size: int
+
+
+class UploadFileFragmentedTransferParam(Model):
+  stage: Literal["transfer"]
+  file_id: str
+  offset: int
+  data: bytes
+
+
+class UploadFileFragmentedFinishParam(Model):
+  stage: Literal["finish"]
+  file_id: str
+  sha256: str = ""
+
+
+UploadFileFragmentedParam = Union[
+  UploadFileFragmentedPrepareParam,
+  UploadFileFragmentedTransferParam,
+  UploadFileFragmentedFinishParam,
+]
+UploadFileFragmentedPrepareResult = UploadFileResult
+UploadFileFragmentedTransferResult = Model
+UploadFileFragmentedFinishResult = UploadFileResult
+UploadFileFragmentedResult = Union[
+  UploadFileFragmentedPrepareResult,
+  UploadFileFragmentedTransferResult,
+  UploadFileFragmentedFinishResult,
+]
+
+
+class GetFileParam(Model):
+  file_id: str
+  type: str
+
+
+class GetFileBaseResult(Model):
+  name: str
+  sha256: str
+
+
+class GetFilePathResult(GetFileBaseResult):
+  path: str
+
+
+class GetFileDataResult(GetFileBaseResult):
+  data: bytes
+
+
+class GetFileURLResult(GetFileBaseResult):
+  url: str
+  headers: Dict[str, str]
+
+
+GetFileResult = Union[
+  GetFileBaseResult,
+  GetFilePathResult,
+  GetFileDataResult,
+  GetFileURLResult,
+]
+
+
+class GetFileFragmentedPrepareParam(Model):
+  stage: Literal["prepare"]
+  file_id: str
+
+
+class GetFileFragmentedTransferParam:
+  stage: Literal["transfer"]
+  file_id: str
+  offset: int
+  size: int
+
+
+class GetFileFragmentedPrepareResult(Model):
+  name: str
+  total_size: int
+  sha256: str
+
+
+class GetFileFragmentedTransferResult(Model):
+  data: bytes
+
+
+GetFileFragmentedParam = Union[
+  GetFileFragmentedPrepareParam,
+  GetFileFragmentedTransferParam,
+]
+GetFileFragmentedResult = Union[
+  GetFileFragmentedPrepareResult,
+  GetFileFragmentedTransferResult,
+]

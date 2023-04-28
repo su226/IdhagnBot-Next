@@ -20,7 +20,7 @@ class TelegramImplConfig(ImplConfig):
   api_id: int
   api_hash: SecretStr
   bot_token: SecretStr
-  proxy: Optional[str] = None
+  proxy: str = ""
 
   def __repr__(self) -> str:
     bot_id = self.bot_token.get_secret_value().split(":", 1)[0]
@@ -80,14 +80,20 @@ async def on_startup() -> None:
 async def on_shutdown() -> None:
   if monitor_task:
     monitor_task.cancel()
+    try:
+      await monitor_task
+    except asyncio.CancelledError:
+      pass
   if processes:
     logger.info("等待 OneBot 协议端退出……")
     seconds = 0
     while any(process.exitcode is None for _, process in processes):
-      for _, process in processes:
-        if seconds >= CONFIG.ob12impl_exit_timeout:
+      if seconds >= CONFIG.ob12impl_exit_timeout:
+        logger.info("OneBot 协议端退出超时，强行停止中……")
+        for _, process in processes:
           process.kill()
-        else:
-          process.terminate()
+        break
+      for _, process in processes:
+        process.terminate()
       await asyncio.sleep(1)
       seconds += 1

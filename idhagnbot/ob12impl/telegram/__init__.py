@@ -1,32 +1,39 @@
 import asyncio
+import hashlib
 import os
 import random
+import shutil
 from datetime import datetime
 from importlib.metadata import version
-from typing import Awaitable, Dict, List, Optional, Tuple, TypeVar, cast
+from typing import Any, Awaitable, BinaryIO, Coroutine, Dict, List, Optional, Tuple, TypeVar, cast
 from urllib.parse import urlparse
+from uuid import UUID, uuid4
 
+import aiohttp
 from loguru import logger
 from pydantic import Field, ValidationError
 from pyrogram import filters
 from pyrogram.client import Client
 from pyrogram.enums import ChatType, ParseMode
 from pyrogram.errors import RPCError
+from pyrogram.file_id import FileId
 from pyrogram.raw.functions.ping import Ping
 from pyrogram.types import ChatPreview, Message as MessageTG, User
 
 from idhagnbot.ob12impl.telegram.log import escape_log, log_chat, log_chat_preview, log_user
 from idhagnbot.ob12impl.telegram.message import (
-  DataMentionExt, InputMediaGroupable, SendMessageAlbum, SendMessageAnimation, SendMessageAudio,
-  SendMessageDocument, SendMessageForward, SendMessageLocation, SendMessageSticker,
-  SendMessageText, SendMessageVenue, SendMessageVideoNote, SendMessageVoice,
+  DataFileId, DataMentionExt, InputMediaGroupable, SendMessageAlbum, SendMessageAnimation,
+  SendMessageAudio, SendMessageDocument, SendMessageForward, SendMessageLocation,
+  SendMessageSticker, SendMessageText, SendMessageVenue, SendMessageVideoNote, SendMessageVoice,
   message_event_to_onebot, message_to_telegram, removeprefix
 )
 from idhagnbot.obc.v12.action import (
-  DeleteMessageParam, DeleteMessageResult, SendMessageParam, SendMessageResult
+  DeleteMessageParam, DeleteMessageResult, GetFileDataResult, GetFileParam, GetFilePathResult,
+  GetFileResult, GetFileURLResult, SendMessageParam, SendMessageResult
 )
 from idhagnbot.obc.v12.app import ActionResult, ActionResultTuple, App as BaseApp
 from idhagnbot.obc.v12.event import BotSelf, BotStatus, MessageEvent, Status, Version
+from idhagnbot.obc.v12.files import DatabaseFileManager
 from idhagnbot.obc.v12.message import Message as MessageOB
 
 
@@ -43,7 +50,8 @@ class App(BaseApp):
     api_id: int,
     api_hash: str,
     bot_token: str,
-    proxy: Optional[str] = None,
+    proxy: str = "",
+    workdir: str = "",
   ) -> None:
     super().__init__()
     client_args = {}
@@ -57,7 +65,7 @@ class App(BaseApp):
         "password": parsed_proxy.password,
       }
     self.id, _ = bot_token.split(":", 1)
-    workdir = os.path.join(os.getcwd(), "data")
+    workdir = workdir or os.path.join(os.getcwd(), "data")
     os.makedirs(workdir, exist_ok=True)
     self.tg = Client(
       f"bot_{self.id}",
@@ -70,8 +78,13 @@ class App(BaseApp):
     )
     self.tg.on_message(not filters.service)(self.on_message)
     self.__media_groups: Dict[str, List[MessageTG]] = {}
+    self.__http = aiohttp.ClientSession()
+    self.__file = DatabaseFileManager(workdir + "/files", self.__http)
     self.add_action(self.send_message)
     self.add_action(self.delete_message)
+    self.add_action(self.__file.upload_file)
+    self.add_action(self.get_file)
+    self.add_action(self.__file.delete_file)
 
   def get_self(self) -> BotSelf:
     return BotSelf(platform="telegram", user_id=self.id)
@@ -91,16 +104,18 @@ class App(BaseApp):
     await super().setup()
     logger.info(f"Connecting bot {self.id} to Telegram.")
     await self.tg.start()
+    await self.__file.setup()
 
   async def shutdown(self) -> None:
     await super().shutdown()
     await self.tg.stop()
+    await self.__http.close()
 
-  async def _guard(self, coro: Awaitable[T]) -> T:
+  async def __guard(self, coro: Awaitable[Optional[T]]) -> T:
     try:
-      return await coro
+      return cast(T, await coro)
     except OSError as e:
-      raise ActionResult(33000, str(e), None) from e
+      raise ActionResult(33001, str(e), None) from e
     except ValueError as e:
       raise ActionResult(35001, str(e), None) from e
     except RPCError as e:
@@ -165,7 +180,7 @@ class App(BaseApp):
     for message in messages:
       try:
         if isinstance(message, SendMessageText):
-          results.append(await self._guard(self.tg.send_message(
+          results.append(await self.__guard(self.tg.send_message(
             chat_id,
             message.text,
             entities=message.entities,
@@ -178,7 +193,7 @@ class App(BaseApp):
         elif isinstance(message, (SendMessageAlbum, SendMessageDocument, SendMessageAudio)):
           message.media[0].caption = message.text
           message.media[0].caption_entities = message.entities
-          results.extend(await self._guard(self.tg.send_media_group(
+          results.extend(await self.__guard(self.tg.send_media_group(
             chat_id,
             cast(List[InputMediaGroupable], message.media),
             disable_notification=flags.disable_notification,
@@ -187,7 +202,7 @@ class App(BaseApp):
             protect_content=flags.protect,
           )))
         elif isinstance(message, SendMessageVoice):
-          results.append(cast(MessageTG, await self._guard(self.tg.send_voice(
+          results.append(await self.__guard(self.tg.send_voice(
             chat_id,
             message.file,
             message.text,
@@ -196,9 +211,9 @@ class App(BaseApp):
             reply_to_message_id=reply_to_message_id,
             schedule_date=schedule_date,
             protect_content=flags.protect,
-          ))))
+          )))
         elif isinstance(message, SendMessageAnimation):
-          results.append(cast(MessageTG, await self._guard(self.tg.send_animation(
+          results.append(await self.__guard(self.tg.send_animation(
             chat_id,
             message.file,
             message.text,
@@ -207,27 +222,27 @@ class App(BaseApp):
             reply_to_message_id=reply_to_message_id,
             schedule_date=schedule_date,
             protect_content=flags.protect,
-          ))))
+          )))
         elif isinstance(message, SendMessageSticker):
-          results.append(cast(MessageTG, await self._guard(self.tg.send_sticker(
+          results.append(await self.__guard(self.tg.send_sticker(
             chat_id,
             message.file,
             disable_notification=flags.disable_notification,
             reply_to_message_id=reply_to_message_id,
             schedule_date=schedule_date,
             protect_content=flags.protect,
-          ))))
+          )))
         elif isinstance(message, SendMessageVideoNote):
-          results.append(cast(MessageTG, await self._guard(self.tg.send_video_note(
+          results.append(await self.__guard(self.tg.send_video_note(
             chat_id,
             message.file,
             disable_notification=flags.disable_notification,
             reply_to_message_id=reply_to_message_id,
             schedule_date=schedule_date,
             protect_content=flags.protect,
-          ))))
+          )))
         elif isinstance(message, SendMessageLocation):
-          results.append(await self._guard(self.tg.send_location(
+          results.append(await self.__guard(self.tg.send_location(
             chat_id,
             message.latitude,
             message.longitude,
@@ -237,7 +252,7 @@ class App(BaseApp):
             protect_content=flags.protect,
           )))
         elif isinstance(message, SendMessageVenue):
-          results.append(await self._guard(self.tg.send_venue(
+          results.append(await self.__guard(self.tg.send_venue(
             chat_id,
             message.latitude,
             message.longitude,
@@ -288,7 +303,7 @@ class App(BaseApp):
     message_id_str = ", ".join(map(str, message_ids))
     chat = await self._log_chat(chat_id)
     try:
-      await self._guard(self.tg.delete_messages(chat_id, message_ids))
+      await self.__guard(self.tg.delete_messages(chat_id, message_ids))
       logger.opt(colors=True).success(f"Message <cyan>{message_id_str}</cyan> in {chat} deleted.")
     except ActionResult as e:
       logger.opt(colors=True).error(
@@ -318,8 +333,49 @@ class App(BaseApp):
     except ValueError as e:
       raise ActionResult(10003, f"Invalid message ID: {message_id!r}", None) from e
     if not no_media_group:
-      return chat_id, await self._guard(do_get_media_group())
+      return chat_id, await self.__guard(do_get_media_group())
     return chat_id, [message_id_int]
+
+  async def get_file(
+    self,
+    params: GetFileParam,
+    _bot_self: Optional[BotSelf]
+  ) -> ActionResultTuple[GetFileResult]:
+    try:
+      UUID(params.file_id)
+    except ValueError:
+      pass
+    else:
+      return await self.__file.get_file(params)
+    try:
+      FileId.decode(params.file_id)
+    except ValueError:
+      return 10003, (
+        f"File ID {params.file_id!r} is not either a Telegram file ID or a uploaded file ID."
+      ), None
+    if params.type in ("path", "url"):
+      id = uuid4()
+      src_path = cast(str, await self.__guard(self.tg.download_media(params.file_id)))
+      dst_path = os.path.join(self.__file.dir, str(id))
+      shutil.move(src_path, dst_path)
+      file = await self.__file.store_path(id, dst_path, os.path.basename(src_path))
+      if params.type == "path":
+        return 0, "", GetFilePathResult(name=file.name, path=dst_path, sha256=file.sha256)
+      else:
+        return 0, "", GetFileURLResult(
+          name=file.name,
+          url=f"file://{dst_path}",
+          headers={},
+          sha256=file.sha256,
+        )
+    else:
+      buf = cast(BinaryIO, await self.__guard(self.tg.download_media(
+        params.file_id,
+        in_memory=True,
+      )))
+      data = buf.read()
+      sha256 = hashlib.sha256(data).hexdigest()
+      return 0, "", GetFileDataResult(name=buf.name, sha256=sha256, data=data)
 
   async def on_message(self, tg: Client, message: MessageTG) -> None:
     try:
@@ -382,13 +438,33 @@ class App(BaseApp):
       except RPCError:
         logger.warning(f"Invalid mention to user {id!r}")
 
+    async def resolve_file_id(data: DataFileId) -> None:
+      retcode, message, result = await self.__file.get_file(GetFileParam(
+        file_id=data.file_id,
+        type="path",
+      ))
+      if result is None:
+        raise ActionResult(retcode, message, result)
+      data.file_id = result.path
+
     mentions: Dict[str, Optional[User]] = {}
+    coros: List[Coroutine[Any, Any, None]] = []
 
     for segment in message:
       if segment.type == "mention":
         segment.data.user_id = removeprefix(segment.data.user_id, "@")
-        mentions[segment.data.user_id] = None
-    await asyncio.gather(*[resolve_mention(id) for id in mentions])
+        if segment.data.user_id not in mentions:
+          mentions[segment.data.user_id] = None
+          coros.append(resolve_mention(segment.data.user_id))
+      elif segment.type in {"image", "video", "file", "audio", "voice"}:
+        try:
+          UUID(segment.data.file_id)
+        except ValueError:
+          pass
+        else:
+          coros.append(resolve_file_id(cast(DataFileId, segment.data)))
+
+    await asyncio.gather(*coros)
 
     result: MessageOB = []
     for segment in message:
