@@ -1,0 +1,45 @@
+[project]
+name = "idhagnbot"
+version = "0.1.0"
+description = "Cross platform chatbot based on NoneBot2 framework."
+authors = [
+    {name = "su226", email = "thesu226@outlook.com"},
+]
+dependencies = [
+    "nonebot2[aiohttp,fastapi]~=2.4",
+    "nonebot-plugin-alconna~=0.54",
+]
+requires-python = "~=3.9"
+readme = "README.md"
+license = {text = "MIT"}
+
+[project.optional-dependencies]
+adapters = [
+    "nonebot-adapter-telegram<1,>=0.1.0b20",
+    "nonebot-adapter-onebot~=2.4",
+]
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.scripts]
+start = "python -m idhagnbot"
+
+[tool.pyright]
+typeCheckingMode = "strict"
+pythonVersion = "3.9"
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUntypedFunctionDecorator = false
+
+[tool.ruff]
+ignore = ["E402"]
+
+[dependency-groups]
+lint = [
+    "ruff~=0.8",
+]
