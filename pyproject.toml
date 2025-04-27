@@ -47,8 +47,8 @@ line-length = 99
 [tool.ruff.lint]
 extend-select = ["ALL"]
 ignore = [
-    "INP", "D", "E402", "FA100", "RUF001", "RUF003", "TC006", "TD002", "TD003", "SLF001", "SIM105",
-    "FIX", "ANN401", "PLW0603", "PERF203", "PLR0911", "C901"
+    "ANN401", "C901", "D", "E402", "EM", "FA100", "FIX", "INP", "PERF203", "PLR0911", "PLW0603",
+    "RUF001", "RUF003", "SIM105", "SLF001", "TC006", "TD002", "TD003", "TRY003",
 ]
 
 [tool.ruff.lint.flake8-quotes]

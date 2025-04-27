@@ -10,6 +10,8 @@ from nonebot.permission import Permission
 from pydantic import BaseModel, Field, PrivateAttr
 from pygtrie import StringTrie
 
+from idhagnbot.config import SharedConfig
+
 nonebot.require("nonebot_plugin_uninfo")
 from nonebot_plugin_uninfo import SceneType, Uninfo
 
@@ -58,11 +60,7 @@ class Config(BaseModel):
   roles: dict[str, Role] = Field(default_factory=dict)
 
 
-class ConfigWrapper(BaseModel):
-  idhagnbot_permission: Config = Config()
-
-
-config = nonebot.get_plugin_config(ConfigWrapper).idhagnbot_permission
+CONFIG = SharedConfig("permission", Config)
 USER_RE = re.compile(r"^(?P<platform>[^:]+):user:(?P<user>[^:]+)$")
 SUPERUSER_RE = re.compile(r"^(?P<platform>[^:]+):superuser$")
 GROUP_ID_ROLE_RE = re.compile(r"^(?P<platform>[^:]+):group:(?P<group>[^:]+):(?P<role>member|administrator|owner)$")  # noqa: E501
@@ -74,6 +72,7 @@ PRIVATE_RE = re.compile(r"^(?P<platform>[^:]+):private$")
 
 
 def get_role_parents(role: str) -> set[str]:
+  config = CONFIG()
   parents = config.roles[role].parents if role in config.roles else None
   if parents is not None:
     return parents
@@ -99,6 +98,7 @@ def get_role_parents(role: str) -> set[str]:
 
 
 def get_role_priority(role: str) -> int:
+  config = CONFIG()
   priority = config.roles[role].priority if role in config.roles else None
   return priority or 0
 
@@ -139,6 +139,7 @@ SortedRoles = Annotated[list[str], Depends(get_sorted_roles)]
 
 
 def check(node: Node, sorted_roles: list[str], default_grant_to: set[str]) -> bool:
+  config = CONFIG()
   values: list[tuple[int, int, bool]] = []
   is_set = False
   for priority, role in enumerate(sorted_roles):
