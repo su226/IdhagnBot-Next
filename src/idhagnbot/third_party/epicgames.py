@@ -1,11 +1,12 @@
+from collections.abc import Iterable
 from datetime import datetime, timezone
-from typing import Iterable, TypedDict, Optional
+from typing import Optional, TypedDict
 
 from pydantic import BaseModel, TypeAdapter
 
 from idhagnbot import http
 
-__all__ = ["get_free_games", "Game", "URL_BASE"]
+__all__ = ["URL_BASE", "Game", "get_free_games"]
 API = (
   "https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions"
   "?locale=zh-CN&country=CN&allowCountries=CN"

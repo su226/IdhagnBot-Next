@@ -16,6 +16,6 @@ def get_session() -> aiohttp.ClientSession:
 
 
 @_driver.on_shutdown
-async def on_shutdown():
+async def on_shutdown() -> None:
   if _session:
     await _session.close()

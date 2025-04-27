@@ -14,7 +14,7 @@ __plugin_meta__ = PluginMetadata(
   usage='''`nonebot.load_plugin("idhagnbot")`''',
   type="application",
   homepage="https://github.com/su226/IdhagnBot-Next",
-  supported_adapters={"~satori"},
+  supported_adapters={"~onebot.v11", "~telegram"},
 )
 
 def load_plugins() -> None:

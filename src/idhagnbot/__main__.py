@@ -1,5 +1,7 @@
-import nonebot
 import importlib
+
+import nonebot
+
 import idhagnbot
 
 ADAPTERS = [

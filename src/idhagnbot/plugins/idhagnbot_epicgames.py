@@ -2,15 +2,15 @@ from datetime import datetime, timezone
 
 import nonebot
 
-from idhagnbot.third_party import epicgames as api
 from idhagnbot.permission import permission
+from idhagnbot.third_party import epicgames as api
 
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna.uniseg import Image, Text, UniMessage
 
 epicgames = nonebot.on_command("epicgames", permission=permission("epicgames"))
 @epicgames.handle()
-async def handle_epicgames():
+async def handle_epicgames() -> None:
   games = await api.get_free_games()
   if not games:
     await epicgames.finish("似乎没有可白嫖的游戏")
