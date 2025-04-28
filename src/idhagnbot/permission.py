@@ -2,7 +2,7 @@ import re
 from collections import deque
 from collections.abc import Iterable
 from enum import Enum
-from typing import Annotated, Any, Optional, Union, cast
+from typing import Annotated, Any, Literal, Optional, Union, cast
 
 import nonebot
 from nonebot.params import Depends
@@ -16,6 +16,7 @@ nonebot.require("nonebot_plugin_uninfo")
 from nonebot_plugin_uninfo import SceneType, Uninfo
 
 Node = tuple[str, ...]
+Value = Union[bool, Literal["default"]]
 
 
 def parse_node(value: str) -> Node:
@@ -40,7 +41,7 @@ class NodeTrie(StringTrie):
 
 class Entry(BaseModel):
   node: str
-  value: bool
+  value: Value
 
 
 class Role(BaseModel):
@@ -140,21 +141,14 @@ SortedRoles = Annotated[list[str], Depends(get_sorted_roles)]
 
 def check(node: Node, sorted_roles: list[str], default_grant_to: set[str]) -> bool:
   config = CONFIG()
-  values: list[tuple[int, int, bool]] = []
-  is_set = False
+  values: list[tuple[int, int, Value]] = []
   for priority, role in enumerate(sorted_roles):
     if role in config.roles:
       for specificity, step in enumerate(config.roles[role]._tree.walk_most(node)):
         if step.is_set:
-          is_set = True
           values.append((priority, specificity, cast(Entry, step.value).value))
-  if not is_set:
-    for priority, role in enumerate(sorted_roles):
-      if role in default_grant_to:
-        values.append((priority, len(node), True))
-  if not values:
-    return False
-  return max(values)[2]
+  value = max(values, key=lambda x: x[:2])[2] if values else "default"
+  return any(role in default_grant_to for role in sorted_roles) if value == "default" else value
 
 
 def permission(node_str: str, default_grant_to: Optional[set[str]] = None) -> Permission:
