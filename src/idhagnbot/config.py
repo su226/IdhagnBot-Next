@@ -8,7 +8,7 @@ import nonebot
 import yaml
 from nonebot import logger
 from pydantic import BaseModel
-from pydantic.json import pydantic_encoder
+from pydantic_core import to_jsonable_python
 from typing_extensions import TypeVarTuple, Unpack
 
 try:
@@ -20,17 +20,6 @@ except ImportError:
 
 nonebot.require("nonebot_plugin_localstore")
 from nonebot_plugin_localstore import get_cache_dir, get_config_dir, get_data_dir
-
-
-def encode(data: Any) -> Any:
-  if data is None or isinstance(data, (str, int, float)):
-    return data
-  if isinstance(data, dict):
-    return {k: encode(v) for k, v in data.items()}
-  if isinstance(data, (list, tuple, set, frozenset)):
-    return [encode(v) for v in data]
-  return encode(pydantic_encoder(data))
-
 
 TModel = TypeVar("TModel", bound=BaseModel)
 TParam = TypeVarTuple("TParam")
@@ -96,7 +85,7 @@ class BaseConfig(Generic[TModel, Unpack[TParam]]):
   def dump(self, *args: Unpack[TParam]) -> None:
     if args not in self.cache:
       return
-    data = encode(self.cache[args].item.model_dump())
+    data = to_jsonable_python(self.cache[args].item.model_dump())
     file = self.get_file(*args)
     file.parent.mkdir(parents=True, exist_ok=True)
     with file.open("w") as f:
@@ -164,11 +153,11 @@ class SessionConfig(BaseConfig[TModel, str]):
 
   def _get_fallback(self, name: str) -> Optional[str]:
     if match := GROUP_ID_RE.match(name):
-      return f"{match['platform']}:group"
+      return f"{match['platform']}__group"
     if match := GROUP_RE.match(name):
       return match["platform"]
     if match := PRIVATE_ID_RE.match(name):
-      return f"{match['platform']}:private"
+      return f"{match['platform']}__private"
     if match := PRIVATE_RE.match(name):
       return match["platform"]
     if name == "default":
