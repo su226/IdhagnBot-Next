@@ -62,14 +62,21 @@ class Config(BaseModel):
 
 
 CONFIG = SharedConfig("permission", Config)
-USER_RE = re.compile(r"^(?P<platform>[^:]+):user:(?P<user>[^:]+)$")
-SUPERUSER_RE = re.compile(r"^(?P<platform>[^:]+):superuser$")
-GROUP_ID_ROLE_RE = re.compile(r"^(?P<platform>[^:]+):group:(?P<group>[^:]+):(?P<role>member|administrator|owner)$")  # noqa: E501
-GROUP_ID_RE = re.compile(r"^(?P<platform>[^:]+):group:(?P<group>[^:]+)$")
-GROUP_RE = re.compile(r"^(?P<platform>[^:]+):group$")
-ROLE_RE = re.compile(r"^(?P<platform>[^:]+):(?P<role>member|administrator|owner)$")
-PRIVATE_ID_RE = re.compile(r"^(?P<platform>[^:]+):private:(?P<user>[^:]+)$")
-PRIVATE_RE = re.compile(r"^(?P<platform>[^:]+):private$")
+CHANNEL_TYPES = {
+  SceneType.CHANNEL_CATEGORY: "category",
+  SceneType.CHANNEL_TEXT: "text",
+  SceneType.CHANNEL_VOICE: "voice",
+}
+PLATFORM_USER_RE = re.compile(r"^(?P<platform>[^:]+):user:(?P<user>[^:]+)$")
+PLATFORM_GUILD_ID_CHANNEL_ROLE_RE = re.compile(r"^(?P<platform>[^:]+):guild:(?P<guild>[^:]+):channel:(?P<channel>[^:]+):(?P<role>member|administrator|owner)$")  # noqa: E501
+PLATFORM_GUILD_ID_TYPE_ROLE_RE = re.compile(r"^(?P<platform>[^:]+):guild:(?P<guild>[^:]+):(?P<type>category|text|voice):(?P<role>member|administrator|owner)$")  # noqa: E501
+PLATFORM_GUILD_ID_CHANNEL_RE = re.compile(r"^(?P<platform>[^:]+):guild:(?P<guild>[^:]+):channel:(?P<channel>[^:]+)$")  # noqa: E501
+PLATFORM_GUILD_ID_TYPE_RE = re.compile(r"^(?P<platform>[^:]+):guild:(?P<guild>[^:]+):(?P<type>category|text|voice)$")  # noqa: E501
+PLATFORM_TYPE_ID_ROLE_RE = re.compile(r"^(?P<platform>[^:]+):(?P<type>group|guild):(?P<id>[^:]+):(?P<role>member|administrator|owner)$")  # noqa: E501
+PLATFORM_TYPE_ROLE_RE = re.compile(r"^(?P<platform>[^:]+):(?P<type>group|guild)_(?P<role>member|administrator|owner)$")  # noqa: E501
+PLATFORM_TYPE_ID_RE = re.compile(r"^(?P<platform>[^:]+):(?P<type>private|group|guild):(?P<user>[^:]+)$")  # noqa: E501
+PLATFORM_TYPE_RE = re.compile(r"^(?P<platform>[^:]+):(?P<type>superuser|private|group|guild|text|voice|category|member|administrator|owner)$")  # noqa: E501
+TYPE_ROLE_RE = re.compile(r"^(?P<type>group|guild)_(?P<role>member|administrator|owner)$")
 
 
 def get_role_parents(role: str) -> set[str]:
@@ -77,22 +84,39 @@ def get_role_parents(role: str) -> set[str]:
   parents = config.roles[role].parents if role in config.roles else None
   if parents is not None:
     return parents
-  if match := USER_RE.match(role):
+  if match := PLATFORM_USER_RE.match(role):
     return {match["platform"]}
-  if match := SUPERUSER_RE.match(role):
-    return {match["platform"], "superuser"}
-  if match := GROUP_ID_ROLE_RE.match(role):
-    return {f"{match['platform']}:group:{match['group']}", f"{match['platform']}:{match['role']}"}
-  if match := GROUP_ID_RE.match(role):
-    return {f"{match['platform']}:group"}
-  if match := GROUP_RE.match(role):
-    return {match["platform"]}
-  if match := ROLE_RE.match(role):
-    return {match["platform"], match["role"]}
-  if match := PRIVATE_ID_RE.match(role):
-    return {f"{match['platform']}:private"}
-  if match := PRIVATE_RE.match(role):
-    return {match["platform"]}
+  if match := PLATFORM_GUILD_ID_CHANNEL_ROLE_RE.match(role):
+    return {
+      f"{match['platform']}:guild:{match['guild']}:channel:{match['channel']}",
+      f"{match['platform']}:guild:{match['guild']}:{match['role']}",
+    }
+  if match := PLATFORM_GUILD_ID_TYPE_ROLE_RE.match(role):
+    return {
+      f"{match['platform']}:guild:{match['guild']}:{match['type']}",
+      f"{match['platform']}:guild:{match['guild']}:{match['role']}",
+    }
+  if match := PLATFORM_GUILD_ID_CHANNEL_RE.match(role):
+    return {f"{match['platform']}:guild:{match['guild']}"}
+  if match := PLATFORM_GUILD_ID_TYPE_RE.match(role):
+    return {f"{match['platform']}:guild:{match['guild']}", f"{match['platform']}:{match['type']}"}
+  if match := PLATFORM_TYPE_ID_ROLE_RE.match(role):
+    return {
+      f"{match['platform']}:{match['type']}:{match['id']}",
+      f"{match['platform']}:{match['type']}_{match['role']}",
+    }
+  if match := PLATFORM_TYPE_ROLE_RE.match(role):
+    return {
+      f"{match['platform']}:{match['type']}",
+      f"{match['platform']}:{match['role']}",
+      f"{match['type']}_{match['role']}",
+    }
+  if match := PLATFORM_TYPE_ID_RE.match(role):
+    return {f"{match['platform']}:{match['type']}"}
+  if match := PLATFORM_TYPE_RE.match(role):
+    return {match["platform"], match["type"]}
+  if match := TYPE_ROLE_RE.match(role):
+    return {match["type"], match["role"]}
   if role == "default":
     return set()
   return {"default"}
@@ -120,7 +144,11 @@ def get_roles(session: Uninfo) -> set[str]:
     queue.append(f"{scope}:group:{session.scene.id}:{role}")
   elif session.scene.type == SceneType.PRIVATE:
     queue.append(f"{scope}:private:{session.scene.id}")
-  # TODO: 二级群组（GUILD、CHANNEL）
+  elif session.scene.type in CHANNEL_TYPES and session.scene.parent:
+    role = session.member.role.id.lower() if session.member and session.member.role else "member"
+    channel_type = CHANNEL_TYPES[session.scene.type]
+    queue.append(f"{scope}:guild:{session.scene.parent.id}:channel:{session.scene.id}:{role}")
+    queue.append(f"{scope}:guild:{session.scene.parent.id}:{channel_type}:{role}")
   roles = set()
   while queue:
     i = queue.popleft()
