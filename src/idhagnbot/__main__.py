@@ -9,14 +9,20 @@ ADAPTERS = [
   "nonebot.adapters.onebot.v11",
 ]
 
-nonebot.init()
-driver = nonebot.get_driver()
 
-for adapter in ADAPTERS:
-  try:
-    driver.register_adapter(importlib.import_module(adapter).Adapter)
-  except ImportError:
-    pass
+def main() -> None:
+  nonebot.init()
+  driver = nonebot.get_driver()
 
-idhagnbot.load_plugins()
-nonebot.run()
+  for adapter in ADAPTERS:
+    try:
+      driver.register_adapter(importlib.import_module(adapter).Adapter)
+    except ImportError:
+      pass
+
+  idhagnbot.load_plugins()
+  nonebot.run()
+
+
+if __name__ == "__main__":
+  main()
