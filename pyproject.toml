@@ -41,12 +41,14 @@ reportPrivateUsage = false
 
 [tool.ruff]
 line-length = 99
+indent-width = 2
 
 [tool.ruff.lint]
 extend-select = ["ALL"]
 ignore = [
     "ANN401", "C901", "D", "E402", "EM", "FA100", "FIX", "INP", "PERF203", "PLR0911", "PLR0912",
-    "PLW0603", "RUF001", "RUF003", "SIM105", "SLF001", "TC006", "TD002", "TD003", "TRY003",
+    "PLR0913", "PLW0603", "RUF001", "RUF003", "SIM105", "SLF001", "TC006", "TD002", "TD003",
+    "TRY003",
 ]
 
 [tool.ruff.lint.flake8-quotes]

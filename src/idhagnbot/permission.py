@@ -77,6 +77,10 @@ PLATFORM_TYPE_ROLE_RE = re.compile(r"^(?P<platform>[^:]+):(?P<type>group|guild)_
 PLATFORM_TYPE_ID_RE = re.compile(r"^(?P<platform>[^:]+):(?P<type>private|group|guild):(?P<user>[^:]+)$")  # noqa: E501
 PLATFORM_TYPE_RE = re.compile(r"^(?P<platform>[^:]+):(?P<type>superuser|private|group|guild|text|voice|category|member|administrator|owner)$")  # noqa: E501
 TYPE_ROLE_RE = re.compile(r"^(?P<type>group|guild)_(?P<role>member|administrator|owner)$")
+SUPERUSER = {"superuser"}
+OWNER_OR_ABOVE = {"owner"} | SUPERUSER
+ADMINISTRATOR_OR_ABOVE = {"administrator"} | OWNER_OR_ABOVE
+DEFAULT = {"default"}
 
 
 def get_role_parents(role: str) -> set[str]:
@@ -179,9 +183,9 @@ def check(node: Node, sorted_roles: list[str], default_grant_to: set[str]) -> bo
   return any(role in default_grant_to for role in sorted_roles) if value == "default" else value
 
 
-def permission(node_str: str, default_grant_to: Optional[set[str]] = None) -> Permission:
+def permission(node_str: str, default_grant_to: set[str] = DEFAULT) -> Permission:
   def checker(roles: SortedRoles) -> bool:
-    return check(node, roles, {"default"} if default_grant_to is None else default_grant_to)
+    return check(node, roles, default_grant_to)
 
   node = parse_node(node_str)
   return Permission(checker)

@@ -2,13 +2,17 @@ from datetime import datetime, timezone
 
 import nonebot
 
+from idhagnbot.help import CategoryItem, CommandItem
 from idhagnbot.permission import permission
 from idhagnbot.third_party import epicgames as api
 
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna.uniseg import Image, Text, UniMessage
 
+CategoryItem.ROOT.add(CommandItem(["epicgames"], "查询 Epic Games 免费游戏"))
 epicgames = nonebot.on_command("epicgames", permission=permission("epicgames"))
+
+
 @epicgames.handle()
 async def handle_epicgames() -> None:
   games = await api.get_free_games()
@@ -26,8 +30,10 @@ async def handle_epicgames() -> None:
       text = f"{game.title} 将在 {start_str} 免费，截止到 {end_str}"
     if message:
       text = "\n" + text
-    message.extend([
-      Text(text + f"\n{api.URL_BASE}{game.slug}\n"),
-      Image(url=game.image),
-    ])
+    message.extend(
+      [
+        Text(text + f"\n{api.URL_BASE}{game.slug}\n"),
+        Image(url=game.image),
+      ],
+    )
   await message.send()
