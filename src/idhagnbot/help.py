@@ -1,11 +1,12 @@
 import html
 import math
 from dataclasses import dataclass
-from typing import Callable, Optional, Union
+from typing import Callable, ClassVar, Optional, Union
 
 from pydantic import BaseModel, Field
 
 from idhagnbot.config import SharedConfig
+from idhagnbot.context import in_scene
 from idhagnbot.itertools import batched
 from idhagnbot.permission import (
   ADMINISTRATOR_OR_ABOVE,
@@ -19,9 +20,10 @@ from idhagnbot.permission import check as check_permission
 
 @dataclass
 class ShowData:
+  scope: str
   user_id: str
-  current_group: str
-  available_groups: list[str]
+  current_scene: str
+  available_scenes: set[str]
   private: bool
   sorted_roles: list[str]
 
@@ -33,8 +35,9 @@ def noop_condition(_: ShowData) -> bool:
 class CommonData(BaseModel):
   priority: int = 0
   node: str = ""
-  has_group: list[str] = Field(default_factory=list)
-  in_group: list[str] = Field(default_factory=list)
+  scope: str = ""
+  has_scene: set[str] = Field(default_factory=set)
+  in_scene: set[str] = Field(default_factory=set)
   private: Optional[bool] = None
   default_grant_to: set[str] = Field(default_factory=lambda: {"default"})
   condition: Callable[["ShowData"], bool] = noop_condition
@@ -136,11 +139,13 @@ class Item:
     segments: list[str] = []
     if self.data.node:
       segments.append(f"权限节点: {self.data.node}")
-    if self.data.has_group:
-      segments.append(f"加入群聊: {'、'.join(str(x) for x in self.data.has_group)}")
-    if self.data.in_group:
-      groups = "、".join(str(x) for x in self.data.in_group)
-      segments.append(f"在群聊中: {groups}")
+    if self.data.scope:
+      segments.append(f"平台: {self.data.scope}")
+    if self.data.has_scene:
+      segments.append(f"拥有场景: {'、'.join(str(x) for x in self.data.has_scene)}")
+    if self.data.in_scene:
+      groups = "、".join(str(x) for x in self.data.in_scene)
+      segments.append(f"在场景中: {groups}")
     if self.data.private is not None:
       segments.append(f"私聊: {'仅私聊' if self.data.private else '仅群聊'}")
     if self.data.default_grant_to != {"default"}:
@@ -155,9 +160,11 @@ class Item:
   def can_show(self, data: ShowData) -> bool:
     if not check_permission(self.data.parsed_node, data.sorted_roles, self.data.default_grant_to):
       return False
-    # if self.data.in_group and not context.in_group(data.current_group, *self.data.in_group):
-    #   return False
-    if self.data.has_group and not any(i in self.data.has_group for i in data.available_groups):
+    if self.data.scope and data.scope != self.data.scope:
+      return False
+    if self.data.in_scene and not in_scene(data.current_scene, self.data.in_scene):
+      return False
+    if self.data.has_scene and not any(i in self.data.has_scene for i in data.available_scenes):
       return False
     if self.data.private is not None and data.private != self.data.private:
       return False
@@ -183,7 +190,7 @@ class StringItem(Item):
 
 
 class CommandItem(Item):
-  commands: dict[str, "CommandItem"] = {}
+  commands: ClassVar[dict[str, "CommandItem"]] = {}
 
   def __init__(
     self, names: Optional[list[str]] = None, brief: str = "",

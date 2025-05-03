@@ -1,12 +1,13 @@
+from enum import Enum
 from typing import Optional
 
 import nonebot
 
 from idhagnbot.command import CommandBuilder
-from idhagnbot.context import Scene
+from idhagnbot.context import SceneId
 from idhagnbot.help import CategoryItem, CommandItem, ShowData
 from idhagnbot.permission import SortedRoles
-from idhagnbot.plugins.idhagnbot_help.common import join_path, normalize_path
+from idhagnbot.plugins.idhagnbot_help.common import get_available_groups, join_path, normalize_path
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_uninfo")
@@ -61,23 +62,34 @@ help_ = (
 async def handle_help(
   session: Uninfo,
   interface: QryItrface,
-  scene: Scene,
+  scene: SceneId,
   sorted_roles: SortedRoles,
   path: Match[tuple[str]],
   page: Match[int],
 ) -> None:
+  available_scenes = {scene}
+  if session.scene.type == SceneType.PRIVATE:
+    available_scenes.update(await get_available_groups(session, interface, session.user.id))
+  scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
   show_data = ShowData(
-    f"{session.platform}:{session.user.id}",
+    scope,
+    f"{scope}:{session.user.id}",
     scene,
-    [scene],
+    available_scenes,
     session.scene.type == SceneType.PRIVATE,
     sorted_roles,
   )
-  if len(path.result) == 1 and (command := find_command(path.result[0])):
+  if (
+    len(path.result) == 1
+    and (command := find_command(path.result[0]))
+    and command.can_show(show_data)
+  ):
     await help_.finish(command.format())
   normalized_path = normalize_path(*path.result)
   if len(normalized_path) == 0:
     category = CategoryItem.ROOT
+    if not category.can_show(show_data):
+      await help_.finish("无此条目或分类、权限不足或在当前上下文不可用")
   else:
     try:
       category = CategoryItem.find(normalized_path, check=show_data)

@@ -1,3 +1,22 @@
+import asyncio
+from enum import Enum
+
+import nonebot
+
+nonebot.require("nonebot_plugin_uninfo")
+from nonebot_plugin_uninfo import Interface, SceneType, Session
+
+
+async def get_available_groups(session: Session, interface: Interface, user_id: str) -> list[str]:
+  async def in_group(group_id: str) -> bool:
+    return bool(await interface.get_member(SceneType.GROUP, group_id, user_id))
+
+  groups = await interface.get_scenes(SceneType.GROUP)
+  results = await asyncio.gather(*(in_group(group.id) for group in groups))
+  scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
+  return [f"{scope}:group:{group.id}" for group, result in zip(groups, results) if result]
+
+
 def normalize_path(*path: str) -> list[str]:
   result: list[str] = []
   for i in path:
