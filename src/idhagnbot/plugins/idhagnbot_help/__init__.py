@@ -2,7 +2,7 @@ from typing import Optional
 
 import nonebot
 
-from idhagnbot.alconna import NAMESPACE
+from idhagnbot.command import CommandBuilder
 from idhagnbot.context import Scene
 from idhagnbot.help import CategoryItem, CommandItem, ShowData
 from idhagnbot.permission import SortedRoles
@@ -10,7 +10,7 @@ from idhagnbot.plugins.idhagnbot_help.common import join_path, normalize_path
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_uninfo")
-from nonebot_plugin_alconna import Alconna, Args, Match, MultiVar, on_alconna
+from nonebot_plugin_alconna import Alconna, Args, CommandMeta, Match, MultiVar
 from nonebot_plugin_alconna.uniseg import (
   At,
   Button,
@@ -41,14 +41,19 @@ def find_command(name: str) -> Optional[CommandItem]:
   return None
 
 
-help_ = on_alconna(
-  Alconna(
-    "帮助",
-    Args["path", MultiVar(str, "*")],
-    Args["page", Optional[int]],
-    namespace=NAMESPACE,
-  ),
-  aliases={"help"},
+help_ = (
+  CommandBuilder()
+  .node("help")
+  .parser(
+    Alconna(
+      "帮助",
+      Args["path", MultiVar(str, "*")],
+      Args["page", int, 1],
+      meta=CommandMeta("查看所有帮助"),
+    ),
+  )
+  .aliases({"help"})
+  .build()
 )
 
 
@@ -59,7 +64,7 @@ async def handle_help(
   scene: Scene,
   sorted_roles: SortedRoles,
   path: Match[tuple[str]],
-  page: Match[Optional[int]],
+  page: Match[int],
 ) -> None:
   show_data = ShowData(
     f"{session.platform}:{session.user.id}",
@@ -88,7 +93,7 @@ async def handle_help(
     await help_.finish(
       Reference(nodes=[CustomNode(session.self_id, bot_name, [Text(page)]) for page in pages]),
     )
-  page_id = (page.result or 1) - 1
+  page_id = page.result - 1
   if page_id < 0:
     await help_.finish("无效页码")
   content, total_pages = category.format_page(show_data, normalized_path, page_id)

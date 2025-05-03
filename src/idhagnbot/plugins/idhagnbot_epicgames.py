@@ -2,15 +2,19 @@ from datetime import datetime, timezone
 
 import nonebot
 
-from idhagnbot.help import CategoryItem, CommandItem
-from idhagnbot.permission import permission
+from idhagnbot.command import CommandBuilder
 from idhagnbot.third_party import epicgames as api
 
 nonebot.require("nonebot_plugin_alconna")
+from nonebot_plugin_alconna import Alconna, CommandMeta
 from nonebot_plugin_alconna.uniseg import Image, Text, UniMessage
 
-CategoryItem.ROOT.add(CommandItem(["epicgames"], "查询 Epic Games 免费游戏"))
-epicgames = nonebot.on_command("epicgames", permission=permission("epicgames"))
+epicgames = (
+  CommandBuilder()
+  .node("epicgames")
+  .parser(Alconna("epicgames", meta=CommandMeta("查询 Epic Games 免费游戏")))
+  .build()
+)
 
 
 @epicgames.handle()
