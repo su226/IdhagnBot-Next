@@ -49,7 +49,7 @@ async def handle_help_page(
   )
   page = state["page"]
   path = state["path"]
-  value, total_pages = CategoryItem.ROOT.format_page(show_data, [], page)
+  content, page, total_pages = CategoryItem.ROOT.format_page(show_data, [], page)
   buttons = InlineKeyboardMarkup(inline_keyboard=[[]])
   if page - 1 >= 0:
     buttons.inline_keyboard[0].append(
@@ -60,7 +60,7 @@ async def handle_help_page(
       InlineKeyboardButton(text=">", callback_data=f"help_{join_path(path)}_{page + 1}"),
     )
   await bot.edit_message_text(
-    value,
+    content,
     chat_id=event.message.chat.id,
     message_id=event.message.message_id,
     reply_markup=buttons,

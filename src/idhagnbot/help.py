@@ -300,18 +300,21 @@ class CategoryItem(Item):
       self.subcategories[item.name] = item
     self.items.append(item)
 
-  def format_page(self, show_data: ShowData, path: list[str], page: int) -> tuple[str, int]:
+  def format_page(self, show_data: ShowData, path: list[str], page: int) -> tuple[str, int, int]:
     config = CONFIG()
-    vaild_items = sorted(
+    valid_items = sorted(
       ((x(), x) for x in self.items if x.can_show(show_data)),
       key=lambda x: (-x[1].data.priority, x[1].get_order(), x[0]),
     )
-    total_pages = math.ceil(len(vaild_items) / config.page_size)
-    vaild_items = vaild_items[config.page_size * page:config.page_size * (page + 1)]
+    if not valid_items:
+      return "当前分类没有内容", 0, 0
+    total_pages = math.ceil(len(valid_items) / config.page_size)
+    page = max(min(page, total_pages - 1), 0)
+    valid_items = valid_items[config.page_size * page:config.page_size * (page + 1)]
     has_command = False
     has_category = False
     lines: list[str] = []
-    for formatted, item in vaild_items:
+    for formatted, item in valid_items:
       if isinstance(item, CommandItem):
         has_command = True
       elif isinstance(item, CategoryItem):
@@ -333,7 +336,7 @@ class CategoryItem(Item):
       )
     if header_lines:
       lines = [*header_lines, SEPARATOR, *lines]
-    return "\n".join(lines), total_pages
+    return "\n".join(lines), page, total_pages
 
 
   def format_all(self, show_data: ShowData, path: list[str]) -> list[str]:
@@ -342,6 +345,8 @@ class CategoryItem(Item):
       ((x(), x) for x in self.items if x.can_show(show_data)),
       key=lambda x: (-x[1].data.priority, x[1].get_order(), x[0]),
     )
+    if not vaild_items:
+      return ["当前分类没有内容"]
     has_command = False
     has_category = False
     nodes: list[str] = []

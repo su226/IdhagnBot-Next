@@ -85,6 +85,8 @@ async def handle_help(
       await help_.finish("无此条目或分类、权限不足或在当前上下文不可用")
   if session.adapter == SupportAdapter.onebot11:
     pages = category.format_all(show_data, normalized_path)
+    if len(pages) == 1:
+      await help_.finish(pages[0])
     bot_info = await interface.get_member(session.scene.type, session.scene.id, session.self_id)
     if bot_info:
       bot_name = bot_info.nick or bot_info.user.nick or bot_info.user.name or "IdhagnBot"
@@ -93,12 +95,7 @@ async def handle_help(
     await help_.finish(
       Reference(nodes=[CustomNode(session.self_id, bot_name, [Text(page)]) for page in pages]),
     )
-  page_id = page.result - 1
-  if page_id < 0:
-    await help_.finish("无效页码")
-  content, total_pages = category.format_page(show_data, normalized_path, page_id)
-  if page_id >= total_pages:
-    await help_.finish("没有内容" if page_id == 0 else "无效页码")
+  content, page_id, total_pages = category.format_page(show_data, normalized_path, page.result - 1)
   message = UniMessage[Segment]([Text(content)])
   if page_id - 1 >= 0:
     value = f"help_{join_path(normalized_path)}_{page_id - 1}"
