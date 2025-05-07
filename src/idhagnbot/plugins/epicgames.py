@@ -8,22 +8,22 @@ from idhagnbot.command import CommandBuilder
 from idhagnbot.third_party import epicgames as api
 
 nonebot.require("nonebot_plugin_alconna")
-nonebot.require("idhagnbot.plugins.idhagnbot_daily_push")
+nonebot.require("idhagnbot.plugins.daily_push")
 from nonebot_plugin_alconna import Alconna, CommandMeta, Option, store_true
 from nonebot_plugin_alconna.uniseg import Image, Segment, Text, UniMessage
 
-from idhagnbot.plugins.idhagnbot_daily_push.cache import DailyCache
-from idhagnbot.plugins.idhagnbot_daily_push.module import Module, ModuleConfig, register
+from idhagnbot.plugins.daily_push.cache import DailyCache
+from idhagnbot.plugins.daily_push.module import Module, ModuleConfig, register
 
 
 class Cache(BaseModel):
   games: list[api.Game]
 
 
-class EpicGamesFreebiesCache(DailyCache):
+class EpicGamesCache(DailyCache):
   def __init__(self) -> None:
     super().__init__(
-      "epicgames_freebies.json",
+      "epicgames.json",
       True,
       update_time=time(11, tzinfo=ZoneInfo("America/New_York")),
     )
@@ -49,10 +49,10 @@ class EpicGamesFreebiesCache(DailyCache):
     return data.games
 
 
-CACHE = EpicGamesFreebiesCache()
+CACHE = EpicGamesCache()
 
 
-class EpicGamesFreebiesModule(Module):
+class EpicGamesModule(Module):
   def __init__(self, force: bool) -> None:
     self.force = force
 
@@ -73,12 +73,12 @@ class EpicGamesFreebiesModule(Module):
     return [message]
 
 
-@register("epicgames_freebies")
-class EpicGamesFreebiesModuleConfig(ModuleConfig):
+@register("epicgames")
+class EpicGamesModuleConfig(ModuleConfig):
   force: bool = False
 
   def create_module(self) -> Module:
-    return EpicGamesFreebiesModule(self.force)
+    return EpicGamesModule(self.force)
 
 
 epicgames = (

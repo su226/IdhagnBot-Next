@@ -7,7 +7,7 @@ from idhagnbot.command import CommandBuilder
 from idhagnbot.context import SceneId
 from idhagnbot.help import CategoryItem, CommandItem, ShowData
 from idhagnbot.permission import SortedRoles
-from idhagnbot.plugins.idhagnbot_help.common import get_available_groups, join_path, normalize_path
+from idhagnbot.plugins.help.common import get_available_groups, join_path, normalize_path
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_uninfo")
@@ -24,7 +24,7 @@ from nonebot_plugin_alconna.uniseg import (
 from nonebot_plugin_uninfo import QryItrface, SceneType, SupportAdapter, Uninfo
 
 try:
-  import idhagnbot.plugins.idhagnbot_help.telegram as _
+  import idhagnbot.plugins.help.telegram as _
 except ImportError:
   pass
 

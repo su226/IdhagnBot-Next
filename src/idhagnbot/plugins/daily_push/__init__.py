@@ -10,7 +10,7 @@ from nonebot.exception import ActionFailed
 from pydantic import BaseModel, Field
 
 from idhagnbot.config import SharedConfig, SharedData
-from idhagnbot.plugins.idhagnbot_daily_push.module import MODULE_REGISTRY, ModuleConfig
+from idhagnbot.plugins.daily_push.module import MODULE_REGISTRY, ModuleConfig
 from idhagnbot.target import TargetConfig
 
 nonebot.require("nonebot_plugin_alconna")

@@ -9,7 +9,7 @@ import nonebot
 nonebot.require("nonebot_plugin_localstore")
 from nonebot_plugin_localstore import get_cache_dir
 
-BASE_DIR = get_cache_dir("idhagnbot") / "daily"
+BASE_DIR = get_cache_dir("idhagnbot") / "daily_push"
 DEFAULT_UPDATE_TIME = time(tzinfo=ZoneInfo("Asia/Shanghai"))
 
 
