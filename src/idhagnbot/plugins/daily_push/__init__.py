@@ -13,9 +13,10 @@ from pydantic import BaseModel, Field
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig, SharedData
-from idhagnbot.plugins.daily_push.module import MODULE_REGISTRY, ModuleConfig
-from idhagnbot.target import TargetConfig, TargetType
 from idhagnbot.permission import CHANNEL_TYPES
+from idhagnbot.plugins.daily_push.module import MODULE_REGISTRY, ModuleConfig, register
+from idhagnbot.plugins.daily_push.modules.constant import ConstantModuleConfig
+from idhagnbot.target import TargetConfig, TargetType
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_apscheduler")
@@ -52,6 +53,7 @@ CONFIG = SharedConfig("daily_push", Config, "eager")
 DATA = SharedData("daily_push", Data)
 driver = nonebot.get_driver()
 jobs: list[Job] = []
+register("constant")(ConstantModuleConfig)
 
 
 @CONFIG.onload()
