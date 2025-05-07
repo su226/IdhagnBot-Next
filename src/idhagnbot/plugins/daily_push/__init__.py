@@ -11,16 +11,19 @@ from nonebot.adapters import Bot
 from nonebot.exception import ActionFailed
 from pydantic import BaseModel, Field
 
+from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig, SharedData
 from idhagnbot.plugins.daily_push.module import MODULE_REGISTRY, ModuleConfig
-from idhagnbot.target import TargetConfig
+from idhagnbot.target import TargetConfig, TargetType
+from idhagnbot.permission import CHANNEL_TYPES
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_apscheduler")
 nonebot.require("nonebot_plugin_uninfo")
+from nonebot_plugin_alconna import Alconna, CommandMeta
 from nonebot_plugin_alconna.uniseg import CustomNode, Reference, Segment, Target, Text, UniMessage
 from nonebot_plugin_apscheduler import scheduler
-from nonebot_plugin_uninfo import SceneType, get_interface
+from nonebot_plugin_uninfo import SceneType, Uninfo, get_interface
 
 
 class PushModule(BaseModel, extra="allow"):
@@ -92,7 +95,7 @@ async def check_push(push_id: str) -> None:
     logger.warning(f"超过最大发送时间，将不会发送每日推送 {push_id}")
   else:
     logger.info(f"发送每日推送 {push_id}")
-    await send_push(push_id)
+    await send_push(push)
   data.last_check[push_id] = now
   DATA.dump()
 
@@ -117,14 +120,14 @@ async def format_forward(modules: list[PushModule]) -> list[UniMessage[Segment]]
   return [UniMessage(Reference(nodes=nodes))]
 
 
-async def format_all(push_id: str) -> list[UniMessage[Segment]]:
+async def format_all(push: Push) -> list[UniMessage[Segment]]:
   return list(
     chain.from_iterable(
       i
       for i in await asyncio.gather(
         *(
           format_forward(module) if isinstance(module, list) else format_one(module)
-          for module in CONFIG().pushes[push_id].modules
+          for module in push.modules
         ),
       )
     ),
@@ -173,8 +176,50 @@ async def send_one(target: Target, messages: list[UniMessage[Segment]]) -> None:
       pass
 
 
-async def send_push(push_id: str) -> None:
-  messages = await format_all(push_id)
-  await asyncio.gather(
-    *(send_one(target.target, messages) for target in CONFIG().pushes[push_id].targets),
+async def send_push(push: Push) -> None:
+  messages = await format_all(push)
+  await asyncio.gather(*(send_one(target.target, messages) for target in push.targets))
+
+
+resend_push = (
+  CommandBuilder()
+  .node("daily_push")
+  .parser(Alconna("每日推送", meta=CommandMeta("重新发送每日推送")))
+  .build()
+)
+
+
+async def target_match(target: TargetConfig, session: Uninfo) -> bool:
+  bot = await target.target.select()
+  if bot.self_id != session.self_id:
+    return False
+  parent_id = session.scene.parent.id if session.scene.parent else ""
+  if session.scene.id != target.id or parent_id != target.parent_id:
+    return False
+  if target.type == TargetType.PRIVATE:
+    return session.scene.type == SceneType.PRIVATE
+  if target.type == TargetType.GROUP:
+    return session.scene.type == SceneType.GROUP
+  return session.scene.type in CHANNEL_TYPES
+
+
+async def format_if_match(push: Push, session: Uninfo) -> list[UniMessage[Segment]]:
+  return (
+    await format_all(push)
+    if any(await asyncio.gather(*(target_match(target, session) for target in push.targets)))
+    else []
   )
+
+
+@resend_push.handle()
+async def handle_resend_push(session: Uninfo) -> None:
+  messages = list(chain.from_iterable(
+    await asyncio.gather(*(format_if_match(push, session) for push in CONFIG().pushes.values())),
+  ))
+  if not messages:
+    if session.scene.type in CHANNEL_TYPES:
+      await UniMessage(Text("当前会话没有每日推送（请检查是否在正确的子频道）")).send()
+    else:
+      await UniMessage(Text("当前会话没有每日推送")).send()
+  for message in messages:
+    await message.send()
