@@ -13,7 +13,7 @@ class TargetType(Enum):
   CHANNEL = "channel"
 
 
-class TargetConfig(BaseModel):
+class TargetConfig(BaseModel, extra="allow"):
   type: TargetType
   id: str
   parent_id: str = ""
@@ -33,4 +33,5 @@ class TargetConfig(BaseModel):
       scope=self.scope,
       adapter=self.adapter,
       platform=self.platform,
+      extra=self.model_extra,
     )

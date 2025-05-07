@@ -1,4 +1,5 @@
 import asyncio
+from copy import deepcopy
 from datetime import datetime, time, timedelta
 from itertools import chain
 from typing import Optional, Union
@@ -6,6 +7,7 @@ from typing import Optional, Union
 import nonebot
 from apscheduler.job import Job
 from nonebot import logger
+from nonebot.adapters import Bot
 from nonebot.exception import ActionFailed
 from pydantic import BaseModel, Field
 
@@ -15,15 +17,17 @@ from idhagnbot.target import TargetConfig
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_apscheduler")
+nonebot.require("nonebot_plugin_uninfo")
 from nonebot_plugin_alconna.uniseg import CustomNode, Reference, Segment, Target, Text, UniMessage
 from nonebot_plugin_apscheduler import scheduler
+from nonebot_plugin_uninfo import SceneType, get_interface
 
 
-class PushModule(BaseModel):
+class PushModule(BaseModel, extra="allow"):
   type: str
 
   def to_module_config(self) -> ModuleConfig:
-    return MODULE_REGISTRY[self.type].model_validate(self.__dict__)
+    return MODULE_REGISTRY[self.type].model_validate(self.model_extra)
 
 
 class Push(BaseModel):
@@ -102,18 +106,15 @@ async def format_one(module: PushModule) -> list[UniMessage[Segment]]:
 
 
 async def format_forward(modules: list[PushModule]) -> list[UniMessage[Segment]]:
-  return [
-    UniMessage(
-      Reference(
-        nodes=[
-          CustomNode("", "", message)
-          for message in chain.from_iterable(
-            await asyncio.gather(*(format_one(module) for module in modules)),
-          )
-        ],
-      ),
-    ),
+  nodes = [
+    CustomNode("", "", message)
+    for message in chain.from_iterable(
+      await asyncio.gather(*(format_one(module) for module in modules)),
+    )
   ]
+  if not nodes:
+    return []
+  return [UniMessage(Reference(nodes=nodes))]
 
 
 async def format_all(push_id: str) -> list[UniMessage[Segment]]:
@@ -130,7 +131,34 @@ async def format_all(push_id: str) -> list[UniMessage[Segment]]:
   )
 
 
+async def get_bot_name(bot: Bot, target: Target) -> str:
+  interface = get_interface(bot)
+  if not interface:
+    return "IdhagnBot"
+  if target.channel:
+    member = await interface.get_member(SceneType.GUILD, target.parent_id, bot.self_id)
+  elif target.private:
+    member = await interface.get_member(SceneType.PRIVATE, target.id, bot.self_id)
+  else:
+    member = await interface.get_member(SceneType.GROUP, target.id, bot.self_id)
+  if member:
+    return member.nick or member.user.nick or member.user.name or "IdhagnBot"
+  if user := await interface.get_user(bot.self_id):
+    return user.nick or user.name or "IdhagnBot"
+  return "IdhagnBot"
+
+
 async def send_one(target: Target, messages: list[UniMessage[Segment]]) -> None:
+  if any(isinstance(message[0], Reference) for message in messages):
+    bot = await target.select()
+    bot_name = await get_bot_name(bot, target)
+    messages = deepcopy(messages)
+    for message in messages:
+      if isinstance(message[0], Reference):
+        for node in message[0].children:
+          if isinstance(node, CustomNode):
+            node.uid = bot.self_id
+            node.name = bot_name
   failed = False
   for message in messages:
     try:
