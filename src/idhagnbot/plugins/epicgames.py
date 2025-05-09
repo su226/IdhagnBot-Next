@@ -40,13 +40,16 @@ class EpicGamesCache(DailyCache):
       data = Cache.model_validate_json(f.read())
     return data.games
 
-  def get_prev(self) -> list[api.Game]:
+  def get_prev(self) -> tuple[datetime, list[api.Game]]:
     prev_path = self.path.with_suffix(".prev.json")
-    if not prev_path.exists():
-      return []
+    prev_date_path = self.date_path.with_suffix(".prev.date")
+    if not prev_path.exists() or not prev_date_path.exists():
+      return datetime(1, 1, 1, tzinfo=timezone.utc), []
+    with prev_date_path.open() as f:
+      prev_date = datetime.fromisoformat(f.read())
     with prev_path.open() as f:
       data = Cache.model_validate_json(f.read())
-    return data.games
+    return prev_date, data.games
 
 
 CACHE = EpicGamesCache()
@@ -61,7 +64,8 @@ class EpicGamesModule(Module):
     now_date = datetime.now(timezone.utc)
     games = [game for game in CACHE.get() if now_date > game.start_date]
     if not self.force:
-      prev_slugs = {game.slug for game in CACHE.get_prev()}
+      prev_date, prev_games = CACHE.get_prev()
+      prev_slugs = {game.slug for game in prev_games if prev_date > game.start_date}
       games = [game for game in games if game.slug not in prev_slugs]
     if not games:
       return []
