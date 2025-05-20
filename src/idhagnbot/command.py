@@ -1,6 +1,7 @@
 from typing import Any, Optional
 
 import nonebot
+from nonebot.typing import T_State
 from typing_extensions import Self
 
 from idhagnbot.help import CategoryItem, CommandItem, CommonData
@@ -17,6 +18,7 @@ class CommandBuilder:
     self._default_grant_to = DEFAULT
     self._parser: Optional[Alconna[Any]] = None
     self._aliases: set[str] = set()
+    self._state = None
     self._auto_reject = True
 
   def node(self, node: str) -> Self:
@@ -37,6 +39,10 @@ class CommandBuilder:
 
   def aliases(self, aliases: set[str]) -> Self:
     self._aliases = aliases
+    return self
+
+  def state(self, state: T_State) -> Self:
+    self._state = state
     return self
 
   def auto_reject(self, auto_reject: bool) -> Self:
@@ -63,6 +69,7 @@ class CommandBuilder:
       self._parser,
       aliases=self._aliases,
       permission=permission(self._node, self._default_grant_to),
+      default_state=self._state,
       auto_send_output=self._auto_reject,
       skip_for_unmatch=not self._auto_reject,
       use_cmd_start=True,
