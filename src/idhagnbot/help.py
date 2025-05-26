@@ -3,6 +3,7 @@ import math
 from dataclasses import dataclass
 from typing import Callable, ClassVar, Optional, Union
 
+import nonebot
 from pydantic import BaseModel, Field
 
 from idhagnbot.config import SharedConfig
@@ -104,6 +105,7 @@ class Config(BaseModel):
 
 CONFIG = SharedConfig("help", Config)
 SEPARATOR = "══════════"
+COMMAND_PREFIX = next(iter(nonebot.get_driver().config.command_start))
 
 
 @CONFIG.onload()
@@ -222,7 +224,7 @@ class CommandItem(Item):
 
   def __call__(self) -> str:
     brief = f" - {self.brief}" if self.brief else ""
-    return f"{self.data.level_prefix}/{self.names[0]}{brief}"
+    return f"{self.data.level_prefix}{COMMAND_PREFIX}{self.names[0]}{brief}"
 
   def format(self, brief: bool = True) -> str:
     segments: list[str] = []
@@ -285,6 +287,8 @@ class CategoryItem(Item):
     cls, path: Union[str, list[str]], create: bool = False, check: Optional[ShowData] = None,
   ) -> "CategoryItem":
     cur = CategoryItem.ROOT
+    if check and not cur.can_show(check):
+      raise ValueError("根分类不能显示")
     if isinstance(path, str):
       path = [x for x in path.split(".") if x]
     for i, name in enumerate(path, 1):
@@ -332,14 +336,18 @@ class CategoryItem(Item):
     header_lines: list[str] = []
     if has_command:
       header_lines.append(
-        "ℹ 斜线「/」开头的是命令，发送「/help <命令名>」查看，"
-        "比如假设有「/某个命令」，就需要发送「/help 某个命令」来查看",
+        f"ℹ 「{COMMAND_PREFIX}」开头的是命令，"
+        f"发送「{COMMAND_PREFIX}帮助 <命令名>」查看，"
+        f"比如假设有「{COMMAND_PREFIX}某个命令」，"
+        f"就需要发送「{COMMAND_PREFIX}帮助 某个命令」来查看",
       )
     if has_category:
       path_str = "".join(f" {i}" for i in path)
       header_lines.append(
-        f"ℹ 文件夹「📁」开头的是分类，发送「/help {path_str}<分类名>」查看，"
-        f"比如假设有「📁某个分类」，就需要发送「/help {path_str}某个分类」来查看",
+        f"ℹ 文件夹「📁」开头的是分类，"
+        f"发送「{COMMAND_PREFIX}帮助 {path_str}<分类名>」查看，"
+        f"比如假设有「📁某个分类」，"
+        f"就需要发送「{COMMAND_PREFIX}帮助 {path_str}某个分类」来查看",
       )
     if header_lines:
       lines = [*header_lines, SEPARATOR, *lines]
@@ -369,14 +377,18 @@ class CategoryItem(Item):
     header_lines: list[str] = []
     if has_command:
       header_lines.append(
-        "ℹ 斜线「/」开头的是命令，发送「/help <命令名>」查看，"
-        "比如假设有「/某个命令」，就需要发送「/help 某个命令」来查看",
+        f"ℹ 「{COMMAND_PREFIX}」开头的是命令，"
+        f"发送「{COMMAND_PREFIX}帮助 <命令名>」查看，"
+        f"比如假设有「{COMMAND_PREFIX}某个命令」，"
+        f"就需要发送「{COMMAND_PREFIX}帮助 某个命令」来查看",
       )
     if has_category:
       path_str = "".join(f" {i}" for i in path)
       header_lines.append(
-        f"ℹ 文件夹「📁」开头的是分类，发送「/help {path_str}<分类名>」查看，"
-        f"比如假设有「📁某个分类」，就需要发送「/help {path_str}某个分类」来查看",
+        f"ℹ 文件夹「📁」开头的是分类，"
+        f"发送「{COMMAND_PREFIX}帮助 {path_str}<分类名>」查看，"
+        f"比如假设有「📁某个分类」，"
+        f"就需要发送「{COMMAND_PREFIX}帮助 {path_str}某个分类」来查看",
       )
     if header_lines:
       return ["\n".join(header_lines), *nodes]

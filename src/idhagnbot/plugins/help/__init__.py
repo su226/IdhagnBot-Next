@@ -1,13 +1,12 @@
-from enum import Enum
 from typing import Optional
 
 import nonebot
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.context import SceneId
-from idhagnbot.help import CategoryItem, CommandItem, ShowData
+from idhagnbot.help import CategoryItem, CommandItem
 from idhagnbot.permission import SortedRoles
-from idhagnbot.plugins.help.common import get_available_groups, join_path, normalize_path
+from idhagnbot.plugins.help.common import get_show_data, join_path, normalize_path
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_uninfo")
@@ -21,7 +20,7 @@ from nonebot_plugin_alconna.uniseg import (
   Text,
   UniMessage,
 )
-from nonebot_plugin_uninfo import QryItrface, SceneType, SupportAdapter, Uninfo
+from nonebot_plugin_uninfo import QryItrface, SupportAdapter, Uninfo
 
 try:
   import idhagnbot.plugins.help.telegram as _
@@ -34,11 +33,12 @@ def find_command(name: str) -> Optional[CommandItem]:
     return CommandItem.find(name)
   except KeyError:
     pass
-  if name.startswith("/"):
-    try:
-      return CommandItem.find(name[1:])
-    except KeyError:
-      pass
+  for prefix in nonebot.get_driver().config.command_start:
+    if name.startswith(prefix):
+      try:
+        return CommandItem.find(name[len(prefix):])
+      except KeyError:
+        pass
   return None
 
 
@@ -67,18 +67,7 @@ async def handle_help(
   path: Match[tuple[str]],
   page: Match[int],
 ) -> None:
-  available_scenes = {scene}
-  if session.scene.type == SceneType.PRIVATE:
-    available_scenes.update(await get_available_groups(session, interface, session.user.id))
-  scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
-  show_data = ShowData(
-    scope,
-    f"{scope}:{session.user.id}",
-    scene,
-    available_scenes,
-    session.scene.type == SceneType.PRIVATE,
-    sorted_roles,
-  )
+  show_data = await get_show_data(scene, session, interface, sorted_roles)
   if (
     len(path.result) == 1
     and (command := find_command(path.result[0]))
@@ -86,15 +75,10 @@ async def handle_help(
   ):
     await help_.finish(command.format())
   normalized_path = normalize_path(*path.result)
-  if len(normalized_path) == 0:
-    category = CategoryItem.ROOT
-    if not category.can_show(show_data):
-      await help_.finish("无此条目或分类、权限不足或在当前上下文不可用")
-  else:
-    try:
-      category = CategoryItem.find(normalized_path, check=show_data)
-    except (KeyError, ValueError):
-      await help_.finish("无此条目或分类、权限不足或在当前上下文不可用")
+  try:
+    category = CategoryItem.find(normalized_path, check=show_data)
+  except (KeyError, ValueError):
+    await help_.finish("无此条目或分类、权限不足或在当前上下文不可用")
   if session.adapter == SupportAdapter.onebot11:
     pages = category.format_all(show_data, normalized_path)
     if len(pages) == 1:

@@ -1,5 +1,4 @@
 import re
-from enum import Enum
 
 import nonebot
 from nonebot.adapters.telegram import Bot
@@ -8,13 +7,13 @@ from nonebot.adapters.telegram.model import InlineKeyboardButton, InlineKeyboard
 from nonebot.typing import T_State
 
 from idhagnbot.context import SceneId
-from idhagnbot.help import CategoryItem, ShowData
+from idhagnbot.help import CategoryItem
 from idhagnbot.permission import SortedRoles
-from idhagnbot.plugins.help.common import get_available_groups, join_path, normalize_path
+from idhagnbot.plugins.help.common import get_show_data, join_path, normalize_path
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_uninfo")
-from nonebot_plugin_uninfo import QryItrface, SceneType, Uninfo
+from nonebot_plugin_uninfo import QryItrface, Uninfo
 
 HELP_PAGE_RE = re.compile(r"help_(?P<path>.+)_(?P<page>\d+)")
 
@@ -42,21 +41,20 @@ async def handle_help_page(
 ) -> None:
   if not event.message:
     return
-  available_scenes = {scene}
-  if session.scene.type == SceneType.PRIVATE:
-    available_scenes.update(await get_available_groups(session, interface, session.user.id))
-  scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
-  show_data = ShowData(
-    scope,
-    f"{scope}:{session.user.id}",
-    scene,
-    available_scenes,
-    session.scene.type == SceneType.PRIVATE,
-    sorted_roles,
-  )
+  show_data = await get_show_data(scene, session, interface, sorted_roles)
   page = state["page"]
   path = state["path"]
-  content, page, total_pages = CategoryItem.ROOT.format_page(show_data, [], page)
+  try:
+    category = CategoryItem.find(path, check=show_data)
+  except (KeyError, ValueError):
+    await bot.edit_message_text(
+      "无此条目或分类、权限不足或在当前上下文不可用",
+      chat_id=event.message.chat.id,
+      message_id=event.message.message_id,
+    )
+    await bot.answer_callback_query(event.id)
+    return
+  content, page, total_pages = category.format_page(show_data, [], page)
   buttons = InlineKeyboardMarkup(inline_keyboard=[[]])
   if page - 1 >= 0:
     buttons.inline_keyboard[0].append(

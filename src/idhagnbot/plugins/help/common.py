@@ -3,6 +3,8 @@ from enum import Enum
 
 import nonebot
 
+from idhagnbot.help import ShowData
+
 nonebot.require("nonebot_plugin_uninfo")
 from nonebot_plugin_uninfo import Interface, SceneType, Session
 
@@ -15,6 +17,26 @@ async def get_available_groups(session: Session, interface: Interface, user_id: 
   results = await asyncio.gather(*(in_group(group.id) for group in groups))
   scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
   return [f"{scope}:group:{group.id}" for group, result in zip(groups, results) if result]
+
+
+async def get_show_data(
+  scene: str,
+  session: Session,
+  interface: Interface,
+  sorted_roles: list[str],
+) -> ShowData:
+  available_scenes = {scene}
+  if session.scene.type == SceneType.PRIVATE:
+    available_scenes.update(await get_available_groups(session, interface, session.user.id))
+  scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
+  return ShowData(
+    scope,
+    f"{scope}:{session.user.id}",
+    scene,
+    available_scenes,
+    session.scene.type == SceneType.PRIVATE,
+    sorted_roles,
+  )
 
 
 def normalize_path(*path: str) -> list[str]:
