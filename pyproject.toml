@@ -12,7 +12,7 @@ dependencies = [
     "nonebot-plugin-orm>=0.7.7",
     "nonebot-plugin-uninfo>=0.7.3",
     "nonebot-plugin-waiter>=0.8.1",
-    "nonebot2[aiohttp,fastapi]>=2.4.2",
+    "nonebot2>=2.4.2",
 ]
 requires-python = "~=3.9"
 readme = "README.md"
@@ -27,9 +27,6 @@ adapters = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[project.scripts]
-start = "idhagnbot.__main__:main"
 
 [tool.pyright]
 typeCheckingMode = "strict"
@@ -54,7 +51,18 @@ ignore = [
 [tool.ruff.lint.flake8-quotes]
 multiline-quotes = "single"
 
+[tool.nonebot]
+adapters = [
+    {name = "OneBot V11", module_name = "nonebot.adapters.onebot.v11"},
+    {name = "Telegram", module_name = "nonebot.adapters.telegram"},
+]
+plugins = ["idhagnbot"]
+
 [dependency-groups]
+dev = [
+    "nonebot-plugin-orm[default]>=0.7.7",
+    "nonebot2[aiohttp,fastapi]>=2.4.2",
+]
 lint = [
     "ruff>=0.11.8",
 ]
