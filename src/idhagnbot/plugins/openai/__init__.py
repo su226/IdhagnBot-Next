@@ -1,5 +1,6 @@
 import random
 from datetime import datetime, timedelta
+from itertools import chain
 from typing import Literal, TypedDict
 
 import nonebot
@@ -7,7 +8,7 @@ from arclet.alconna import AllParam
 from nonebot.adapters import Bot, Event
 from nonebot.permission import SUPERUSER
 from pydantic import BaseModel, HttpUrl, SecretStr, TypeAdapter
-from sqlalchemy import select
+from sqlalchemy import desc, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from idhagnbot.command import CommandBuilder
@@ -31,6 +32,7 @@ class Config(BaseModel):
   info: bool = True
   secret: bool = False
   history_time: timedelta = timedelta(1)
+  history_limit: int = 100
 
 
 CONFIG = SharedConfig("openai", Config)
@@ -79,6 +81,10 @@ class ReqData(TypedDict):
   messages: list[ReqMessage]
 
 
+class ReqHeaders(TypedDict):
+  Authorization: str
+
+
 ai = (
   CommandBuilder()
   .node("openai")
@@ -98,9 +104,11 @@ async def handle_ai(
 ) -> None:
   config = CONFIG()
   time = datetime.now()
-  min_time = time - config.history_time
-  history = list(
-    await sql.scalars(select(History).where(History.scene == scene_id, History.time > min_time)),
+  history = await sql.scalars(
+    select(History)
+    .where(History.scene == scene_id, History.time > time - config.history_time)
+    .order_by(desc(History.time))
+    .limit(config.history_limit),
   )
   current = History(
     scene=scene_id,
@@ -110,12 +118,11 @@ async def handle_ai(
     content=message.result.extract_plain_text(),
     time=time,
   )
-  history.append(current)
   secret = random.randint(1000, 9999) if config.secret else 0
   messages: list[ReqMessage] = []
   if config.system:
     messages.append(ReqMessage(role="system", content=config.system.format(secret=secret)))
-  for item in history:
+  for item in chain(history, [current]):
     if config.info and item.role == "user":
       secret_info = f"，带有暗号{secret}" if config.secret and item.superuser else ""
       messages.append(
@@ -128,13 +135,8 @@ async def handle_ai(
     messages.append(ReqMessage(role=item.role, content=item.content))
   async with get_session().post(
     f"{config.server}/chat/completions",
-    headers={
-      "Authorization": f"Bearer {config.key.get_secret_value()}",
-    },
-    json={
-      "model": config.model,
-      "messages": messages,
-    },
+    headers=ReqHeaders(Authorization=f"Bearer {config.key.get_secret_value()}"),
+    json=ReqData(model=config.model, messages=messages),
   ) as response:
     data = ResDataAdapter.validate_python(await response.json())
   content = data["choices"][0]["message"]["content"]
