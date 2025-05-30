@@ -85,45 +85,43 @@ DEFAULT = {"default"}
 
 def get_role_parents(role: str) -> set[str]:
   config = CONFIG()
-  parents = config.roles[role].parents if role in config.roles else None
-  if parents is not None:
+  role_config = config.roles.get(role)
+  parents = role_config.parents if role_config else None
+  parents = parents.copy() if parents else {"~"}
+  if "~" not in parents:
     return parents
+  parents.remove("~")
   if match := PLATFORM_USER_RE.match(role):
-    return {match["platform"]}
+    parents.add(match["platform"])
   if match := PLATFORM_GUILD_ID_CHANNEL_ROLE_RE.match(role):
-    return {
-      f"{match['platform']}:guild:{match['guild']}:channel:{match['channel']}",
-      f"{match['platform']}:guild:{match['guild']}:{match['role']}",
-    }
+    parents.add(f"{match['platform']}:guild:{match['guild']}:channel:{match['channel']}")
+    parents.add(f"{match['platform']}:guild:{match['guild']}:{match['role']}")
   if match := PLATFORM_GUILD_ID_TYPE_ROLE_RE.match(role):
-    return {
-      f"{match['platform']}:guild:{match['guild']}:{match['type']}",
-      f"{match['platform']}:guild:{match['guild']}:{match['role']}",
-    }
+    parents.add(f"{match['platform']}:guild:{match['guild']}:{match['type']}")
+    parents.add(f"{match['platform']}:guild:{match['guild']}:{match['role']}")
   if match := PLATFORM_GUILD_ID_CHANNEL_RE.match(role):
-    return {f"{match['platform']}:guild:{match['guild']}"}
+    parents.add(f"{match['platform']}:guild:{match['guild']}")
   if match := PLATFORM_GUILD_ID_TYPE_RE.match(role):
-    return {f"{match['platform']}:guild:{match['guild']}", f"{match['platform']}:{match['type']}"}
+    parents.add(f"{match['platform']}:guild:{match['guild']}")
+    parents.add(f"{match['platform']}:{match['type']}")
   if match := PLATFORM_TYPE_ID_ROLE_RE.match(role):
-    return {
-      f"{match['platform']}:{match['type']}:{match['id']}",
-      f"{match['platform']}:{match['type']}_{match['role']}",
-    }
+    parents.add(f"{match['platform']}:{match['type']}:{match['id']}")
+    parents.add(f"{match['platform']}:{match['type']}_{match['role']}")
   if match := PLATFORM_TYPE_ROLE_RE.match(role):
-    return {
-      f"{match['platform']}:{match['type']}",
-      f"{match['platform']}:{match['role']}",
-      f"{match['type']}_{match['role']}",
-    }
+    parents.add(f"{match['platform']}:{match['type']}")
+    parents.add(f"{match['platform']}:{match['role']}")
+    parents.add(f"{match['type']}_{match['role']}")
   if match := PLATFORM_TYPE_ID_RE.match(role):
-    return {f"{match['platform']}:{match['type']}"}
+    parents.add(f"{match['platform']}:{match['type']}")
   if match := PLATFORM_TYPE_RE.match(role):
-    return {match["platform"], match["type"]}
+    parents.add(match["platform"])
+    parents.add(match["type"])
   if match := TYPE_ROLE_RE.match(role):
-    return {match["type"], match["role"]}
-  if role == "default":
-    return set()
-  return {"default"}
+    parents.add(match["type"])
+    parents.add(match["role"])
+  if role != "default":
+    parents.add("default")
+  return parents
 
 
 def get_role_priority(role: str) -> int:
