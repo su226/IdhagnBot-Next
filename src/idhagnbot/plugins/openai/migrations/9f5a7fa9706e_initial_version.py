@@ -15,7 +15,7 @@ import sqlalchemy as sa
 
 revision: str = '9f5a7fa9706e'
 down_revision: str | Sequence[str] | None = None
-branch_labels: str | Sequence[str] | None = ('openai',)
+branch_labels: str | Sequence[str] | None = ('idhagnbot_openai',)
 depends_on: str | Sequence[str] | None = None
 
 
