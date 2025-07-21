@@ -205,6 +205,11 @@ reset = (
 
 @reset.handle()
 async def handle_reset(scene_id: SceneId, sql: async_scoped_session) -> None:
-  sql.add(Ignore(scene=scene_id, time=datetime.now()))
+  current = await sql.get(Ignore, scene_id)
+  if current:
+    current.time = datetime.now()
+    sql.add(current)
+  else:
+    sql.add(Ignore(scene=scene_id, time=datetime.now()))
   await sql.commit()
   await reset.finish("已重置上下文")
