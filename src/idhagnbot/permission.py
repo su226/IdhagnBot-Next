@@ -162,6 +162,11 @@ def get_roles(session: Uninfo) -> set[str]:
 
 
 def get_sorted_roles(session: Uninfo) -> list[str]:
+  # roles = sorted(get_roles(session), key=lambda x: (get_role_priority(x), x))
+  # for role in roles:
+  #   for parent in get_role_parents(role):
+  #     print(parent, "-->", role)
+  # return roles
   return sorted(get_roles(session), key=lambda x: (get_role_priority(x), x))
 
 

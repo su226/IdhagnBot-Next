@@ -6,6 +6,7 @@ authors = [
     {name = "su226", email = "thesu226@outlook.com"},
 ]
 dependencies = [
+    "json-with-comments>=1.2.10",
     "nonebot-plugin-alconna>=0.57.4",
     "nonebot-plugin-apscheduler>=0.5.0",
     "nonebot-plugin-localstore>=0.7.4",
@@ -13,6 +14,8 @@ dependencies = [
     "nonebot-plugin-uninfo>=0.7.3",
     "nonebot-plugin-waiter>=0.8.1",
     "nonebot2>=2.4.2",
+    "pillow>=11.3.0",
+    "pygobject>=3.52.3",
 ]
 requires-python = "~=3.9"
 readme = "README.md"
@@ -45,12 +48,13 @@ indent-width = 2
 extend-select = ["ALL"]
 ignore = [
     "ANN401", "C901", "D", "E402", "EM", "FA100", "FIX", "INP", "PERF203", "PLR0911", "PLR0912",
-    "PLR0913", "PLW0603", "RUF001", "RUF003", "SIM105", "SLF001", "TC006", "TD002", "TD003",
-    "TRY003",
+    "PLR0913", "PLW0603", "RUF001", "RUF002", "RUF003", "SIM105", "SLF001", "TC006", "TD002",
+    "TD003", "TRY003",
 ]
 
 [tool.ruff.lint.flake8-quotes]
 multiline-quotes = "single"
+docstring-quotes = "single"
 
 [tool.nonebot]
 adapters = [
@@ -67,4 +71,7 @@ dev = [
 ]
 lint = [
     "ruff>=0.11.8",
+]
+stubs = [
+    "pygobject-stubs>=2.13.0",
 ]

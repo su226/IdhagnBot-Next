@@ -176,6 +176,10 @@ cython_debug/
 # Visual Studio Code
 .vscode
 
+# nonebot2
+/.env
+/.env.*
+
 # nonebot-plugin-localstore
 /config/
 /data/
