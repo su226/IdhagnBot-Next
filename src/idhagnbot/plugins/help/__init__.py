@@ -26,6 +26,10 @@ try:
   import idhagnbot.plugins.help.telegram as _
 except ImportError:
   pass
+try:
+  import idhagnbot.plugins.help.satori as _
+except ImportError:
+  pass
 
 
 def find_command(name: str) -> Optional[CommandItem]:

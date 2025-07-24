@@ -2,6 +2,7 @@ import asyncio
 from enum import Enum
 
 import nonebot
+from nonebot.exception import ActionFailed
 
 from idhagnbot.help import ShowData
 
@@ -13,7 +14,10 @@ async def get_available_groups(session: Session, interface: Interface, user_id: 
   async def in_group(group_id: str) -> bool:
     return bool(await interface.get_member(SceneType.GROUP, group_id, user_id))
 
-  groups = await interface.get_scenes(SceneType.GROUP)
+  try:
+    groups = await interface.get_scenes(SceneType.GROUP)
+  except ActionFailed:
+    groups = []
   results = await asyncio.gather(*(in_group(group.id) for group in groups))
   scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
   return [f"{scope}:group:{group.id}" for group, result in zip(groups, results) if result]
