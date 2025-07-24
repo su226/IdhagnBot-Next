@@ -6,7 +6,7 @@ import nonebot
 from PIL import Image, ImageOps
 
 from idhagnbot import image
-from idhagnbot.image.card import Card, CardAuthor, CardCover
+from idhagnbot.image.card import Card, CardAuthor, CardCover, CardText
 from idhagnbot.plugins.bilibili_activity import extras
 from idhagnbot.plugins.bilibili_activity.common import (
   IMAGE_GAP,
@@ -36,6 +36,8 @@ async def get_appender(activity: ActivityImage[object]) -> Callable[[Card], None
     nonlocal images
     block = Card()
     block.add(CardAuthor(avatar, activity.name))
+    if activity.content.title:
+      block.add(CardText(activity.content.title, "sans bold"))
     block.add(CardRichText(activity.content.richtext, emotions, 32, 3, activity.topic))
     card.add(block)
     if len(images) == 1:

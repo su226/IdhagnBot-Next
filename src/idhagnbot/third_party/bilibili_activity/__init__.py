@@ -223,8 +223,17 @@ class ApiNone(TypedDict):
   tips: str
 
 
+class ApiOpusPic(TypedDict):
+  url: str
+  width: int
+  height: int
+  size: float
+
+
 class ApiOpus(TypedDict):
+  title: Optional[str]
   summary: ApiDesc
+  pics: list[ApiOpusPic]
 
 
 class ApiMajor(TypedDict):
@@ -365,6 +374,7 @@ class ContentParser(Protocol[TContent]):
 
 @dataclass
 class ContentText(ContentParser["ContentText"]):
+  title: str
   text: str
   richtext: RichText
 
@@ -373,11 +383,14 @@ class ContentText(ContentParser["ContentText"]):
     module = item["modules"]["module_dynamic"]
     major = module["major"]
     if major and "opus" in major:
-      desc = major["opus"]["summary"]
+      opus = major["opus"]
+      title = opus["title"] or ""
+      desc = opus["summary"]
     else:
+      title = ""
       desc = module["desc"]
       assert desc
-    return ContentText(desc["text"], parse_richtext(desc["rich_text_nodes"]))
+    return ContentText(title, desc["text"], parse_richtext(desc["rich_text_nodes"]))
 
 
 @dataclass
@@ -390,6 +403,7 @@ class Image:
 
 @dataclass
 class ContentImage(ContentParser["ContentImage"]):
+  title: str
   text: str
   richtext: RichText
   images: list[Image]
@@ -400,19 +414,24 @@ class ContentImage(ContentParser["ContentImage"]):
     major = module["major"]
     assert major
     if "opus" in major:
-      summary = major["opus"]["summary"]
-      return ContentImage(
-        summary["text"],
-        parse_richtext(summary["rich_text_nodes"]),
-        [],
-      )
-    desc = module["desc"]
-    assert desc
-    assert "draw" in major
-    return ContentImage(
-      desc["text"],
-      parse_richtext(desc["rich_text_nodes"]),
-      [
+      opus = major["opus"]
+      title = opus["title"] or ""
+      desc = opus["summary"]
+      pics = [
+        Image(
+          image["url"],
+          image["width"],
+          image["height"],
+          image["size"],
+        )
+        for image in opus["pics"]
+      ]
+    else:
+      title = ""
+      desc = module["desc"]
+      assert desc
+      assert "draw" in major
+      pics = [
         Image(
           image["src"],
           image["width"],
@@ -420,8 +439,8 @@ class ContentImage(ContentParser["ContentImage"]):
           image["size"],
         )
         for image in major["draw"]["items"]
-      ],
-    )
+      ]
+    return ContentImage(title, desc["text"], parse_richtext(desc["rich_text_nodes"]), pics)
 
 
 @dataclass
