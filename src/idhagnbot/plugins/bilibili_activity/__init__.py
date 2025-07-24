@@ -1,7 +1,7 @@
 import asyncio
 from collections import deque
 from collections.abc import AsyncGenerator
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import nonebot
@@ -81,6 +81,18 @@ async def new_activities(
     offset = next_offset
 
 
+async def send_error(message: str, e: Exception) -> None:
+  config = common.CONFIG()
+  data = common.DATA()
+  now = datetime.now(timezone.utc)
+  if now < data.last_warn + config.warn_interval:
+    return
+  data.last_warn = now
+  common.DATA.dump()
+  message_send = UniMessage(Text(f"{message}\n{e!r}"))
+  await asyncio.gather(*[message_send.send(target.target) for target in config.warn_target])
+
+
 async def try_check(user: common.User) -> int:
   async def try_send(
     activity: Activity[object, object],
@@ -136,8 +148,10 @@ async def try_check(user: common.User) -> int:
       if activities:
         user._name = activities[0].name
       logger.success(f"初始化 {user._name}({user.uid}) 的动态推送完成 {user._offset}")
-    except Exception:
-      logger.exception(f"初始化 {user.uid} 的动态推送失败")
+    except Exception as e:
+      message = f"初始化 {user.uid} 的动态推送失败"
+      logger.exception(message)
+      await send_error(message, e)
     return 0
 
   try:
@@ -150,8 +164,10 @@ async def try_check(user: common.User) -> int:
       await try_send_all(activity)
     logger.debug(f"检查 {user._name}({user.uid}) 的动态更新完成")
     return len(activities)
-  except Exception:
-    logger.exception(f"检查 {user._name}({user.uid}) 的动态更新失败")
+  except Exception as e:
+    message = f"检查 {user._name}({user.uid}) 的动态更新失败"
+    logger.exception(message)
+    await send_error(message, e)
     return 0
 
 
