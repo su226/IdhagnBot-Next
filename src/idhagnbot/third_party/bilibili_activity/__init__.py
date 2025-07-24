@@ -21,7 +21,9 @@ LIST_API = (
   "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space"
   "?host_mid={uid}&offset={offset}&features=itemOpusStyle"
 )
-DETAIL_API = "https://api.bilibili.com/x/polymer/web-dynamic/v1/detail?id={id}"
+DETAIL_API = (
+  "https://api.bilibili.com/x/polymer/web-dynamic/v1/detail?id={id}&features=itemOpusStyle"
+)
 LIST_API_OLD = (
   "https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history"
   "?host_uid={uid}&offset_dynamic_id={offset}"
