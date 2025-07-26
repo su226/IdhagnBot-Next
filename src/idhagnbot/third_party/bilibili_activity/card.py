@@ -53,12 +53,9 @@ class CardRichText(Render):
     emotions: dict[str, Image.Image],
     size: int,
     lines: int,
-    topic: Optional[Topic] = None,
   ) -> None:
     render = RichTextRender().set_font("sans", size)
     render.set_width(CONTENT_WIDTH).set_height(-lines).set_ellipsize("end")
-    if topic:
-      render.append_markup(f"<span color='#008ac5'>#{escape(topic.name)}</span>\n")
     for node in richtext:
       if isinstance(node, RichTextText):
         render.append(node.text)

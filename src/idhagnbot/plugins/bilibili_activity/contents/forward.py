@@ -297,7 +297,8 @@ async def format(activity: ActivityForward[object], can_ignore: bool) -> UniMess
     card = Card(0)
     block = Card()
     block.add(CardAuthor(avatar, activity.name))
-    block.add(CardRichText(activity.content.richtext, emotions, 32, 3, activity.topic))
+    block.add(CardTopic(activity.topic))
+    block.add(CardRichText(activity.content.richtext, emotions, 32, 3))
     append_extras(block, False)
     card.add(block)
     card.add(CardLine())
@@ -306,9 +307,11 @@ async def format(activity: ActivityForward[object], can_ignore: bool) -> UniMess
     card.render(im, 0, 0)
     return UniMessage(
       [
-        Text(f"{activity.name} 转发了{title_label}\n"),
+        Text(f"{activity.name} 转发了{title_label}"),
+        Text.br(),
         images.to_segment(im),
-        Text(f"\nhttps://t.bilibili.com/{activity.id}"),
+        Text.br(),
+        Text(f"https://t.bilibili.com/{activity.id}"),
       ],
     )
 

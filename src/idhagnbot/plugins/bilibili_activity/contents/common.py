@@ -9,7 +9,7 @@ from idhagnbot.image.card import Card, CardAuthor, CardMargin, CardTab
 from idhagnbot.plugins.bilibili_activity import extras
 from idhagnbot.plugins.bilibili_activity.common import check_ignore, fetch_image
 from idhagnbot.third_party.bilibili_activity import ActivityCommon
-from idhagnbot.third_party.bilibili_activity.card import CardRichText, fetch_emotions
+from idhagnbot.third_party.bilibili_activity.card import CardRichText, CardTopic, fetch_emotions
 
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna.uniseg import Segment, Text, UniMessage
@@ -26,7 +26,8 @@ async def get_appender(activity: ActivityCommon[object]) -> Callable[[Card], Non
   def appender(card: Card) -> None:
     block = Card()
     block.add(CardAuthor(avatar, activity.name))
-    block.add(CardRichText(activity.content.richtext, emotions, 32, 6, activity.topic))
+    block.add(CardTopic(activity.topic))
+    block.add(CardRichText(activity.content.richtext, emotions, 32, 6))
     block.add(CardMargin())
     content = (
       f"{text.escape(activity.content.title)}\n"
@@ -53,9 +54,11 @@ async def format(activity: ActivityCommon[object], can_ignore: bool) -> UniMessa
     card.render(im, 0, 0)
     return UniMessage(
       [
-        Text(f"{activity.name} 发布了动态\n"),
+        Text(f"{activity.name} 发布了动态"),
+        Text.br(),
         image.to_segment(im),
-        Text(f"\nhttps://t.bilibili.com/{activity.id}"),
+        Text.br(),
+        Text(f"https://t.bilibili.com/{activity.id}"),
       ],
     )
 

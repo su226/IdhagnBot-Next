@@ -15,7 +15,7 @@ from idhagnbot.plugins.bilibili_activity.common import (
   fetch_images,
 )
 from idhagnbot.third_party.bilibili_activity import ActivityImage
-from idhagnbot.third_party.bilibili_activity.card import CardRichText, fetch_emotions
+from idhagnbot.third_party.bilibili_activity.card import CardRichText, CardTopic, fetch_emotions
 
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna.uniseg import Segment, Text, UniMessage
@@ -36,9 +36,11 @@ async def get_appender(activity: ActivityImage[object]) -> Callable[[Card], None
     nonlocal images
     block = Card()
     block.add(CardAuthor(avatar, activity.name))
+    block.add(CardTopic(activity.topic))
     if activity.content.title:
       block.add(CardText(activity.content.title, "sans bold"))
-    block.add(CardRichText(activity.content.richtext, emotions, 32, 3, activity.topic))
+    lines = 6 if not images and not activity.extra else 3  # 有时纯文字的 Opus 动态类型是图片
+    block.add(CardRichText(activity.content.richtext, emotions, 32, lines))
     card.add(block)
     if len(images) == 1:
       cover = ImageOps.fit(images[0], (640, 400), image.get_resample())
@@ -73,9 +75,11 @@ async def format(activity: ActivityImage[object], can_ignore: bool) -> UniMessag
     card.render(im, 0, 0)
     return UniMessage(
       [
-        Text(f"{activity.name} 发布了动态\n"),
+        Text(f"{activity.name} 发布了动态"),
+        Text.br(),
         image.to_segment(im),
-        Text(f"\nhttps://t.bilibili.com/{activity.id}"),
+        Text.br(),
+        Text(f"https://t.bilibili.com/{activity.id}"),
       ],
     )
 

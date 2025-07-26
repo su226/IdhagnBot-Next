@@ -117,10 +117,11 @@ async def handle_epicgames(no_cache: bool) -> None:
       start_str = game.start_date.astimezone().strftime("%Y-%m-%d %H:%M")
       text = f"{game.title} 将在 {start_str} 免费，截止到 {end_str}"
     if message:
-      text = "\n" + text
+      message.append(Text.br())
     message.extend(
       [
-        Text(text + f"\n{api.URL_BASE}{game.slug}\n"),
+        Text(text + f"\n{api.URL_BASE}{game.slug}"),
+        Text.br(),
         Image(url=game.image),
       ],
     )

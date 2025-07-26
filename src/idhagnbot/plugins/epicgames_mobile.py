@@ -155,6 +155,6 @@ async def handle_epicgames_android(no_cache: bool, state: T_State) -> None:
       start_str = game.start_date.astimezone().strftime("%Y-%m-%d %H:%M")
       text = f"{game.name} 将在 {start_str} 免费，截止到 {end_str}"
     if message:
-      text = "\n" + text
-    message.extend([Text(text), Image(url=game.image)])
+      message.append(Text.br())
+    message.extend([Text(text), Text.br(), Image(url=game.image)])
   await message.send()

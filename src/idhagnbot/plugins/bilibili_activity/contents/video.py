@@ -26,10 +26,9 @@ async def get_appender(activity: ActivityVideo[object]) -> Callable[[Card], None
   def appender(card: Card) -> None:
     block = Card()
     block.add(CardAuthor(avatar, activity.name))
+    block.add(CardTopic(activity.topic))
     if activity.content.richtext:
-      block.add(CardRichText(activity.content.richtext, emotions, 32, 3, activity.topic))
-    else:
-      block.add(CardTopic(activity.topic))
+      block.add(CardRichText(activity.content.richtext, emotions, 32, 3))
     if activity.content.title:  # 动态视频没有标题
       block.add(CardText(activity.content.title, size=40, lines=2))
     card.add(block)
@@ -53,10 +52,14 @@ async def format(activity: ActivityVideo[object], can_ignore: bool) -> UniMessag
     appender(card)
     im = Image.new("RGB", (card.get_width(), card.get_height()), (255, 255, 255))
     card.render(im, 0, 0)
-    return UniMessage([
-      Text(f"{activity.name} 发布了视频\n"),
-      image.to_segment(im),
-      Text(f"\nhttps://www.bilibili.com/video/{activity.content.bvid}"),
-    ])
+    return UniMessage(
+      [
+        Text(f"{activity.name} 发布了视频"),
+        Text.br(),
+        image.to_segment(im),
+        Text.br(),
+        Text(f"https://www.bilibili.com/video/{activity.content.bvid}"),
+      ]
+    )
 
   return await asyncio.to_thread(make)

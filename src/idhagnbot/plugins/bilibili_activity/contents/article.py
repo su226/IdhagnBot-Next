@@ -57,9 +57,11 @@ async def format(activity: ActivityArticle[object], can_ignore: bool) -> UniMess
     card.render(im, 0, 0)
     return UniMessage(
       [
-        Text(f"{activity.name} 发布了专栏\n"),
+        Text(f"{activity.name} 发布了专栏"),
+        Text.br(),
         image.to_segment(im),
-        Text(f"\nhttps://www.bilibili.com/read/cv{activity.content.id}"),
+        Text.br(),
+        Text(f"https://www.bilibili.com/read/cv{activity.content.id}"),
       ],
     )
 

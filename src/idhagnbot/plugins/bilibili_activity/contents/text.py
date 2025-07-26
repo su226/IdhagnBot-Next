@@ -9,7 +9,7 @@ from idhagnbot.image.card import Card, CardAuthor, CardText
 from idhagnbot.plugins.bilibili_activity import extras
 from idhagnbot.plugins.bilibili_activity.common import check_ignore, fetch_image
 from idhagnbot.third_party.bilibili_activity import ActivityText
-from idhagnbot.third_party.bilibili_activity.card import CardRichText, fetch_emotions
+from idhagnbot.third_party.bilibili_activity.card import CardRichText, CardTopic, fetch_emotions
 
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna.uniseg import Segment, Text, UniMessage
@@ -28,7 +28,8 @@ async def get_appender(activity: ActivityText[object]) -> Callable[[Card], None]
     if activity.content.title:
       block.add(CardText(activity.content.title, "sans bold"))
     lines = 3 if activity.extra else 6
-    block.add(CardRichText(activity.content.richtext, emotions, 32, lines, activity.topic))
+    block.add(CardTopic(activity.topic))
+    block.add(CardRichText(activity.content.richtext, emotions, 32, lines))
     append_extra(block, False)
     card.add(block)
 
@@ -47,9 +48,11 @@ async def format(activity: ActivityText[object], can_ignore: bool) -> UniMessage
     card.render(im, 0, 0)
     return UniMessage(
       [
-        Text(f"{activity.name} 发布了动态\n"),
+        Text(f"{activity.name} 发布了动态"),
+        Text.br(),
         image.to_segment(im),
-        Text(f"\nhttps://t.bilibili.com/{activity.id}"),
+        Text.br(),
+        Text(f"https://t.bilibili.com/{activity.id}"),
       ]
     )
 

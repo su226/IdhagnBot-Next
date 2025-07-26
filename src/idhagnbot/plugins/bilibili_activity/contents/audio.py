@@ -51,9 +51,11 @@ async def format(activity: ActivityAudio[object], can_ignore: bool) -> UniMessag
     card.render(im, 0, 0)
     return UniMessage(
       [
-        Text(f"{activity.name} 发布了音频\n"),
+        Text(f"{activity.name} 发布了音频"),
+        Text.br(),
         image.to_segment(im),
-        Text(f"\nhttps://www.bilibili.com/audio/au{activity.content.id}"),
+        Text.br(),
+        Text(f"https://www.bilibili.com/audio/au{activity.content.id}"),
       ],
     )
 
