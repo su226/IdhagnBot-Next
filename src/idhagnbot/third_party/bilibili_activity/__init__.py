@@ -83,8 +83,9 @@ class ApiReserve(TypedDict):
 
 
 class ApiGoodsItem(TypedDict):
-  id: str
+  id: int
   name: str
+  brief: str
   price: str
   jump_url: str
   cover: str
@@ -889,6 +890,7 @@ class ExtraReserve(ExtraParser["ExtraReserve"]):
 class Goods:
   id: int
   name: str
+  brief: str
   price: str
   url: str
   image: str
@@ -903,7 +905,7 @@ class ExtraGoods(ExtraParser["ExtraGoods"]):
   def parse(item: ApiAdditional) -> "ExtraGoods":
     assert "goods" in item
     goods = [
-      Goods(int(i["id"]), i["name"], i["price"], i["jump_url"], i["cover"])
+      Goods(i["id"], i["name"], i["brief"], i["price"], i["jump_url"], i["cover"])
       for i in item["goods"]["items"]
     ]
     return ExtraGoods(item["goods"]["head_text"], goods)

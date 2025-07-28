@@ -13,18 +13,21 @@ async def format(extra: ExtraGoods) -> Callable[[Card], None]:
 
   def appender(card: Card) -> None:
     try:
-      source = extra.title[extra.title.index("来自") + 2:]
+      source = extra.title[extra.title.index("来自") + 2 :]
     except ValueError:
-      source = "会员购"
+      source = ""
     title = f"{source}商品" if len(extra.goods) == 1 else f"{len(extra.goods)} 个{source}商品"
-    content = (
-      f"{text.escape(extra.goods[0].name)}\n"
-      f"<span color='#00aeec'>{text.escape(extra.goods[0].price)}</span> 起"
-    ) if len(extra.goods) == 1 else ""
-    width = (
-      len(images) * 100 + max(len(images) - 1, 0) * 8
-      if len(extra.goods) <= 5 else 600
-    )
+    if len(extra.goods) == 1:
+      content = text.escape(extra.goods[0].name)
+      if extra.goods[0].name != extra.goods[0].brief:
+        content += (
+          f"\n<span size='small' color='#888888'>{text.escape(extra.goods[0].brief)}</span>"
+        )
+      if extra.goods[0].price:
+        content += f"\n<span color='#00aeec'>{text.escape(extra.goods[0].price)}</span> 起"
+    else:
+      content = ""
+    width = len(images) * 100 + max(len(images) - 1, 0) * 8 if len(extra.goods) <= 5 else 600
     out_image = Image.new("RGBA", (width, 100))
     for i, im in enumerate(images):
       x = i * 108
