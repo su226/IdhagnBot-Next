@@ -96,12 +96,21 @@ class ApiGoods(TypedDict):
   items: list[ApiGoodsItem]
 
 
+class ApiAdditionalCommon(TypedDict):
+  head_text: str
+  title: str
+  desc1: str
+  desc2: str
+  cover: str
+
+
 class ApiAdditional(TypedDict):
   type: str
   vote: NotRequired[ApiVote]
   ugc: NotRequired[ApiUgc]
   reserve: NotRequired[ApiReserve]
   goods: NotRequired[ApiGoods]
+  common: NotRequired[ApiAdditionalCommon]
 
 
 class ApiEmoji(TypedDict):
@@ -786,6 +795,7 @@ class ContentBlocked(ContentParser["ContentBlocked"]):
   """
   无法查看的充电动态
   """
+
   message: str
 
   @staticmethod
@@ -931,6 +941,26 @@ class ExtraGoods(ExtraParser["ExtraGoods"]):
     return ExtraGoods(item["goods"]["head_text"], goods)
 
 
+@dataclass
+class ExtraCommon(ExtraParser["ExtraCommon"]):
+  head_text: str
+  title: str
+  cover: str
+  desc1: str
+  desc2: str
+
+  @staticmethod
+  def parse(item: ApiAdditional) -> "ExtraCommon":
+    assert "common" in item
+    return ExtraCommon(
+      item["common"]["head_text"],
+      item["common"]["title"],
+      item["common"]["cover"],
+      item["common"]["desc1"],
+      item["common"]["desc2"],
+    )
+
+
 class ExtraUnknown(ExtraParser["ExtraUnknown"]):
   @staticmethod
   def parse(item: ApiAdditional) -> "ExtraUnknown":
@@ -942,6 +972,7 @@ EXTRA_TYPES: dict[str, type[ExtraParser[object]]] = {
   "UGC": ExtraVideo,
   "RESERVE": ExtraReserve,
   "GOODS": ExtraGoods,
+  "COMMON": ExtraCommon,
 }
 
 

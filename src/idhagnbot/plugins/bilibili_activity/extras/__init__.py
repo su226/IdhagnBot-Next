@@ -11,15 +11,15 @@ from collections.abc import Awaitable
 from typing import Any, Callable, Optional, TypeVar
 
 from idhagnbot.image.card import Card, CardMargin, CardTab
+from idhagnbot.plugins.bilibili_activity.extras import common, goods, reserve, video, vote
 from idhagnbot.third_party.bilibili_activity import (
   Extra,
+  ExtraCommon,
   ExtraGoods,
   ExtraReserve,
   ExtraVideo,
   ExtraVote,
 )
-
-from . import goods, reserve, video, vote
 
 TExtra = TypeVar("TExtra")
 Formatter = tuple[type[TExtra], Callable[[TExtra], Awaitable[Callable[[Card], None]]]]
@@ -28,6 +28,7 @@ FORMATTERS: list[Formatter[Any]] = [
   (ExtraVideo, video.format),
   (ExtraReserve, reserve.format),
   (ExtraGoods, goods.format),
+  (ExtraCommon, common.format),
 ]
 
 
