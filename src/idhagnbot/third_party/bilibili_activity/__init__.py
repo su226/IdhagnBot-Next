@@ -58,7 +58,7 @@ class ApiUgc(TypedDict):
 
 
 class ApiReserveButtonData(TypedDict):
-  disable: NotRequired[str]
+  disable: NotRequired[int]
 
 
 class ApiReserveButton(TypedDict):
@@ -239,6 +239,10 @@ class ApiOpus(TypedDict):
   pics: list[ApiOpusPic]
 
 
+class ApiBlocked(TypedDict):
+  hint_message: str
+
+
 class ApiMajor(TypedDict):
   type: str
   draw: NotRequired[ApiDraw]
@@ -252,6 +256,7 @@ class ApiMajor(TypedDict):
   courses: NotRequired[ApiCourse]
   none: NotRequired[ApiNone]
   opus: NotRequired[ApiOpus]
+  blocked: NotRequired[ApiBlocked]
 
 
 class ApiTopic(TypedDict):
@@ -776,6 +781,21 @@ class ContentForward(ContentParser["ContentForward"]):
     )
 
 
+@dataclass
+class ContentBlocked(ContentParser["ContentBlocked"]):
+  """
+  无法查看的充电动态
+  """
+  message: str
+
+  @staticmethod
+  def parse(item: ApiDynamic) -> "ContentBlocked":
+    major = item["modules"]["module_dynamic"]["major"]
+    assert major
+    assert "blocked" in major
+    return ContentBlocked(major["blocked"]["hint_message"])
+
+
 class ContentUnknown(ContentParser["ContentUnknown"]):
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentUnknown":
@@ -972,8 +992,11 @@ class Activity(Generic[TContent, TExtra]):
         stat_module["comment"]["count"],
       )
     content_type = item["type"].removeprefix("DYNAMIC_TYPE_")
-    content_cls = CONTENT_TYPES.get(content_type, ContentUnknown)
     dynamic_module = modules["module_dynamic"]
+    if dynamic_module["major"] and dynamic_module["major"]["type"] == "MAJOR_TYPE_BLOCKED":
+      content_cls = ContentBlocked
+    else:
+      content_cls = CONTENT_TYPES.get(content_type, ContentUnknown)
     extra = None
     if (additional := dynamic_module["additional"]) is not None:
       extra_type = additional["type"].removeprefix("ADDITIONAL_TYPE_")
@@ -1009,3 +1032,4 @@ ActivityLive = Activity[ContentLive, TExtra]
 ActivityLiveRcmd = Activity[ContentLiveRcmd, TExtra]
 ActivityCourse = Activity[ContentCourse, TExtra]
 ActivityPlaylist = Activity[ContentPlaylist, TExtra]
+ActivityBlocked = Activity[ContentBlocked, TExtra]

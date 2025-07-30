@@ -33,6 +33,7 @@ from idhagnbot.plugins.bilibili_activity.common import IgnoredException
 from idhagnbot.plugins.bilibili_activity.contents import (
   article,
   audio,
+  blocked,
   common,
   forward,
   image,
@@ -43,6 +44,7 @@ from idhagnbot.third_party.bilibili_activity import (
   Activity,
   ContentArticle,
   ContentAudio,
+  ContentBlocked,
   ContentCommon,
   ContentForward,
   ContentImage,
@@ -85,6 +87,7 @@ FORMATTERS: list[Formatter[Any]] = [
   (ContentCommon, common.format),
   (ContentForward, forward.format),
   (ContentLiveRcmd, ignore),
+  (ContentBlocked, blocked.format),
 ]
 
 

@@ -50,7 +50,8 @@ def check_ignore(content: str) -> None:
 
 async def fetch_image(url: str) -> Image.Image:
   async with get_session().get(url) as response:
-    return ImageOps.exif_transpose(Image.open(BytesIO(await response.read())))
+    data = await response.read()
+  return await asyncio.to_thread(lambda: ImageOps.exif_transpose(Image.open(BytesIO(data))))
 
 
 async def fetch_images(*urls: str) -> list[Image.Image]:

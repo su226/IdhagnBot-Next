@@ -59,7 +59,7 @@ async def format(activity: ActivityVideo[object], can_ignore: bool) -> UniMessag
         image.to_segment(im),
         Text.br(),
         Text(f"https://www.bilibili.com/video/{activity.content.bvid}"),
-      ]
+      ],
     )
 
   return await asyncio.to_thread(make)
