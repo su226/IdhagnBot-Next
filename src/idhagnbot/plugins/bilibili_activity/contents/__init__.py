@@ -69,7 +69,7 @@ async def format_unknown(activity: Activity[object, object]) -> UniMessage[Segme
 
 async def ignore(activity: Activity[object, object], can_ignore: bool) -> UniMessage[Segment]:
   if can_ignore:
-    raise IgnoredException
+    raise IgnoredException(activity.type)
   return await format_unknown(activity)
 
 

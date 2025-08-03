@@ -14,6 +14,7 @@ dependencies = [
     "nonebot-plugin-uninfo>=0.7.3",
     "nonebot-plugin-waiter>=0.8.1",
     "nonebot2>=2.4.2",
+    "opencv-python-headless>=4.12.0.88",
     "pillow>=11.3.0",
     "pygobject>=3.52.3",
 ]
