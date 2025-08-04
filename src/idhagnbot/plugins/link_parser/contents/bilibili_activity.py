@@ -32,7 +32,7 @@ def is_same(id: int, last_state: dict[str, Any]) -> bool:
 async def match(link: str, last_state: dict[str, Any]) -> MatchState:
   if match := RE.match(link):
     id = int(match[1])
-    if is_same(id, last_state):
+    if not is_same(id, last_state):
       return MatchState(True, {"id": id})
   return MatchState(False, {})
 

@@ -26,13 +26,13 @@ driver = nonebot.get_driver()
 def extract_url(text: str) -> Generator[str, None, None]:
   data = DATA()
   for match in URL_RE.finditer(text):
-    if match[1] in data.tlds:
+    if match[1].lower() in data.tlds:
       yield match[0]
 
 
 def strip_url(text: str) -> str:
   def repl(match: re.Match[str]) -> str:
-    if match[1] in data.tlds:
+    if match[1].lower() in data.tlds:
       return " "
     return match[0]
 
@@ -50,6 +50,6 @@ async def update_tlds() -> None:
   logger.info("正在更新 TLD 数据")
   async with get_session().get("https://data.iana.org/TLD/tlds-alpha-by-domain.txt") as response:
     tlds = await response.text()
-  data.tlds = set(tlds.splitlines()[1:])
+  data.tlds = set(tlds.lower().splitlines()[1:])
   data.last_update = now
   DATA.dump()
