@@ -12,7 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig
-from idhagnbot.context import SceneId
+from idhagnbot.context import SceneIdRaw
 from idhagnbot.http import get_session
 
 nonebot.require("nonebot_plugin_alconna")
@@ -128,7 +128,7 @@ async def handle_ai(
   session: Uninfo,
   message: Match[UniMessage[Text]],
   sql: async_scoped_session,
-  scene_id: SceneId,
+  scene_id: SceneIdRaw,
   no_context: bool,
 ) -> None:
   config = CONFIG()
@@ -204,7 +204,7 @@ reset = (
 
 
 @reset.handle()
-async def handle_reset(scene_id: SceneId, sql: async_scoped_session) -> None:
+async def handle_reset(scene_id: SceneIdRaw, sql: async_scoped_session) -> None:
   current = await sql.get(Ignore, scene_id)
   if current:
     current.time = datetime.now()

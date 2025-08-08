@@ -14,7 +14,7 @@ from idhagnbot.permission import CHANNEL_TYPES
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_uninfo")
-from nonebot_plugin_alconna import Target
+from nonebot_plugin_alconna import Target, get_bot
 from nonebot_plugin_uninfo import Scene, SceneType, Uninfo, get_interface
 
 
@@ -61,14 +61,35 @@ SceneIdRaw = Annotated[str, Depends(get_scene_id_raw)]
 SceneId = Annotated[str, Depends(get_scene_id)]
 
 
+async def get_target_id(target: Target) -> str:
+  bot = await target.select()
+  interface = get_interface(bot)
+  assert interface
+  scope = interface.basic_info()["scope"]._name_
+  if target.channel:
+    return f"{scope}:guild:{target.parent_id}:channel:{target.id}"
+  if target.private:
+    return f"{scope}:private:{target.id}"
+  return f"{scope}:group:{target.id}"
+
+
+def _uninfo_predicate(platform: str) -> Callable[[Bot], Awaitable[bool]]:
+  async def predicate(bot: Bot) -> bool:
+    interface = get_interface(bot)
+    return bool(interface) and interface.basic_info()["scope"]._name_ == platform
+
+  return predicate
+
+
 def _uninfo_selector(platform: str) -> Callable[[Target, Bot], Awaitable[bool]]:
   async def predicate(target: Target, bot: Bot) -> bool:
     interface = get_interface(bot)
     return bool(interface) and interface.basic_info()["scope"]._name_ == platform
+
   return predicate
 
 
-def to_target(scene_id: str) -> Target:
+def get_target(scene_id: str) -> Target:
   if match := PRIVATE_RE.match(scene_id):
     return Target(match["private"], private=True, selector=_uninfo_selector(match["platform"]))
   if match := GROUP_RE.match(scene_id):
@@ -83,22 +104,19 @@ def to_target(scene_id: str) -> Target:
   raise ValueError("无效场景 ID")
 
 
-async def to_scene(scene_id: str) -> Optional[Scene]:
+async def get_scene(scene_id: str) -> Optional[Scene]:
   if match := PRIVATE_RE.match(scene_id):
-    target = Target("", selector=_uninfo_selector(match["platform"]))
-    bot = await target.select()
+    bot = await get_bot(predicate=_uninfo_predicate(match["platform"]), rand=True)
     interface = get_interface(bot)
     assert interface
     scene = await interface.get_scene(SceneType.PRIVATE, match["private"])
   elif match := GROUP_RE.match(scene_id):
-    target = Target("", selector=_uninfo_selector(match["platform"]))
-    bot = await target.select()
+    bot = await get_bot(predicate=_uninfo_predicate(match["platform"]), rand=True)
     interface = get_interface(bot)
     assert interface
     scene = await interface.get_scene(SceneType.GROUP, match["group"])
   elif match := GUILD_RE.match(scene_id):
-    target = Target("", selector=_uninfo_selector(match["platform"]))
-    bot = await target.select()
+    bot = await get_bot(predicate=_uninfo_predicate(match["platform"]), rand=True)
     interface = get_interface(bot)
     assert interface
     scene = await interface.get_scene(

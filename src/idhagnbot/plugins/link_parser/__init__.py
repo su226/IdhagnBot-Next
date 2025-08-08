@@ -2,7 +2,7 @@ import asyncio
 import json
 from collections.abc import Generator
 from itertools import chain
-from typing import Annotated, Any, cast
+from typing import Any, cast
 
 import cv2
 import nonebot
@@ -13,7 +13,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Mapped, mapped_column
 
 from idhagnbot.config import SharedConfig
-from idhagnbot.context import SceneId
+from idhagnbot.context import SceneIdRaw
+from idhagnbot.message import UniMsg
 from idhagnbot.permission import permission
 from idhagnbot.plugins.link_parser.common import Content
 from idhagnbot.plugins.link_parser.contents import bilibili_activity, bilibili_b23, bilibili_video
@@ -22,7 +23,7 @@ from idhagnbot.url import extract_url
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_orm")
 from nonebot_plugin_alconna import image_fetch
-from nonebot_plugin_alconna.uniseg import Hyper, Image, Segment, Text, UniMessage, UniversalMessage
+from nonebot_plugin_alconna.uniseg import Hyper, Image, Segment, Text, UniMessage
 from nonebot_plugin_orm import Model, async_scoped_session
 
 
@@ -30,7 +31,6 @@ class Config(BaseModel):
   qrcode: bool = False
 
 
-UniMsg = Annotated[UniMessage[Segment], UniversalMessage()]
 CONFIG = SharedConfig("link_parser", Config)
 CONTENTS: list[Content] = [bilibili_activity, bilibili_b23, bilibili_video]
 
@@ -96,7 +96,7 @@ async def check_links(
   message: UniMsg,
   state: T_State,
   sql: async_scoped_session,
-  scene: SceneId,
+  scene: SceneIdRaw,
 ) -> bool:
   links = set(extract_links(message))
   if CONFIG().qrcode:
@@ -123,7 +123,7 @@ url_parser = nonebot.on_message(check_links, permission("link_parser"))
 
 
 @url_parser.handle()
-async def _(state: T_State, sql: async_scoped_session, scene: SceneId) -> None:
+async def _(state: T_State, sql: async_scoped_session, scene: SceneIdRaw) -> None:
   result = await state["content"].format(**state["state"])
   current = await sql.get(LastState, scene)
   if current:

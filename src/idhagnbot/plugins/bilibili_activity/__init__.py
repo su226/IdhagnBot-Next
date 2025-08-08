@@ -10,7 +10,7 @@ from loguru import logger
 from nonebot.exception import ActionFailed
 
 from idhagnbot.command import CommandBuilder
-from idhagnbot.context import SceneId, SceneIdRaw, to_scene, to_target
+from idhagnbot.context import SceneId, SceneIdRaw, get_scene, get_target
 from idhagnbot.permission import ADMINISTRATOR_OR_ABOVE
 from idhagnbot.plugins.bilibili_activity import common, contents
 from idhagnbot.target import TargetConfig
@@ -217,9 +217,9 @@ async def handle_force_push(id: Match[int], scene_id: SceneId, scene_id_raw: Sce
   activity = Activity.parse(src)
   message = await contents.format(activity, False)
   if scene_id != scene_id_raw:
-    target = to_target(scene_id)
+    target = get_target(scene_id)
     await message.send(target)
-    scene = await to_scene(scene_id)
+    scene = await get_scene(scene_id)
     name = scene.name or "未知" if scene else "未知"
     await UniMessage(Text(f"已推送到 {name}")).send()
   else:
