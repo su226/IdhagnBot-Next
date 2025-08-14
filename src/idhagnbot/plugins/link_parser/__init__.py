@@ -17,7 +17,12 @@ from idhagnbot.context import SceneIdRaw
 from idhagnbot.message import UniMsg
 from idhagnbot.permission import permission
 from idhagnbot.plugins.link_parser.common import Content
-from idhagnbot.plugins.link_parser.contents import bilibili_activity, bilibili_b23, bilibili_video
+from idhagnbot.plugins.link_parser.contents import (
+  bilibili_activity,
+  bilibili_b23,
+  bilibili_video,
+  github,
+)
 from idhagnbot.url import extract_url
 
 nonebot.require("nonebot_plugin_alconna")
@@ -32,7 +37,7 @@ class Config(BaseModel):
 
 
 CONFIG = SharedConfig("link_parser", Config)
-CONTENTS: list[Content] = [bilibili_activity, bilibili_b23, bilibili_video]
+CONTENTS: list[Content] = [bilibili_activity, bilibili_b23, bilibili_video, github]
 
 
 class LastState(Model):
