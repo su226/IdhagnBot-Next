@@ -27,7 +27,7 @@ async def get_show_data(
   scene: str,
   session: Session,
   interface: Interface,
-  sorted_roles: list[str],
+  roles: set[str],
 ) -> ShowData:
   available_scenes = {scene}
   if session.scene.type == SceneType.PRIVATE:
@@ -39,7 +39,7 @@ async def get_show_data(
     scene,
     available_scenes,
     session.scene.type == SceneType.PRIVATE,
-    sorted_roles,
+    roles,
   )
 
 

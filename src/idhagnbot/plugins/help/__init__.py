@@ -5,7 +5,7 @@ import nonebot
 from idhagnbot.command import CommandBuilder
 from idhagnbot.context import SceneId
 from idhagnbot.help import CategoryItem, CommandItem
-from idhagnbot.permission import SortedRoles
+from idhagnbot.permission import Roles
 from idhagnbot.plugins.help.common import get_show_data, join_path, normalize_path
 
 nonebot.require("nonebot_plugin_alconna")
@@ -40,7 +40,7 @@ def find_command(name: str) -> Optional[CommandItem]:
   for prefix in nonebot.get_driver().config.command_start:
     if name.startswith(prefix):
       try:
-        return CommandItem.find(name[len(prefix):])
+        return CommandItem.find(name[len(prefix) :])
       except KeyError:
         pass
   return None
@@ -67,11 +67,11 @@ async def handle_help(
   session: Uninfo,
   interface: QryItrface,
   scene: SceneId,
-  sorted_roles: SortedRoles,
+  roles: Roles,
   path: Match[tuple[str]],
   page: Match[int],
 ) -> None:
-  show_data = await get_show_data(scene, session, interface, sorted_roles)
+  show_data = await get_show_data(scene, session, interface, roles)
   if (
     len(path.result) == 1
     and (command := find_command(path.result[0]))

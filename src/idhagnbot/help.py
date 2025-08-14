@@ -26,7 +26,7 @@ class ShowData:
   current_scene: str
   available_scenes: set[str]
   private: bool
-  sorted_roles: list[str]
+  roles: set[str]
 
 
 def noop_condition(_: ShowData) -> bool:
@@ -160,7 +160,7 @@ class Item:
     return 0
 
   def can_show(self, data: ShowData) -> bool:
-    if not check_permission(self.data.parsed_node, data.sorted_roles, self.data.default_grant_to):
+    if not check_permission(self.data.parsed_node, data.roles, self.data.default_grant_to):
       return False
     if self.data.scope and data.scope != self.data.scope:
       return False
@@ -183,7 +183,7 @@ class StringItem(Item):
 
   def html(self) -> str:
     summary = html.escape(self.string)
-    if (details := super().html()):
+    if details := super().html():
       return f"<details><summary>{summary}</summary>{details}</details>"
     return summary
 
@@ -195,8 +195,11 @@ class CommandItem(Item):
   commands: ClassVar[dict[str, "CommandItem"]] = {}
 
   def __init__(
-    self, names: Optional[list[str]] = None, brief: str = "",
-    usage: Union[str, Callable[[], str]] = "", data: Optional[CommonData] = None,
+    self,
+    names: Optional[list[str]] = None,
+    brief: str = "",
+    usage: Union[str, Callable[[], str]] = "",
+    data: Optional[CommonData] = None,
   ) -> None:
     super().__init__(data)
     self.names = names or []
@@ -208,7 +211,7 @@ class CommandItem(Item):
       self.commands[i] = self
 
   def html(self) -> str:
-    if (info := super().html()):
+    if info := super().html():
       info = f"\n{info}"
     return (
       f'<details id="{html.escape(self.names[0])}"><summary>{html.escape(self())}</summary>'
@@ -269,9 +272,11 @@ class CategoryItem(Item):
     return f"📁{self.name}{brief}"
 
   def html(self, details: bool = True) -> str:
-    content = "".join(f"<li>{x.html()}</li>" for x in sorted(
-      self.items, key=lambda x: (-x.data.priority, x.get_order(), x())))
-    if (info := super().html()):
+    content = "".join(
+      f"<li>{x.html()}</li>"
+      for x in sorted(self.items, key=lambda x: (-x.data.priority, x.get_order(), x()))
+    )
+    if info := super().html():
       content = f"<pre>{info}</pre><ul>{content}</ul>"
     else:
       content = f"<ul>{content}</ul>"
@@ -284,7 +289,10 @@ class CategoryItem(Item):
 
   @classmethod
   def find(
-    cls, path: Union[str, list[str]], create: bool = False, check: Optional[ShowData] = None,
+    cls,
+    path: Union[str, list[str]],
+    create: bool = False,
+    check: Optional[ShowData] = None,
   ) -> "CategoryItem":
     cur = CategoryItem.ROOT
     if check and not cur.can_show(check):
@@ -321,7 +329,7 @@ class CategoryItem(Item):
       return "当前分类没有内容", 0, 0
     total_pages = math.ceil(len(valid_items) / config.page_size)
     page = max(min(page, total_pages - 1), 0)
-    valid_items = valid_items[config.page_size * page:config.page_size * (page + 1)]
+    valid_items = valid_items[config.page_size * page : config.page_size * (page + 1)]
     has_command = False
     has_category = False
     lines: list[str] = []
@@ -352,7 +360,6 @@ class CategoryItem(Item):
     if header_lines:
       lines = [*header_lines, SEPARATOR, *lines]
     return "\n".join(lines), page, total_pages
-
 
   def format_all(self, show_data: ShowData, path: list[str]) -> list[str]:
     config = CONFIG()

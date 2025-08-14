@@ -8,7 +8,7 @@ from nonebot.typing import T_State
 
 from idhagnbot.context import SceneId
 from idhagnbot.help import CategoryItem
-from idhagnbot.permission import SortedRoles
+from idhagnbot.permission import Roles
 from idhagnbot.plugins.help.common import get_show_data, join_path, normalize_path
 
 nonebot.require("nonebot_plugin_alconna")
@@ -36,12 +36,12 @@ async def handle_help_page(
   session: Uninfo,
   interface: QryItrface,
   scene: SceneId,
-  sorted_roles: SortedRoles,
+  roles: Roles,
   state: T_State,
 ) -> None:
   if not event.message:
     return
-  show_data = await get_show_data(scene, session, interface, sorted_roles)
+  show_data = await get_show_data(scene, session, interface, roles)
   page = state["page"]
   path = state["path"]
   try:
