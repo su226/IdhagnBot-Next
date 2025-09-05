@@ -12,7 +12,7 @@ from idhagnbot.plugins.bilibili_activity.contents import format as format_activi
 
 RE = re.compile(
   r"^(?:[Hh][Tt][Tt][Pp][Ss]?://)?(?:[Tt]\.[Bb][Ii][Ll][Ii][Bb][Ii][Ll][Ii]\.[Cc][Oo][Mm]|"
-  r"(?:[Ww][Ww][Ww]\.)?[Bb][Ii][Ll][Ii][Bb][Ii][Ll][Ii]\.[Cc][Oo][Mm]/opus)/(\d+)/?(?:\?|#|$)",
+  r"(?:[Ww][Ww][Ww]\.|[Mm]\.)?[Bb][Ii][Ll][Ii][Bb][Ii][Ll][Ii]\.[Cc][Oo][Mm]/opus)/(\d+)/?(?:\?|#|$)",
 )
 
 

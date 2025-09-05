@@ -31,7 +31,7 @@ RE1 = re.compile(
   r"(av\d{1,15}|BV[A-Za-z0-9]{10})(?:\?|#|$)",
 )
 RE2 = re.compile(
-  r"^(?:[Hh][Tt][Tt][Pp][Ss]?://)?(?:[Ww][Ww][Ww]\.)?[Bb][Ii][Ll][Ii][Bb][Ii][Ll][Ii]\."
+  r"^(?:[Hh][Tt][Tt][Pp][Ss]?://)?(?:[Ww][Ww][Ww]\.|[Mm]\.)?[Bb][Ii][Ll][Ii][Bb][Ii][Ll][Ii]\."
   r"[Cc][Oo][Mm]/video/(av\d{1,15}|(?:BV|bv)[A-Za-z0-9]{10})/?(?:\?|#|$)",
 )
 INFO_API = "https://api.bilibili.com/x/web-interface/view/detail"
