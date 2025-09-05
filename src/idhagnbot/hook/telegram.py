@@ -27,7 +27,7 @@ def _parse_from_data(
     if data.get("parse_mode") is not None:
       return None
     entities = Entity.from_telegram_entities(data["text"], data.get("entities") or [])
-    message = UniMessage.of(Message(entities))
+    message = UniMessage.of(Message(entities), bot)
   elif api in (
     "send_photo",
     "send_audio",
@@ -57,7 +57,7 @@ def _parse_from_data(
       )
     elif api == "send_voice":
       message.append(File.voice(data["voice"]))
-    message = UniMessage.of(message)
+    message = UniMessage.of(message, bot)
   elif api == "send_media_group":
     media = data["media"][0]
     if media.get("parse_mode") is not None:
@@ -78,10 +78,11 @@ def _parse_from_data(
         message.append(
           File.video(media["media"], media.get("thumbnail"), media.get("has_spoiler")),
         )
-    message = UniMessage.of(message)
+    message = UniMessage.of(message, bot)
   elif api == "send_video_note":
     message = UniMessage.of(
       Message(UnCombinFile.video_note(data["video_note"], data.get("thumbnail"))),
+      bot,
     )
   elif api == "send_location":
     message = UniMessage.of(
@@ -95,6 +96,7 @@ def _parse_from_data(
           data.get("proximity_alert_radius"),
         ),
       ),
+      bot,
     )
   elif api == "send_venue":
     message = UniMessage.of(
@@ -110,6 +112,7 @@ def _parse_from_data(
           data.get("google_place_type"),
         ),
       ),
+      bot,
     )
   elif api == "send_poll":
     message = UniMessage.of(
@@ -126,11 +129,12 @@ def _parse_from_data(
           data.get("close_date"),
         ),
       ),
+      bot,
     )
   elif api == "send_dice":
-    message = UniMessage.of(Message(MessageSegment.dice(data["emoji"])))
+    message = UniMessage.of(Message(MessageSegment.dice(data["emoji"])), bot)
   elif api == "send_chat_action":
-    message = UniMessage.of(Message(MessageSegment.chat_action(data["action"])))
+    message = UniMessage.of(Message(MessageSegment.chat_action(data["action"])), bot)
   else:
     return None
   chat_id = data["chat_id"]
@@ -184,7 +188,7 @@ async def on_called_api(
       "send_invoice",  # not implemented in _parse_from_data
       "send_game",  # not implemented in _parse_from_data
     ):
-      message = UniMessage.of(Message.model_validate(result))
+      message = UniMessage.of(Message.model_validate(result), bot)
       chat_id = result["chat"]["id"]
       message_thread_id = result.get("message_thread_id")
       message_ids = [str(result["message_id"])]
@@ -195,12 +199,13 @@ async def on_called_api(
             cast(Message[MessageSegment], Message.model_validate(message)) for message in result
           ),
         ),
+        bot,
       )
       chat_id = result[0]["chat"]["id"]
       message_thread_id = result[0].get("message_thread_id")
       message_ids = [str(message["message_id"]) for message in result]
     elif api == "send_chat_action":
-      message = UniMessage.of(Message(MessageSegment.chat_action(data["action"])))
+      message = UniMessage.of(Message(MessageSegment.chat_action(data["action"])), bot)
       chat_id = data["chat_id"]
       message_thread_id = data.get("message_thread_id")
       message_ids = []

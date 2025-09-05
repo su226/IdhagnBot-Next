@@ -57,7 +57,7 @@ def _parse_from_data(
       self_id=bot.self_id,
       scope=SupportScope.qq_client,
     )
-  return UniMessage.of(message), target
+  return UniMessage.of(message, bot), target
 
 
 async def on_calling_api(bot: Bot, api: str, data: dict[str, Any]) -> None:

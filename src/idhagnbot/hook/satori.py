@@ -40,7 +40,7 @@ async def _parse_from_data(
     self_id=bot.self_id,
     scope=SupportScope.ensure_satori(bot.platform),
   )
-  message = UniMessage.of(Message(data["content"]))
+  message = UniMessage.of(Message(data["content"]), bot)
   return message, target
 
 
@@ -77,7 +77,7 @@ async def on_called_api(
       scope=SupportScope.ensure_satori(bot.platform),
     )
     chained = Message(chain.from_iterable(Message(message.content) for message in result))
-    message = UniMessage.of(chained)
+    message = UniMessage.of(chained, bot)
     ids = [message.id for message in result]
     await call_message_sent_hook(bot, message, target, ids)
   elif parsed := await _parse_from_data(bot, api, data):
