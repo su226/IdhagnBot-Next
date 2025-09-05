@@ -391,23 +391,15 @@ class ContentParser(Protocol[TContent]):
 
 @dataclass
 class ContentText(ContentParser["ContentText"]):
-  title: str
   text: str
   richtext: RichText
 
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentText":
     module = item["modules"]["module_dynamic"]
-    major = module["major"]
-    if major and "opus" in major:
-      opus = major["opus"]
-      title = opus["title"] or ""
-      desc = opus["summary"]
-    else:
-      title = ""
-      desc = module["desc"]
-      assert desc
-    return ContentText(title, desc["text"], parse_richtext(desc["rich_text_nodes"]))
+    desc = module["desc"]
+    assert desc
+    return ContentText(desc["text"], parse_richtext(desc["rich_text_nodes"]))
 
 
 @dataclass
@@ -420,7 +412,6 @@ class Image:
 
 @dataclass
 class ContentImage(ContentParser["ContentImage"]):
-  title: str
   text: str
   richtext: RichText
   images: list[Image]
@@ -429,26 +420,9 @@ class ContentImage(ContentParser["ContentImage"]):
   def parse(item: ApiDynamic) -> "ContentImage":
     module = item["modules"]["module_dynamic"]
     major = module["major"]
-    assert major
-    if "opus" in major:
-      opus = major["opus"]
-      title = opus["title"] or ""
-      desc = opus["summary"]
-      pics = [
-        Image(
-          image["url"],
-          image["width"],
-          image["height"],
-          image["size"],
-        )
-        for image in opus["pics"]
-      ]
-    else:
-      title = ""
-      desc = module["desc"]
-      assert desc
+    if major:
       assert "draw" in major
-      pics = [
+      images = [
         Image(
           image["src"],
           image["width"],
@@ -457,7 +431,46 @@ class ContentImage(ContentParser["ContentImage"]):
         )
         for image in major["draw"]["items"]
       ]
-    return ContentImage(title, desc["text"], parse_richtext(desc["rich_text_nodes"]), pics)
+    else:
+      images = []
+    desc = module["desc"]
+    if desc:
+      text = desc["text"]
+      richtext = parse_richtext(desc["rich_text_nodes"])
+    else:
+      text = ""
+      richtext = []
+    return ContentImage(text, richtext, images)
+
+
+@dataclass
+class ContentOpus(ContentParser["ContentOpus"]):
+  title: str
+  text: str
+  richtext: RichText
+  images: list[Image]
+
+  @staticmethod
+  def parse(item: ApiDynamic) -> "ContentOpus":
+    major = item["modules"]["module_dynamic"]["major"]
+    assert major
+    assert "opus" in major
+    opus = major["opus"]
+    desc = opus["summary"]
+    return ContentOpus(
+      opus["title"] or "",
+      desc["text"],
+      parse_richtext(desc["rich_text_nodes"]),
+      [
+        Image(
+          image["url"],
+          image["width"],
+          image["height"],
+          image["size"],
+        )
+        for image in opus["pics"]
+      ],
+    )
 
 
 @dataclass
@@ -1024,8 +1037,11 @@ class Activity(Generic[TContent, TExtra]):
       )
     content_type = item["type"].removeprefix("DYNAMIC_TYPE_")
     dynamic_module = modules["module_dynamic"]
-    if dynamic_module["major"] and dynamic_module["major"]["type"] == "MAJOR_TYPE_BLOCKED":
+    major = dynamic_module["major"]
+    if major and major["type"] == "MAJOR_TYPE_BLOCKED":
       content_cls = ContentBlocked
+    elif major and major["type"] == "MAJOR_TYPE_OPUS":
+      content_cls = ContentOpus
     else:
       content_cls = CONTENT_TYPES.get(content_type, ContentUnknown)
     extra = None
@@ -1053,6 +1069,7 @@ class Activity(Generic[TContent, TExtra]):
 
 ActivityText = Activity[ContentText, TExtra]
 ActivityImage = Activity[ContentImage, TExtra]
+ActivityOpus = Activity[ContentOpus, TExtra]
 ActivityArticle = Activity[ContentArticle, TExtra]
 ActivityVideo = Activity[ContentVideo, TExtra]
 ActivityAudio = Activity[ContentAudio, TExtra]

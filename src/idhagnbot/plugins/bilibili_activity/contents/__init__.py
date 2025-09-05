@@ -37,6 +37,7 @@ from idhagnbot.plugins.bilibili_activity.contents import (
   common,
   forward,
   image,
+  opus,
   text,
   video,
 )
@@ -49,6 +50,7 @@ from idhagnbot.third_party.bilibili_activity import (
   ContentForward,
   ContentImage,
   ContentLiveRcmd,
+  ContentOpus,
   ContentText,
   ContentVideo,
 )
@@ -62,8 +64,8 @@ async def format_unknown(activity: Activity[object, object]) -> UniMessage[Segme
     Text(
       f"{activity.name} 发布了动态\n"
       f"IdhagnBot 暂不支持解析此类动态（{activity.type}）\n"
-      f"https://t.bilibili.com/{activity.id}"
-    )
+      f"https://t.bilibili.com/{activity.id}",
+    ),
   )
 
 
@@ -81,6 +83,7 @@ Formatter = tuple[
 FORMATTERS: list[Formatter[Any]] = [
   (ContentText, text.format),
   (ContentImage, image.format),
+  (ContentOpus, opus.format),
   (ContentVideo, video.format),
   (ContentArticle, article.format),
   (ContentAudio, audio.format),

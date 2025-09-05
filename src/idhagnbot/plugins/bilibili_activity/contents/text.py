@@ -5,7 +5,7 @@ import nonebot
 from PIL import Image
 
 from idhagnbot import image
-from idhagnbot.image.card import Card, CardAuthor, CardText
+from idhagnbot.image.card import Card, CardAuthor
 from idhagnbot.plugins.bilibili_activity import extras
 from idhagnbot.plugins.bilibili_activity.common import check_ignore, fetch_image
 from idhagnbot.third_party.bilibili_activity import ActivityText
@@ -25,8 +25,6 @@ async def get_appender(activity: ActivityText[object]) -> Callable[[Card], None]
   def appender(card: Card) -> None:
     block = Card()
     block.add(CardAuthor(avatar, activity.name))
-    if activity.content.title:
-      block.add(CardText(activity.content.title, "sans bold"))
     lines = 3 if activity.extra else 6
     block.add(CardTopic(activity.topic))
     block.add(CardRichText(activity.content.richtext, emotions, 32, lines))
