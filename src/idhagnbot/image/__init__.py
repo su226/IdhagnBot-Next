@@ -48,6 +48,7 @@ __all__ = [
   "load",
   "paste",
   "quantize",
+  "replace",
   "resize_canvas",
   "resize_height",
   "resize_width",
@@ -277,22 +278,14 @@ def paste(
   dst: Image.Image,
   src: Union[AnyImage, PasteColor],
   xy: Point = (0, 0),
-  mask: Union[AnyImage, None] = None,
   anchor: Anchor = "lt",
 ) -> None:
-  if isinstance(mask, cairo.ImageSurface):
-    mask = from_cairo(mask)
   if isinstance(src, cairo.ImageSurface):
-    src = from_cairo(src)
-  if isinstance(src, Image.Image):
-    if src.mode == "P":
-      assert src.palette
-      if "A" in src.palette.mode:
-        src = src.convert(src.palette.mode)  # RGBA (也可能是LA？)
-    if "A" in src.getbands():
-      mask = ImageChops.multiply(mask, src.getchannel("A")) if mask else src.getchannel("A")
+    paste_src = from_cairo(src)
+    width, height = paste_src.size
+  elif isinstance(src, Image.Image):
     paste_src = src
-    width, height = src.size
+    width, height = paste_src.size
   else:
     paste_src, (width, height) = src
     paste_src = color.split_rgb(paste_src) if isinstance(paste_src, int) else paste_src
@@ -308,9 +301,56 @@ def paste(
     y1 -= height
   x1 = round(x1)
   y1 = round(y1)
-  x2 = x1 + width
-  y2 = y1 + height
-  dst.paste(paste_src, (x1, y1, x2, y2), mask)
+  if (
+    dst.mode in ("RGBA", "LA")
+    and isinstance(paste_src, Image.Image)
+    and paste_src.has_transparency_data
+  ):
+    if paste_src.mode != dst.mode:
+      paste_src = paste_src.convert(dst.mode)
+    dst.alpha_composite(paste_src, (x1, y1))
+  else:
+    paste_mask = None
+    if isinstance(paste_src, Image.Image):
+      if "transparency" in paste_src.info:
+        paste_src = paste_src.copy()
+        paste_src.apply_transparency()
+      if paste_src.palette and paste_src.palette.mode.endswith("A"):
+        paste_src = paste_src.convert(paste_src.palette.mode)
+        paste_mask = paste_src
+      elif paste_src.mode.endswith(("A", "a")):
+        paste_mask = paste_src
+    dst.paste(paste_src, (x1, y1), paste_mask)
+
+
+def replace(
+  dst: Image.Image,
+  src: Union[AnyImage, PasteColor],
+  xy: Point = (0, 0),
+  anchor: Anchor = "lt",
+) -> None:
+  if isinstance(src, cairo.ImageSurface):
+    paste_src = from_cairo(src)
+    width, height = paste_src.size
+  elif isinstance(src, Image.Image):
+    paste_src = src
+    width, height = paste_src.size
+  else:
+    paste_src, (width, height) = src
+    paste_src = color.split_rgb(paste_src) if isinstance(paste_src, int) else paste_src
+  x1, y1 = xy
+  xa, ya = anchor
+  if xa == "m":
+    x1 -= width / 2
+  elif xa == "r":
+    x1 -= width
+  if ya == "m":
+    y1 -= height / 2
+  elif ya == "b":
+    y1 -= height
+  x1 = round(x1)
+  y1 = round(y1)
+  dst.paste(paste_src, (x1, y1))
 
 
 def _check_libimagequant() -> bool:

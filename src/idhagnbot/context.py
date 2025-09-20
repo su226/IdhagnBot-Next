@@ -57,8 +57,13 @@ def get_scene_id(session: Uninfo) -> str:
   return get_scene_id_raw(session)
 
 
+def get_user_id(session: Uninfo) -> str:
+  return session.member.id if session.member else session.user.id
+
+
 SceneIdRaw = Annotated[str, Depends(get_scene_id_raw)]
 SceneId = Annotated[str, Depends(get_scene_id)]
+UserId = Annotated[str, Depends(get_user_id)]
 
 
 async def get_target_id(target: Target) -> str:

@@ -6,13 +6,21 @@ from typing import Optional, cast
 import nonebot
 from nonebot.adapters import Bot, Event
 from nonebot.adapters.telegram import Adapter, Message, MessageSegment
-from nonebot.adapters.telegram.event import MessageEvent
+from nonebot.adapters.telegram.event import EditedMessageEvent, MessageEvent
+from nonebot.adapters.telegram.model import Message as RawMessage
 from typing_extensions import TypeGuard
 
-from idhagnbot.message.common import MERGED_EVENT_REGISTRY, MERGED_MSG_REGISTRY
+from idhagnbot.message.common import (
+  EVENT_TIME_REGISTRY,
+  MERGED_EVENT_REGISTRY,
+  MERGED_MSG_REGISTRY,
+  MESSAGE_ID_REGISTRY,
+  SENT_MESSAGE_ID_REGISTRY,
+)
 
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Segment, UniMessage
+from nonebot_plugin_alconna.uniseg import Receipt
 
 media_groups = dict[str, tuple[datetime, list[MessageEvent]]]()
 
@@ -48,7 +56,32 @@ async def merged_msg(
   return msg
 
 
+async def message_id(bot: Bot, event: Event) -> Optional[str]:
+  if isinstance(event, MessageEvent):
+    return str(event.message_id)
+  return None
+
+
+async def event_time(bot: Bot, event: Event) -> Optional[datetime]:
+  if isinstance(event, EditedMessageEvent):
+    return datetime.fromtimestamp(event.edit_date)
+  if date := getattr(event, "date", None):
+    return datetime.fromtimestamp(date)
+  return None
+
+
+async def sent_message_id(receipt: Receipt) -> list[str]:
+  result = []
+  for msg_id in receipt.msg_ids:
+    assert isinstance(msg_id, RawMessage)
+    result.append(msg_id.message_id)
+  return result
+
+
 def register() -> None:
   name = Adapter.get_name()
   MERGED_EVENT_REGISTRY[name] = merged_event
   MERGED_MSG_REGISTRY[name] = merged_msg
+  MESSAGE_ID_REGISTRY[name] = message_id
+  EVENT_TIME_REGISTRY[name] = event_time
+  SENT_MESSAGE_ID_REGISTRY[name] = sent_message_id

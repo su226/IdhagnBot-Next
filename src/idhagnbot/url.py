@@ -1,6 +1,9 @@
+import os
 import re
 from collections.abc import Generator
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from urllib.parse import unquote_to_bytes
 
 import nonebot
 from nonebot import logger
@@ -19,7 +22,9 @@ class Data(BaseModel):
 
 
 DATA = SharedData("url", Data)
-URL_RE = re.compile(r"(?:https?://)?(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=-]*)?")
+URL_RE = re.compile(
+  r"(?:https?://)?(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=-]*)?",
+)
 driver = nonebot.get_driver()
 
 
@@ -53,3 +58,22 @@ async def update_tlds() -> None:
   data.tlds = set(tlds.lower().splitlines()[1:])
   data.last_update = now
   DATA.dump()
+
+
+def path_from_url(uri: str) -> Path:
+  if not uri.startswith("file:"):
+    raise ValueError(f"URI does not start with 'file:': {uri!r}")
+  path = uri[5:]
+  if path[:3] == "///":
+    path = path[2:]
+  elif path[:12] == "//localhost/":
+    path = path[11:]
+  if path[:3] == "///" or (path[:1] == "/" and path[2:3] in ":|"):
+    path = path[1:]
+  if path[1:2] == "|":
+    path = path[:1] + ":" + path[2:]
+
+  path = Path(os.fsdecode(unquote_to_bytes(path)))
+  if not path.is_absolute():
+    raise ValueError(f"URI is not absolute: {uri!r}")
+  return path
