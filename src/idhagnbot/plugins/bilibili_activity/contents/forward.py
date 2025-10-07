@@ -15,7 +15,15 @@ from idhagnbot.plugins.bilibili_activity.common import (
   check_ignore,
   fetch_image,
 )
-from idhagnbot.plugins.bilibili_activity.contents import article, audio, common, image, text, video
+from idhagnbot.plugins.bilibili_activity.contents import (
+  article,
+  audio,
+  common,
+  image,
+  opus,
+  text,
+  video,
+)
 from idhagnbot.third_party.bilibili_activity import (
   Activity,
   ActivityCourse,
@@ -33,6 +41,7 @@ from idhagnbot.third_party.bilibili_activity import (
   ContentImage,
   ContentLive,
   ContentLiveRcmd,
+  ContentOpus,
   ContentPGC,
   ContentPlaylist,
   ContentText,
@@ -145,7 +154,7 @@ async def get_live_rcmd_appender(activity: ActivityLiveRcmd[object]) -> Callable
         ),
         size=32,
         lines=0,
-      )
+      ),
     )
     card.add(block)
     card.add(CardCover(cover))
@@ -244,6 +253,7 @@ TITLE_FORMATTERS: list[TitleFormatter[Any]] = [
 CARD_APPENDERS: list[AppenderGetter[Any]] = [
   (ContentText, text.get_appender),
   (ContentImage, image.get_appender),
+  (ContentOpus, opus.get_appender),
   (ContentVideo, video.get_appender),
   (ContentAudio, audio.get_appender),
   (ContentArticle, article.get_appender),
