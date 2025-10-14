@@ -57,7 +57,7 @@ async def on_bot_disconnect(bot: Bot) -> None:
 
 
 async def send_group_poke(bot: Bot, group_id: int, user_id: int) -> None:
-  if await get_implementation(bot) == LAGRANGE:
+  if await get_implementation(bot) in (LAGRANGE, NAPCAT):
     await bot.group_poke(group_id=group_id, user_id=user_id)
   else:
     message = Message(MessageSegment("poke", {"qq": user_id}))
@@ -65,7 +65,7 @@ async def send_group_poke(bot: Bot, group_id: int, user_id: int) -> None:
 
 
 async def send_friend_poke(bot: Bot, user_id: int) -> None:
-  if await get_implementation(bot) == LAGRANGE:
+  if await get_implementation(bot) in (LAGRANGE, NAPCAT):
     await bot.friend_poke(user_id=user_id)
   else:
     message = Message(MessageSegment("poke", {"qq": user_id}))
