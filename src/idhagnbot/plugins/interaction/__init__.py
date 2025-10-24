@@ -54,10 +54,10 @@ async def check_interaction(bot: Bot, event: Event, message: OrigUniMsg, state: 
     return False
   config = CONFIG()
   if text.startswith(config.active_prefix):
-    action = text[1:]
+    action = text[len(config.active_prefix) :]
     passive = False
   elif text.startswith(config.passive_prefix):
-    action = text[1:]
+    action = text[len(config.passive_prefix) :]
     passive = True
   else:
     return False
