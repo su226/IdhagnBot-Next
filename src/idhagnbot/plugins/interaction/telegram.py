@@ -9,13 +9,13 @@ from nonebot.adapters.telegram.event import (
 )
 from nonebot.adapters.telegram.model import Chat
 
-from idhagnbot.plugins.interaction.common import REPLY_EXTRACT_REGISTRY
+from idhagnbot.plugins.interaction.common import AT_EXTRACT_REGISTRY, REPLY_EXTRACT_REGISTRY
 
 nonebot.require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import Reply
+from nonebot_plugin_alconna import At, Reply
 
 
-async def extract(bot: Bot, event: Event, reply: Reply) -> str:
+async def extract_from_reply(bot: Bot, event: Event, reply: Reply) -> str:
   assert isinstance(bot, TGBot)
   if isinstance(reply.origin, PrivateMessageEvent):
     sender = reply.origin.from_
@@ -36,5 +36,13 @@ async def extract(bot: Bot, event: Event, reply: Reply) -> str:
   return str(sender.id)
 
 
+async def extract_from_at(bot: Bot, event: Event, at: At) -> str:
+  if at.display:  # 有 display 时是 text_mention，否则是 mention
+    return at.display
+  return at.target[1:]  # Bot API 无法从用户名获取用户信息
+
+
 def register() -> None:
-  REPLY_EXTRACT_REGISTRY[Adapter.get_name()] = extract
+  adapter = Adapter.get_name()
+  REPLY_EXTRACT_REGISTRY[adapter] = extract_from_reply
+  AT_EXTRACT_REGISTRY[adapter] = extract_from_at

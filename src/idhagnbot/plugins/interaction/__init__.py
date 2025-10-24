@@ -7,11 +7,11 @@ from pydantic import BaseModel
 from idhagnbot.config import SharedConfig
 from idhagnbot.message.common import OrigUniMsg
 from idhagnbot.permission import permission
-from idhagnbot.plugins.interaction.common import REPLY_EXTRACT_REGISTRY
+from idhagnbot.plugins.interaction.common import AT_EXTRACT_REGISTRY, REPLY_EXTRACT_REGISTRY
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_uninfo")
-from nonebot_plugin_alconna import Reply, Text, command_manager
+from nonebot_plugin_alconna import At, Reply, Text, command_manager
 from nonebot_plugin_uninfo import Uninfo
 
 try:
@@ -40,18 +40,16 @@ CONFIG = SharedConfig("interaction", Config)
 async def check_interaction(bot: Bot, event: Event, message: OrigUniMsg, state: T_State) -> bool:
   if state[PREFIX_KEY][CMD_KEY]:
     return False
-  extractor = REPLY_EXTRACT_REGISTRY.get(bot.adapter.get_name())
-  if not extractor:
-    return False
   reply_segments = message[Reply]
-  if len(reply_segments) != 1:
+  if len(reply_segments) > 1:
+    return False
+  at_segments = message[At]
+  if len(at_segments) > 1:
     return False
   text_segments = message[Text]
-  if len(text_segments) + 1 < len(message):
+  if not all(isinstance(segment, (Reply, At, Text)) for segment in message):
     return False
-  text = text_segments.extract_plain_text()
-  if command_manager.test(text):
-    return False
+  text = text_segments.extract_plain_text().strip()
   config = CONFIG()
   if text.startswith(config.active_prefix):
     action = text[len(config.active_prefix) :]
@@ -63,9 +61,34 @@ async def check_interaction(bot: Bot, event: Event, message: OrigUniMsg, state: 
     return False
   if len(action) > config.max_length:
     return False
+  if command_manager.test(text):
+    return False
+  adapter = bot.adapter.get_name()
+  if reply_segments and at_segments:
+    reply_extractor = REPLY_EXTRACT_REGISTRY.get(adapter)
+    if not reply_extractor:
+      return False
+    at_extractor = AT_EXTRACT_REGISTRY.get(adapter)
+    if not at_extractor:
+      return False
+    reply_user2 = await reply_extractor(bot, event, reply_segments[0])
+    at_user2 = await at_extractor(bot, event, at_segments[0])
+    if reply_user2 != at_user2:
+      return False
+    user2 = reply_user2
+  elif reply_segments:
+    reply_extractor = REPLY_EXTRACT_REGISTRY.get(adapter)
+    if not reply_extractor:
+      return False
+    user2 = await reply_extractor(bot, event, reply_segments[0])
+  else:
+    at_extractor = AT_EXTRACT_REGISTRY.get(adapter)
+    if not at_extractor:
+      return False
+    user2 = await at_extractor(bot, event, at_segments[0])
   state["action"] = action
   state["passive"] = passive
-  state["user2"] = await extractor(bot, event, reply_segments[0])
+  state["user2"] = user2
   return True
 
 
