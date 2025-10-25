@@ -81,11 +81,13 @@ async def check_interaction(bot: Bot, event: Event, message: OrigUniMsg, state: 
     if not reply_extractor:
       return False
     user2 = await reply_extractor(bot, event, reply_segments[0])
-  else:
+  elif at_segments:
     at_extractor = AT_EXTRACT_REGISTRY.get(adapter)
     if not at_extractor:
       return False
     user2 = await at_extractor(bot, event, at_segments[0])
+  else:
+    return False
   state["action"] = action
   state["passive"] = passive
   state["user2"] = user2
