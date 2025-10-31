@@ -27,7 +27,7 @@ from nonebot_plugin_alconna.uniseg import Image as ImageSeg
 from nonebot_plugin_alconna.uniseg import Text, UniMessage
 
 RE1 = re.compile(
-  r"^(?:[Hh][Tt][Tt][Pp][Ss]?://)?(?:[Bb]23\.[Tt][Vv|[Bb][Ii][Ll][Ii]2233\.[Cc][Nn])/"
+  r"^(?:[Hh][Tt][Tt][Pp][Ss]?://)?(?:[Bb]23\.[Tt][Vv]|[Bb][Ii][Ll][Ii]2233\.[Cc][Nn])/"
   r"(av\d{1,15}|BV[A-Za-z0-9]{10})(?:\?|#|$)",
 )
 RE2 = re.compile(
