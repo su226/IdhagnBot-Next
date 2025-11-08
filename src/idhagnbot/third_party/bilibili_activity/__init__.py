@@ -239,7 +239,7 @@ class ApiOpusPic(TypedDict):
   url: str
   width: int
   height: int
-  size: float
+  size: Optional[float]
 
 
 class ApiOpus(TypedDict):
@@ -466,7 +466,7 @@ class ContentOpus(ContentParser["ContentOpus"]):
           image["url"],
           image["width"],
           image["height"],
-          image["size"],
+          image["size"] or 0,
         )
         for image in opus["pics"]
       ],
