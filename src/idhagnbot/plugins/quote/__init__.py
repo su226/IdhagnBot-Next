@@ -25,7 +25,7 @@ from idhagnbot.image import (
   rounded_rectangle,
   to_segment,
 )
-from idhagnbot.message.common import OrigUniMsg, send_message
+from idhagnbot.message import OrigUniMsg, send_message
 from idhagnbot.plugins.quote.common import (
   EMOJI_REGISTRY,
   MESSAGE_PROCESSOR_REGISTRY,

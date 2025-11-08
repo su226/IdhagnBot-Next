@@ -5,7 +5,7 @@ from nonebot.adapters.satori.event import MessageDeletedEvent, MessageEvent
 from nonebot.message import event_preprocessor
 
 from idhagnbot.context import SceneIdRaw
-from idhagnbot.message.common import UniMsg
+from idhagnbot.message import UniMsg
 from idhagnbot.plugins.repeat.common import HANDLER_REGISTRY, LastMessage, is_same, last_messages
 
 nonebot.require("nonebot_plugin_alconna")

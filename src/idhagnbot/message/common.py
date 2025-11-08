@@ -15,6 +15,10 @@ MERGED_MSG_REGISTRY = dict[
   str,
   Callable[[Bot, list[Event], UniMessage[Segment]], Awaitable[Optional[UniMessage[Segment]]]],
 ]()
+ORIG_MERGED_MSG_REGISTRY = dict[
+  str,
+  Callable[[Bot, list[Event], UniMessage[Segment]], Awaitable[Optional[UniMessage[Segment]]]],
+]()
 MESSAGE_ID_REGISTRY = dict[str, Callable[[Bot, Event], Awaitable[Optional[str]]]]()
 EVENT_TIME_REGISTRY = dict[str, Callable[[Bot, Event], Awaitable[Optional[datetime]]]]()
 SENT_MESSAGE_ID_REGISTRY = dict[str, Callable[[Receipt], Awaitable[list[str]]]]()
@@ -38,6 +42,19 @@ async def merged_msg(bot: Bot, events: MergedEvent, msg: UniMsg) -> Optional[Uni
 
 
 MergedMsg = Annotated[UniMessage[Segment], Depends(merged_msg)]
+
+
+async def orig_merged_msg(
+  bot: Bot,
+  events: MergedEvent,
+  msg: OrigUniMsg,
+) -> Optional[UniMessage[Segment]]:
+  if handler := ORIG_MERGED_MSG_REGISTRY.get(bot.adapter.get_name()):
+    return await handler(bot, events, msg)
+  return msg
+
+
+OrigMergedMsg = Annotated[UniMessage[Segment], Depends(orig_merged_msg)]
 
 
 async def message_id(bot: Bot, event: Event) -> Optional[str]:

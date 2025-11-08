@@ -5,7 +5,7 @@ from nonebot.typing import T_State
 from pydantic import BaseModel
 
 from idhagnbot.config import SharedConfig
-from idhagnbot.message.common import OrigUniMsg
+from idhagnbot.message import OrigUniMsg
 from idhagnbot.permission import permission
 from idhagnbot.plugins.interaction.common import AT_EXTRACT_REGISTRY, REPLY_EXTRACT_REGISTRY
 

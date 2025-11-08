@@ -3,11 +3,22 @@ from idhagnbot.message.common import (
   MergedEvent,
   MergedMsg,
   MessageId,
+  OrigMergedMsg,
+  OrigUniMsg,
   UniMsg,
   send_message,
 )
 
-__all__ = ["EventTime", "MergedEvent", "MergedMsg", "MessageId", "UniMsg", "send_message"]
+__all__ = [
+  "EventTime",
+  "MergedEvent",
+  "MergedMsg",
+  "MessageId",
+  "OrigMergedMsg",
+  "OrigUniMsg",
+  "UniMsg",
+  "send_message",
+]
 
 try:
   from idhagnbot.message.onebot import register

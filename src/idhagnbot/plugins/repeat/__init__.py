@@ -7,8 +7,7 @@ from pydantic import BaseModel
 from idhagnbot.config import SharedConfig
 from idhagnbot.context import SceneIdRaw, get_target_id
 from idhagnbot.hook import on_message_send_failed, on_message_sending, on_message_sent
-from idhagnbot.message import MergedMsg
-from idhagnbot.message.common import MergedEvent
+from idhagnbot.message import MergedEvent, OrigMergedMsg
 from idhagnbot.permission import permission
 from idhagnbot.plugins.repeat.common import (
   CONDITION_REGISTRY,
@@ -54,7 +53,7 @@ CONFIG = SharedConfig("repeat", Config)
 
 
 @event_preprocessor
-async def _(bot: Bot, scene_id: SceneIdRaw, message: MergedMsg) -> None:
+async def _(bot: Bot, scene_id: SceneIdRaw, message: OrigMergedMsg) -> None:
   if already_counted.get():
     return
   last = last_messages.get(scene_id)
@@ -148,7 +147,7 @@ def check_condition(adapter: str, message: UniMessage[Segment]) -> bool:
   return True
 
 
-async def can_repeat(bot: Bot, scene_id: SceneIdRaw, message: MergedMsg) -> bool:
+async def can_repeat(bot: Bot, scene_id: SceneIdRaw, message: OrigMergedMsg) -> bool:
   if (
     (last := last_messages.get(scene_id))
     and is_same(bot.adapter.get_name(), last.message, message)
@@ -166,7 +165,7 @@ repeat = nonebot.on_message(can_repeat, permission("repeat"))
 
 
 @repeat.handle()
-async def _(bot: Bot, events: MergedEvent, message: MergedMsg, scene_id: SceneIdRaw) -> None:
+async def _(bot: Bot, events: MergedEvent, message: OrigMergedMsg, scene_id: SceneIdRaw) -> None:
   try:
     if handler := HANDLER_REGISTRY.get(bot.adapter.get_name()):
       await handler(bot, events, message, scene_id)

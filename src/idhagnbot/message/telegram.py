@@ -15,6 +15,7 @@ from idhagnbot.message.common import (
   MERGED_EVENT_REGISTRY,
   MERGED_MSG_REGISTRY,
   MESSAGE_ID_REGISTRY,
+  ORIG_MERGED_MSG_REGISTRY,
   SENT_MESSAGE_ID_REGISTRY,
 )
 
@@ -56,6 +57,19 @@ async def merged_msg(
   return msg
 
 
+async def orig_merged_msg(
+  bot: Bot,
+  events: list[Event],
+  msg: UniMessage[Segment],
+) -> Optional[UniMessage[Segment]]:
+  if len(events) > 1 and _is_message_events(events):
+    chained = chain.from_iterable(
+      cast(Message[MessageSegment], event.original_message) for event in events
+    )
+    return UniMessage.of(Message(chained), bot)
+  return msg
+
+
 async def message_id(bot: Bot, event: Event) -> Optional[str]:
   if isinstance(event, MessageEvent):
     return str(event.message_id)
@@ -82,6 +96,7 @@ def register() -> None:
   name = Adapter.get_name()
   MERGED_EVENT_REGISTRY[name] = merged_event
   MERGED_MSG_REGISTRY[name] = merged_msg
+  ORIG_MERGED_MSG_REGISTRY[name] = orig_merged_msg
   MESSAGE_ID_REGISTRY[name] = message_id
   EVENT_TIME_REGISTRY[name] = event_time
   SENT_MESSAGE_ID_REGISTRY[name] = sent_message_id
