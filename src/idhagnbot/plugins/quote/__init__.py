@@ -1,6 +1,6 @@
 import asyncio
 import random
-from io import BytesIO, StringIO
+from io import BytesIO
 from itertools import dropwhile, islice
 from typing import Optional
 from uuid import UUID, uuid4
@@ -27,6 +27,7 @@ from idhagnbot.image import (
 )
 from idhagnbot.message.common import OrigUniMsg, send_message
 from idhagnbot.plugins.quote.common import (
+  EMOJI_REGISTRY,
   MESSAGE_PROCESSOR_REGISTRY,
   REPLY_EXTRACT_REGISTRY,
   USER_INFO_REGISTRY,
@@ -43,6 +44,7 @@ from nonebot_plugin_alconna import (
   Alconna,
   Args,
   CommandMeta,
+  Emoji,
   Match,
   Reply,
   Segment,
@@ -125,23 +127,62 @@ async def fetch_images(bot: Bot, event: Event, messages: list[MessageInfo]) -> N
   await asyncio.gather(*tasks)
 
 
+async def fetch_emojis(
+  bot: Bot,
+  messages: list[MessageInfo],
+) -> dict[str, Image.Image]:
+  fetch_emoji = EMOJI_REGISTRY.get(bot.adapter.get_name())
+  if not fetch_emoji:
+    return {}
+  tasks = dict[str, asyncio.Task[Image.Image]]()
+  for message in messages:
+    for emoji in message.message[Emoji]:
+      if emoji.id not in tasks:
+        tasks[emoji.id] = asyncio.create_task(fetch_emoji(bot, emoji.id))
+  await asyncio.gather(*tasks.values())
+  return {emoji_id: task.result() for emoji_id, task in tasks.items()}
+
+
 def render_content(
   message: UniMessage[Segment],
+  emojis: dict[str, Image.Image],
   user: Optional[UserInfo],
 ) -> Image.Image:
   rows = list[Image.Image]()
   if user:
     rows.append(text.render(user.name, "sans bold", 32, color=user.color.name))
-  buffer = StringIO()
+
+  buffer = text.RichText()
+  buffer.set_font("sans", 32)
+  buffer.set_width(640)
+  empty = True
+
+  def flush_buffer() -> None:
+    nonlocal buffer, empty
+    if not empty:
+      rows.append(buffer.render(0xFFFFFF))
+      buffer = text.RichText()
+      buffer.set_font("sans", 32)
+      buffer.set_width(640)
+      empty = True
+
   for segment in message:
     if isinstance(segment, ImageSeg):
+      flush_buffer()
       rows.append(contain_down(Image.open(BytesIO(segment.raw_bytes)), 640, 640))
     elif isinstance(segment, Text):
-      buffer.write(segment.text)
+      buffer.append(segment.text)
+      empty = False
+    elif isinstance(segment, Emoji):
+      if segment.id in emojis:
+        buffer.append_image(emojis[segment.id])
+      else:
+        buffer.append("[emoji]")
+      empty = False
     else:
-      buffer.write(f"[{segment.type}]")
-  if value := buffer.getvalue():
-    rows.append(text.render(value, "sans", 32, color=0xFFFFFF, box=640))
+      buffer.append(f"[{segment.type}]")
+      empty = False
+  flush_buffer()
   padding = 24
   width = max(im.width for im in rows) + padding * 2
   height = sum(im.height for im in rows) + padding * 2
@@ -160,33 +201,44 @@ async def render_chat(
   messages: list[MessageInfo],
   users: dict[str, UserInfo],
 ) -> Image.Image:
-  avatars, _ = await asyncio.gather(fetch_avatars(users), fetch_images(bot, event, messages))
-  contents = [
-    render_content(
-      message.message,
-      users[message.user_id] if i == 0 or messages[i - 1].user_id != message.user_id else None,
-    )
-    for i, message in enumerate(messages)
-  ]
-  avatar_size = 64
-  gap = 16
-  gap_small = 4
-  width = max(im.width for im in contents) + avatar_size + gap
-  height = sum(im.height for im in contents)
-  for i, message in enumerate(messages):
-    if i != 0:
-      height += gap if message.user_id != messages[i - 1].user_id else gap_small
-  out_im = Image.new("RGBA", (width, height))
-  y = 0
-  for i, (message, im) in enumerate(zip(messages, contents)):
-    replace(out_im, im, (avatar_size + gap, y))
-    y += im.height
-    if i == len(messages) - 1 or messages[i + 1].user_id != message.user_id:
-      replace(out_im, avatars[message.user_id], (0, y), anchor="lb")
-      y += gap
-    else:
-      y += gap_small
-  return out_im
+  avatars, _, emojis = await asyncio.gather(
+    fetch_avatars(users),
+    fetch_images(bot, event, messages),
+    fetch_emojis(bot, messages),
+  )
+
+  def make() -> Image.Image:
+    nonlocal emojis
+    emojis = {id: emoji.resize((40, 40), get_scale_resample()) for id, emoji in emojis.items()}
+    contents = [
+      render_content(
+        message.message,
+        emojis,
+        users[message.user_id] if i == 0 or messages[i - 1].user_id != message.user_id else None,
+      )
+      for i, message in enumerate(messages)
+    ]
+    avatar_size = 64
+    gap = 16
+    gap_small = 4
+    width = max(im.width for im in contents) + avatar_size + gap
+    height = sum(im.height for im in contents)
+    for i, message in enumerate(messages):
+      if i != 0:
+        height += gap if message.user_id != messages[i - 1].user_id else gap_small
+    out_im = Image.new("RGBA", (width, height))
+    y = 0
+    for i, (message, im) in enumerate(zip(messages, contents)):
+      replace(out_im, im, (avatar_size + gap, y))
+      y += im.height
+      if i == len(messages) - 1 or messages[i + 1].user_id != message.user_id:
+        replace(out_im, avatars[message.user_id], (0, y), anchor="lb")
+        y += gap
+      else:
+        y += gap_small
+    return out_im
+
+  return await asyncio.to_thread(make)
 
 
 async def process_message(bot: Bot, event: Event, message: MessageInfo) -> MessageInfo:

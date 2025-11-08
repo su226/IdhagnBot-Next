@@ -1,14 +1,19 @@
+import asyncio
 from datetime import datetime, timezone
+from io import BytesIO
 
 import nonebot
 from nonebot.adapters import Bot, Event
 from nonebot.adapters.onebot.v11 import Adapter, GroupMessageEvent, Message
 from nonebot.adapters.onebot.v11 import Bot as OBBot
 from nonebot.adapters.onebot.v11.event import Reply as OBReply
+from PIL import Image
 from yarl import URL
 
+from idhagnbot.http import get_session
 from idhagnbot.onebot import LAGRANGE, get_implementation, get_rkey_cached
 from idhagnbot.plugins.quote.common import (
+  EMOJI_REGISTRY,
   MESSAGE_PROCESSOR_REGISTRY,
   REPLY_EXTRACT_REGISTRY,
   USER_INFO_REGISTRY,
@@ -19,7 +24,8 @@ from idhagnbot.plugins.quote.common import (
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("idhagnbot.plugins.chat_record")
-from nonebot_plugin_alconna import Image, Reply, Segment, UniMessage
+from nonebot_plugin_alconna import Image as ImageSeg
+from nonebot_plugin_alconna import Reply, Segment, UniMessage
 
 
 async def extract_from_reply(bot: Bot, event: Event, reply: Reply) -> ReplyInfo:
@@ -55,14 +61,23 @@ async def process_message(
   event: Event,
   message: UniMessage[Segment],
 ) -> UniMessage[Segment]:
-  if Image in message:
+  if ImageSeg in message:
     assert isinstance(bot, OBBot)
     rkeys = await get_rkey_cached(bot)
     rkey = rkeys["group" if isinstance(event, GroupMessageEvent) else "private"]
-    for image in message[Image]:
+    for image in message[ImageSeg]:
       if image.url:
         image.url = str(URL(image.url).update_query(rkey=rkey.rkey))
   return message
+
+
+def open_emoji(data: bytes) -> Image.Image:
+  return Image.open(BytesIO(data))
+
+
+async def fetch_emoji(bot: Bot, id: str) -> Image.Image:
+  async with get_session().get(f"https://koishi.js.org/QFace/static/s{id}.png") as response:
+    return await asyncio.to_thread(open_emoji, await response.read())
 
 
 def register() -> None:
@@ -70,3 +85,4 @@ def register() -> None:
   REPLY_EXTRACT_REGISTRY[name] = extract_from_reply
   USER_INFO_REGISTRY[name] = get_user_info
   MESSAGE_PROCESSOR_REGISTRY[name] = process_message
+  EMOJI_REGISTRY[name] = fetch_emoji

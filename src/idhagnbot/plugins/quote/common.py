@@ -1,11 +1,13 @@
 from binascii import crc32
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
+from typing import Any
 
 import nonebot
 from nonebot.adapters import Bot, Event
+from PIL import Image
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("idhagnbot.plugins.chat_record")
@@ -67,3 +69,4 @@ MESSAGE_PROCESSOR_REGISTRY = dict[
   str,
   Callable[[Bot, Event, UniMessage[Segment]], Awaitable[UniMessage[Segment]]],
 ]()
+EMOJI_REGISTRY = dict[str, Callable[[Bot, str], Coroutine[Any, Any, Image.Image]]]()
