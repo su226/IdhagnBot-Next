@@ -5,6 +5,7 @@ import nonebot
 from nonebot.adapters import Bot
 from nonebot.adapters.telegram import Adapter, Message, MessageSegment
 from nonebot.adapters.telegram.message import Entity, File, UnCombinFile
+from pydantic_core import to_jsonable_python
 
 from idhagnbot.hook.common import (
   CALLED_API_REGISTRY,
@@ -59,15 +60,15 @@ def _parse_from_data(
       message.append(File.voice(data["voice"]))
     message = UniMessage.of(message, bot)
   elif api == "send_media_group":
-    media = data["media"][0]
-    if media.get("parse_mode") is not None:
+    medias = to_jsonable_python(data["media"])
+    if medias[0].get("parse_mode") is not None:
       return None
     entities = Entity.from_telegram_entities(
-      media.get("caption") or "",
-      media.get("caption_entities") or [],
+      medias[0].get("caption") or "",
+      medias[0].get("caption_entities") or [],
     )
     message = Message[MessageSegment](entities)
-    for media in data["media"]:
+    for media in medias:
       if media["type"] == "audio":
         message.append(File.audio(media["media"], media.get("thumbnail")))
       elif media["type"] == "document":
