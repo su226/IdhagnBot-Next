@@ -31,6 +31,7 @@ from idhagnbot.third_party.bilibili_activity import (
   ActivityImage,
   ActivityLive,
   ActivityLiveRcmd,
+  ActivityOpus,
   ActivityPGC,
   ActivityPlaylist,
   ActivityText,
@@ -71,7 +72,9 @@ def pgc_title_formatter(activity: ActivityPGC[object]) -> str:
   return prefix + " " + activity.content.season_name
 
 
-def checker(activity: Union[ActivityText[object], ActivityImage[object]]) -> None:
+def checker(
+  activity: Union[ActivityText[object], ActivityImage[object], ActivityOpus[object]],
+) -> None:
   config = CONFIG()
   if config.ignore_forward_lottery:
     for node in activity.content.richtext:
@@ -239,6 +242,7 @@ GENERIC_TITLE = make_title_formatter("动态")
 CHECKERS: list[Checker[Any]] = [
   (ContentText, checker),
   (ContentImage, checker),
+  (ContentOpus, checker),
 ]
 TITLE_FORMATTERS: list[TitleFormatter[Any]] = [
   (ContentVideo, make_title_formatter("视频")),
