@@ -1,10 +1,11 @@
 from itertools import chain
-from typing import Any, Optional, cast
+from typing import Any, Optional, Union, cast
 
 import nonebot
 from nonebot.adapters import Bot
 from nonebot.adapters.telegram import Adapter, Message, MessageSegment
 from nonebot.adapters.telegram.message import Entity, File, UnCombinFile
+from nonebot.adapters.telegram.model import MessageEntity
 from pydantic_core import to_jsonable_python
 
 from idhagnbot.hook.common import (
@@ -19,6 +20,15 @@ nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Segment, SupportScope, Target, UniMessage
 
 
+def _normalize_entities(
+  entities: list[Union[MessageEntity, dict[str, Any]]],
+) -> list[dict[str, Any]]:
+  return [
+    entity.model_dump(exclude_none=True) if isinstance(entity, MessageEntity) else entity
+    for entity in entities
+  ]
+
+
 def _parse_from_data(
   bot: Bot,
   api: str,
@@ -27,7 +37,10 @@ def _parse_from_data(
   if api == "send_message":
     if data.get("parse_mode") is not None:
       return None
-    entities = Entity.from_telegram_entities(data["text"], data.get("entities") or [])
+    entities = Entity.from_telegram_entities(
+      data["text"],
+      _normalize_entities(data.get("entities") or []),
+    )
     message = UniMessage.of(Message(entities), bot)
   elif api in (
     "send_photo",
@@ -41,7 +54,7 @@ def _parse_from_data(
       return None
     entities = Entity.from_telegram_entities(
       data.get("caption") or "",
-      data.get("caption_entities") or [],
+      _normalize_entities(data.get("caption_entities") or []),
     )
     message = Message[MessageSegment](entities)
     if api == "send_photo":
@@ -60,7 +73,7 @@ def _parse_from_data(
       message.append(File.voice(data["voice"]))
     message = UniMessage.of(message, bot)
   elif api == "send_media_group":
-    medias = to_jsonable_python(data["media"])
+    medias = to_jsonable_python(data["media"], exclude_none=True)
     if medias[0].get("parse_mode") is not None:
       return None
     entities = Entity.from_telegram_entities(
