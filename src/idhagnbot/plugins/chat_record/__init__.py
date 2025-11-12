@@ -5,7 +5,7 @@ from nonebot.message import event_preprocessor
 from sqlalchemy.orm import Mapped, mapped_column
 
 from idhagnbot.context import SceneId, UserId
-from idhagnbot.message import EventTime, MessageId, UniMsg
+from idhagnbot.message import EventTime, MessageId, OrigUniMsg
 
 nonebot.require("nonebot_plugin_orm")
 from nonebot_plugin_orm import Model, get_session
@@ -27,7 +27,7 @@ async def _(
   scene_id: SceneId,
   user_id: UserId,
   message_id: MessageId,
-  message: UniMsg,
+  message: OrigUniMsg,
 ) -> None:
   async with get_session() as sql:
     sql.add(
