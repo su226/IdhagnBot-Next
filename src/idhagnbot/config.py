@@ -8,7 +8,6 @@ import nonebot
 import yaml
 from nonebot import logger
 from pydantic import BaseModel
-from pydantic_core import to_jsonable_python
 from typing_extensions import TypeVarTuple, Unpack
 
 try:
@@ -85,7 +84,7 @@ class BaseConfig(Generic[TModel, Unpack[TParam]]):
   def dump(self, *args: Unpack[TParam]) -> None:
     if args not in self.cache:
       return
-    data = to_jsonable_python(self.cache[args].item.model_dump())
+    data = self.cache[args].item.model_dump(mode="json", by_alias=True)
     file = self.get_file(*args)
     file.parent.mkdir(parents=True, exist_ok=True)
     with file.open("w") as f:
@@ -99,6 +98,7 @@ class BaseConfig(Generic[TModel, Unpack[TParam]]):
     ) -> "LoadHandler[TModel, Unpack[TParam]]":
       self.handlers.append(handler)
       return handler
+
     return decorator
 
   def reload(self) -> None:
