@@ -1,9 +1,10 @@
-from typing import Callable, Protocol, TypeVar
+from typing import Callable, Protocol, TypeVar, Union
 
 import nonebot
 from pydantic import BaseModel
 
 nonebot.require("nonebot_plugin_alconna")
+from nonebot_plugin_alconna import Target
 from nonebot_plugin_alconna.uniseg import Segment, UniMessage
 
 
@@ -16,8 +17,13 @@ class ModuleConfig(BaseModel):
     raise NotImplementedError
 
 
-MODULE_REGISTRY: dict[str, type[ModuleConfig]] = {}
-T = TypeVar("T", bound=ModuleConfig)
+class TargetAwareModuleConfig(BaseModel):
+  def create_module(self, target: Target) -> Module:
+    raise NotImplementedError
+
+
+MODULE_REGISTRY: dict[str, type[Union[ModuleConfig, TargetAwareModuleConfig]]] = {}
+T = TypeVar("T", bound=Union[ModuleConfig, TargetAwareModuleConfig])
 
 
 def register(name: str) -> Callable[[type[T]], type[T]]:

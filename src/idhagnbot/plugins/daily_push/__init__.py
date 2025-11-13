@@ -1,5 +1,4 @@
 import asyncio
-from copy import deepcopy
 from datetime import datetime, time, timedelta
 from itertools import chain
 from typing import Optional, Union
@@ -16,7 +15,12 @@ from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig, SharedData
 from idhagnbot.context import get_target_id
 from idhagnbot.permission import CHANNEL_TYPES
-from idhagnbot.plugins.daily_push.module import MODULE_REGISTRY, ModuleConfig, register
+from idhagnbot.plugins.daily_push.module import (
+  MODULE_REGISTRY,
+  ModuleConfig,
+  TargetAwareModuleConfig,
+  register,
+)
 from idhagnbot.plugins.daily_push.modules.constant import ConstantModuleConfig
 from idhagnbot.plugins.daily_push.modules.countdown import CountdownModuleConfig
 from idhagnbot.target import TargetConfig, TargetType
@@ -34,6 +38,7 @@ from nonebot_plugin_alconna import (
   Target,
   Text,
   UniMessage,
+  get_target,
 )
 from nonebot_plugin_apscheduler import scheduler
 from nonebot_plugin_uninfo import SceneType, Uninfo, get_interface
@@ -44,7 +49,7 @@ from idhagnbot.plugins.error import send_error
 class PushModule(BaseModel, extra="allow"):
   type: str
 
-  def to_module_config(self) -> ModuleConfig:
+  def to_module_config(self) -> Union[ModuleConfig, TargetAwareModuleConfig]:
     return MODULE_REGISTRY[self.type].model_validate(self.model_extra)
 
 
@@ -69,6 +74,12 @@ driver = nonebot.get_driver()
 jobs: list[Job] = []
 register("constant")(ConstantModuleConfig)
 register("countdown")(CountdownModuleConfig)
+try:
+  from idhagnbot.plugins.daily_push.modules.rank import RankModuleConfig
+except ImportError:
+  pass
+else:
+  register("rank")(RankModuleConfig)
 
 
 @CONFIG.onload()
@@ -117,40 +128,71 @@ async def check_push(push_id: str) -> None:
   DATA.dump()
 
 
-async def format_one(module: PushModule) -> list[UniMessage[Segment]]:
+async def format_one_target_aware(
+  module: PushModule,
+  config: TargetAwareModuleConfig,
+  target: Target,
+) -> tuple[Target, list[UniMessage[Segment]]]:
   try:
-    return await module.to_module_config().create_module().format()
+    return target, await config.create_module(target).format()
   except Exception as e:
     logger.exception(f"每日推送模块运行失败: {module}")
     description = f"模块运行失败：{module.type}"
     create_background_task(send_error("daily_push", description, e))
-    return [UniMessage(Text(description))]
+    return target, [UniMessage(Text(description))]
 
 
-async def format_forward(modules: list[PushModule]) -> list[UniMessage[Segment]]:
-  nodes = [
-    CustomNode("", "", message)
-    for message in chain.from_iterable(
-      await asyncio.gather(*(format_one(module) for module in modules)),
+async def format_one(
+  module: PushModule,
+  targets: list[Target],
+) -> dict[Target, list[UniMessage[Segment]]]:
+  config = module.to_module_config()
+  if isinstance(config, TargetAwareModuleConfig):
+    return dict(
+      await asyncio.gather(
+        *(format_one_target_aware(module, config, target) for target in targets),
+      ),
     )
-  ]
-  if not nodes:
-    return []
-  return [UniMessage(Reference(nodes=nodes))]
+  try:
+    messages = await config.create_module().format()
+  except Exception as e:
+    logger.exception(f"每日推送模块运行失败: {module}")
+    description = f"模块运行失败：{module.type}"
+    create_background_task(send_error("daily_push", description, e))
+    messages = [UniMessage[Segment](Text(description))]
+  return dict.fromkeys(targets, messages)
 
 
-async def format_all(push: Push) -> list[UniMessage[Segment]]:
-  return list(
-    chain.from_iterable(
-      i
-      for i in await asyncio.gather(
-        *(
-          format_forward(module) if isinstance(module, list) else format_one(module)
-          for module in push.modules
-        ),
-      )
+async def format_forward(
+  modules: list[PushModule],
+  targets: list[Target],
+) -> dict[Target, list[UniMessage[Segment]]]:
+  merged = {target: list[UniMessage[Segment]]() for target in targets}
+  for one in await asyncio.gather(*(format_one(module, targets) for module in modules)):
+    for target, messages in one.items():
+      merged[target].extend(messages)
+  return {
+    target: [UniMessage(Reference(nodes=[CustomNode("", "", message) for message in messages]))]
+    if messages
+    else []
+    for target, messages in merged.items()
+  }
+
+
+async def format_all(
+  modules: list[Union[PushModule, list[PushModule]]],
+  targets: list[Target],
+) -> dict[Target, list[UniMessage[Segment]]]:
+  merged = {target: list[UniMessage[Segment]]() for target in targets}
+  for one in await asyncio.gather(
+    *(
+      format_forward(module, targets) if isinstance(module, list) else format_one(module, targets)
+      for module in modules
     ),
-  )
+  ):
+    for target, messages in one.items():
+      merged[target].extend(messages)
+  return merged
 
 
 async def get_bot_name(bot: Bot, target: Target) -> str:
@@ -170,17 +212,20 @@ async def get_bot_name(bot: Bot, target: Target) -> str:
   return "IdhagnBot"
 
 
-async def send_one(target: Target, messages: list[UniMessage[Segment]]) -> None:
+async def init_reference(target: Target, messages: list[UniMessage[Segment]]) -> None:
   if any(isinstance(message[0], Reference) for message in messages):
     bot = await target.select()
     bot_name = await get_bot_name(bot, target)
-    messages = deepcopy(messages)
     for message in messages:
       if isinstance(message[0], Reference):
         for node in message[0].children:
           if isinstance(node, CustomNode):
             node.uid = bot.self_id
             node.name = bot_name
+
+
+async def send_one(target: Target, messages: list[UniMessage[Segment]]) -> None:
+  await init_reference(target, messages)
   failed = False
   for message in messages:
     try:
@@ -199,8 +244,9 @@ async def send_one(target: Target, messages: list[UniMessage[Segment]]) -> None:
 
 
 async def send_push(push: Push) -> None:
-  messages = await format_all(push)
-  await asyncio.gather(*(send_one(target.target, messages) for target in push.targets))
+  targets = [target.target for target in push.targets]
+  messages = await format_all(push.modules, targets)
+  await asyncio.gather(*(send_one(target, messages[target]) for target in targets))
 
 
 resend_push = (
@@ -226,11 +272,12 @@ async def target_match(target: TargetConfig, session: Uninfo) -> bool:
 
 
 async def format_if_match(push: Push, session: Uninfo) -> list[UniMessage[Segment]]:
-  return (
-    await format_all(push)
-    if any(await asyncio.gather(*(target_match(target, session) for target in push.targets)))
-    else []
-  )
+  matches = await asyncio.gather(*(target_match(target, session) for target in push.targets))
+  targets = [target.target for target, match in zip(push.targets, matches) if match]
+  if targets:
+    formatted = await format_all(push.modules, [targets[0]])
+    return formatted[targets[0]]
+  return []
 
 
 @resend_push.handle()
@@ -240,6 +287,7 @@ async def handle_resend_push(session: Uninfo) -> None:
       await asyncio.gather(*(format_if_match(push, session) for push in CONFIG().pushes.values())),
     ),
   )
+  await init_reference(get_target(), messages)
   if not messages:
     if session.scene.type in CHANNEL_TYPES:
       await UniMessage(Text("当前会话没有每日推送（请检查是否在正确的子频道）")).send()
