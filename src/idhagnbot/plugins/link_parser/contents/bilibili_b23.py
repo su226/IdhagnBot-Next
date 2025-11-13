@@ -8,6 +8,7 @@ from pydantic import TypeAdapter, ValidationError
 from idhagnbot.http import get_session
 from idhagnbot.plugins.link_parser.common import Content, FormatState, MatchState
 from idhagnbot.plugins.link_parser.contents import bilibili_activity, bilibili_video
+from idhagnbot.url import clear_url
 
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna.uniseg import Text, UniMessage
@@ -74,7 +75,9 @@ async def format(
   **kw: Any,
 ) -> FormatState:
   if content is None:
-    return FormatState(UniMessage(Text("短链解析结果: " + link)), {"b23_slug": slug})
+    link_cleared = clear_url(link)
+    text = "短链解析结果（已清除跟踪参数）: " if link_cleared != link else "短链解析结果: "
+    return FormatState(UniMessage(Text(text + link_cleared)), {"b23_slug": slug})
   result = await content.format(**state)
   result.state.update({"b23_slug": slug})
   return result
