@@ -11,8 +11,10 @@ from nonebot.adapters import Bot
 from nonebot.exception import ActionFailed
 from pydantic import BaseModel, Field
 
+from idhagnbot.asyncio import create_background_task
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig, SharedData
+from idhagnbot.context import get_target_id
 from idhagnbot.permission import CHANNEL_TYPES
 from idhagnbot.plugins.daily_push.module import MODULE_REGISTRY, ModuleConfig, register
 from idhagnbot.plugins.daily_push.modules.constant import ConstantModuleConfig
@@ -21,10 +23,21 @@ from idhagnbot.target import TargetConfig, TargetType
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_apscheduler")
 nonebot.require("nonebot_plugin_uninfo")
-from nonebot_plugin_alconna import Alconna, CommandMeta
-from nonebot_plugin_alconna.uniseg import CustomNode, Reference, Segment, Target, Text, UniMessage
+nonebot.require("idhagnbot.plugins.error")
+from nonebot_plugin_alconna import (
+  Alconna,
+  CommandMeta,
+  CustomNode,
+  Reference,
+  Segment,
+  Target,
+  Text,
+  UniMessage,
+)
 from nonebot_plugin_apscheduler import scheduler
 from nonebot_plugin_uninfo import SceneType, Uninfo, get_interface
+
+from idhagnbot.plugins.error import send_error
 
 
 class PushModule(BaseModel, extra="allow"):
@@ -75,7 +88,7 @@ def _(prev: Optional[Config], curr: Config) -> None:  # noqa: ARG001
         coalesce=True,
       ),
     )
-    asyncio.create_task(check_push(push_id))
+    create_background_task(check_push(push_id))
 
 
 @driver.on_startup
@@ -105,9 +118,11 @@ async def check_push(push_id: str) -> None:
 async def format_one(module: PushModule) -> list[UniMessage[Segment]]:
   try:
     return await module.to_module_config().create_module().format()
-  except Exception:
+  except Exception as e:
     logger.exception(f"每日推送模块运行失败: {module}")
-    return [UniMessage(Text(f"模块运行失败：{module.type}"))]
+    description = f"模块运行失败：{module.type}"
+    create_background_task(send_error("daily_push", description, e))
+    return [UniMessage(Text(description))]
 
 
 async def format_forward(modules: list[PushModule]) -> list[UniMessage[Segment]]:
@@ -168,8 +183,11 @@ async def send_one(target: Target, messages: list[UniMessage[Segment]]) -> None:
   for message in messages:
     try:
       await message.send(target)
-    except ActionFailed:
-      logger.exception(f"发送部分每日推送到目标 {target} 失败: {message}")
+    except ActionFailed as e:
+      target_id = await get_target_id(target)
+      description = f"推送到目标 {target_id} 失败"
+      logger.exception(f"{description}: {message}")
+      create_background_task(send_error("daily_push", description, e))
       failed = True
   if failed:
     try:
@@ -215,9 +233,11 @@ async def format_if_match(push: Push, session: Uninfo) -> list[UniMessage[Segmen
 
 @resend_push.handle()
 async def handle_resend_push(session: Uninfo) -> None:
-  messages = list(chain.from_iterable(
-    await asyncio.gather(*(format_if_match(push, session) for push in CONFIG().pushes.values())),
-  ))
+  messages = list(
+    chain.from_iterable(
+      await asyncio.gather(*(format_if_match(push, session) for push in CONFIG().pushes.values())),
+    ),
+  )
   if not messages:
     if session.scene.type in CHANNEL_TYPES:
       await UniMessage(Text("当前会话没有每日推送（请检查是否在正确的子频道）")).send()

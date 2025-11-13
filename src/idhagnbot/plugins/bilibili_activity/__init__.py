@@ -1,7 +1,7 @@
 import asyncio
 from collections import deque
 from collections.abc import AsyncGenerator
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Optional
 
 import nonebot
@@ -9,8 +9,9 @@ from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_MISSED, JobEvent
 from loguru import logger
 from nonebot.exception import ActionFailed
 
+from idhagnbot.asyncio import create_background_task
 from idhagnbot.command import CommandBuilder
-from idhagnbot.context import SceneId, SceneIdRaw, get_scene, get_target
+from idhagnbot.context import SceneId, SceneIdRaw, get_scene, get_target, get_target_id
 from idhagnbot.permission import ADMINISTRATOR_OR_ABOVE
 from idhagnbot.plugins.bilibili_activity import common, contents
 from idhagnbot.target import TargetConfig
@@ -18,9 +19,11 @@ from idhagnbot.third_party.bilibili_activity import Activity, fetch, get
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_apscheduler")
-from nonebot_plugin_alconna import Alconna, Args, CommandMeta, Match
-from nonebot_plugin_alconna.uniseg import Segment, Text, UniMessage
+nonebot.require("idhagnbot.plugins.error")
+from nonebot_plugin_alconna import Alconna, Args, CommandMeta, Match, Segment, Text, UniMessage
 from nonebot_plugin_apscheduler import scheduler
+
+from idhagnbot.plugins.error import send_error
 
 driver = nonebot.get_driver()
 queue = deque[common.User]()
@@ -81,18 +84,6 @@ async def new_activities(
     offset = next_offset
 
 
-async def send_error(message: str, e: Exception) -> None:
-  config = common.CONFIG()
-  data = common.DATA()
-  now = datetime.now(timezone.utc)
-  if now < data.last_warn + config.warn_interval:
-    return
-  data.last_warn = now
-  common.DATA.dump()
-  message_send = UniMessage(Text(f"{message}\n{e!r}"))
-  await asyncio.gather(*[message_send.send(target.target) for target in config.warn_target])
-
-
 async def try_check(user: common.User) -> int:
   async def try_send(
     activity: Activity[object, object],
@@ -101,11 +92,11 @@ async def try_check(user: common.User) -> int:
   ) -> None:
     try:
       await message.send(target.target)
-    except ActionFailed:
-      logger.exception(
-        f"推送 {user._name}({user.uid}) 的动态 {activity.id} 到目标 {target} 失败！\n"
-        f"动态内容: {activity}",
-      )
+    except ActionFailed as e:
+      target_id = await get_target_id(target.target)
+      description = f"推送 {user._name}({user.uid}) 的动态 {activity.id} 到目标 {target_id} 失败！"
+      logger.exception(f"{description}\n动态内容: {activity}")
+      create_background_task(send_error("bilibili_activity", description, e))
       try:
         await UniMessage(
           Text(
@@ -123,10 +114,10 @@ async def try_check(user: common.User) -> int:
     except common.IgnoredException as e:
       logger.info(f"已忽略 {user._name}({user.uid}) 的动态 {activity.id}: {e}")
       return
-    except Exception:
-      logger.exception(
-        f"格式化 {user._name}({user.uid}) 的动态 {activity.id} 失败！\n动态内容: {activity}",
-      )
+    except Exception as e:
+      description = f"格式化 {user._name}({user.uid}) 的动态 {activity.id} 失败！"
+      logger.exception(f"{description}\n动态内容: {activity}")
+      create_background_task(send_error("bilibili_activity", description, e))
       message = UniMessage[Segment](
         Text(
           f"{user._name} 更新了一条动态，但在推送时格式化消息失败。"
@@ -149,9 +140,9 @@ async def try_check(user: common.User) -> int:
         user._name = activities[0].name
       logger.success(f"初始化 {user._name}({user.uid}) 的动态推送完成 {user._offset}")
     except Exception as e:
-      message = f"初始化 {user.uid} 的动态推送失败"
-      logger.exception(message)
-      await send_error(message, e)
+      description = f"初始化 {user.uid} 的动态推送失败"
+      logger.exception(description)
+      create_background_task(send_error("bilibili_activity", description, e))
     return 0
 
   try:
@@ -165,9 +156,9 @@ async def try_check(user: common.User) -> int:
     logger.debug(f"检查 {user._name}({user.uid}) 的动态更新完成")
     return len(activities)
   except Exception as e:
-    message = f"检查 {user._name}({user.uid}) 的动态更新失败"
-    logger.exception(message)
-    await send_error(message, e)
+    description = f"检查 {user._name}({user.uid}) 的动态更新失败"
+    logger.exception(description)
+    create_background_task(send_error("bilibili_activity", description, e))
     return 0
 
 

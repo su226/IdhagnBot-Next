@@ -1,12 +1,11 @@
 import asyncio
 import re
-from datetime import datetime, timedelta, timezone
 from io import BytesIO
 
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field, PrivateAttr
 
-from idhagnbot.config import SharedConfig, SharedData
+from idhagnbot.config import SharedConfig
 from idhagnbot.http import get_session
 from idhagnbot.target import TargetConfig
 
@@ -25,16 +24,9 @@ class Config(BaseModel):
   ignore_regexs: list[re.Pattern[str]] = Field(default_factory=list)
   ignore_forward_regexs: list[re.Pattern[str]] = Field(default_factory=list)
   ignore_forward_lottery: bool = False
-  warn_interval: timedelta = timedelta(1)
-  warn_target: list[TargetConfig] = Field(default_factory=list)
-
-
-class Data(BaseModel):
-  last_warn: datetime = datetime(1, 1, 1, tzinfo=timezone.utc)
 
 
 CONFIG = SharedConfig("bilibili_activity", Config, "eager")
-DATA = SharedData("bilibili_activity", Data)
 IMAGE_GAP = 10
 
 
