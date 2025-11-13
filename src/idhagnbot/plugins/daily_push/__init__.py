@@ -18,6 +18,7 @@ from idhagnbot.context import get_target_id
 from idhagnbot.permission import CHANNEL_TYPES
 from idhagnbot.plugins.daily_push.module import MODULE_REGISTRY, ModuleConfig, register
 from idhagnbot.plugins.daily_push.modules.constant import ConstantModuleConfig
+from idhagnbot.plugins.daily_push.modules.countdown import CountdownModuleConfig
 from idhagnbot.target import TargetConfig, TargetType
 
 nonebot.require("nonebot_plugin_alconna")
@@ -67,6 +68,7 @@ DATA = SharedData("daily_push", Data)
 driver = nonebot.get_driver()
 jobs: list[Job] = []
 register("constant")(ConstantModuleConfig)
+register("countdown")(CountdownModuleConfig)
 
 
 @CONFIG.onload()
