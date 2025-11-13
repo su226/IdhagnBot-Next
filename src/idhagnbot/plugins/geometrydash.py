@@ -25,7 +25,7 @@ from nonebot_plugin_alconna import (
 )
 
 from idhagnbot.plugins.daily_push.cache import DailyCache
-from idhagnbot.plugins.daily_push.module import Module, ModuleConfig, register
+from idhagnbot.plugins.daily_push.module import SimpleModule, register
 
 SERVER = "https://www.boomlings.com/database"
 
@@ -171,8 +171,9 @@ class GeometryDashCache(DailyCache):
       async with http.get(f"https://gdladder.com/api/level/{level.id}") as response:
         data = await response.json()
         level.demon_tier = data.get("Rating")
+    cache = Cache(level=level)
     with self.path.open("w") as f:
-      f.write(Cache(level=level).model_dump_json())
+      f.write(cache.model_dump_json())
 
   def get(self) -> tuple[datetime, Level]:
     with self.date_path.open() as f:
@@ -198,16 +199,22 @@ WEEKLY_CACHE = GeometryDashCache("weekly", -2)
 EVENT_CACHE = GeometryDashCache("event", -3)
 
 
-class GeometryDashModule(Module):
-  def __init__(self, cache: GeometryDashCache, force: bool) -> None:
-    self.force = force
-    self.cache = cache
+@register("geometrydash")
+class GeometryDashModule(SimpleModule):
+  subtype: Literal["daily", "weekly", "event"] = "daily"
+  force: bool = False
 
   async def format(self) -> list[UniMessage[Segment]]:
-    await self.cache.ensure()
-    _, level = self.cache.get()
+    if self.subtype == "daily":
+      cache = DAILY_CACHE
+    elif self.subtype == "weekly":
+      cache = WEEKLY_CACHE
+    else:
+      cache = EVENT_CACHE
+    await cache.ensure()
+    _, level = cache.get()
     if not self.force:
-      prev = self.cache.get_prev()
+      prev = cache.get_prev()
       if prev and level.id == prev[1].id:
         return []
     if level.daily > 200000:
@@ -218,23 +225,8 @@ class GeometryDashModule(Module):
       description = "daily level"
     message = UniMessage[Segment](Text(f"New {description}: {level.format()}"))
     if level.has_image:
-      message += Image(path=self.cache.image_path)
+      message += Image(path=cache.image_path)
     return [message]
-
-
-@register("geometrydash")
-class GeometryDashModuleConfig(ModuleConfig):
-  subtype: Literal["daily", "weekly", "event"] = "daily"
-  force: bool = False
-
-  def create_module(self) -> Module:
-    if self.subtype == "daily":
-      cache = DAILY_CACHE
-    elif self.subtype == "weekly":
-      cache = WEEKLY_CACHE
-    else:
-      cache = EVENT_CACHE
-    return GeometryDashModule(cache, self.force)
 
 
 geometrydash_daily = (

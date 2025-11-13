@@ -25,7 +25,7 @@ from nonebot_plugin_alconna import (
 )
 
 from idhagnbot.plugins.daily_push.cache import DailyCache
-from idhagnbot.plugins.daily_push.module import Module, ModuleConfig, register
+from idhagnbot.plugins.daily_push.module import SimpleModule, register
 
 
 class Config(BaseModel):
@@ -119,9 +119,9 @@ class SteamCache(DailyCache):
 
   async def do_update(self) -> None:
     items = await get_free_games()
-    model = Cache(items=items)
+    cache = Cache(items=items)
     with self.path.open("w") as f:
-      f.write(model.model_dump_json())
+      f.write(cache.model_dump_json())
 
   def get(self) -> tuple[datetime, list[Game]]:
     with self.date_path.open() as f:
@@ -145,9 +145,9 @@ class SteamCache(DailyCache):
 CACHE = SteamCache()
 
 
-class SteamModule(Module):
-  def __init__(self, force: bool) -> None:
-    self.force = force
+@register("steam")
+class SteamModule(SimpleModule):
+  force: bool = False
 
   async def format(self) -> list[UniMessage[Segment]]:
     await CACHE.ensure()
@@ -165,14 +165,6 @@ class SteamModule(Module):
       text = f"{item.name}\n{URL_BASE}{item.appid}"
       message.extend([Text.br(), Text(text), Text.br(), Image(url=item.image)])
     return [message]
-
-
-@register("steam")
-class SteamModuleConfig(ModuleConfig):
-  force: bool = False
-
-  def create_module(self) -> Module:
-    return SteamModule(self.force)
 
 
 steam = (

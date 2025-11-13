@@ -1,23 +1,166 @@
+from collections.abc import Iterable
 from datetime import datetime, time, timezone
+from typing import Optional, TypedDict
 from zoneinfo import ZoneInfo
 
 import nonebot
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
 from idhagnbot.command import CommandBuilder
-from idhagnbot.third_party import epicgames as api
+from idhagnbot.http import get_session
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("idhagnbot.plugins.daily_push")
-from nonebot_plugin_alconna import Alconna, CommandMeta, Option, store_true
-from nonebot_plugin_alconna.uniseg import Image, Segment, Text, UniMessage
+from nonebot_plugin_alconna import (
+  Alconna,
+  CommandMeta,
+  Image,
+  Option,
+  Segment,
+  Text,
+  UniMessage,
+  store_true,
+)
 
 from idhagnbot.plugins.daily_push.cache import DailyCache
-from idhagnbot.plugins.daily_push.module import Module, ModuleConfig, register
+from idhagnbot.plugins.daily_push.module import SimpleModule, register
+
+API = (
+  "https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions"
+  "?locale=zh-CN&country=CN&allowCountries=CN"
+)
+URL_BASE = "https://www.epicgames.com/store/zh-CN/p/"
+DISCOUNT_FREE = {"discountType": "PERCENTAGE", "discountPercentage": 0}
+
+
+class Game(BaseModel):
+  start_date: datetime
+  end_date: datetime
+  title: str
+  image: str
+  slug: str
+
+
+class ApiDiscountSetting(TypedDict):
+  discountType: str
+  discountPercentage: int
+
+
+class ApiPromotionOffer(TypedDict):
+  startDate: Optional[str]
+  endDate: Optional[str]
+  discountSetting: ApiDiscountSetting
+
+
+class ApiPromotionOffers(TypedDict):
+  promotionalOffers: list[ApiPromotionOffer]
+
+
+class ApiPromotions(TypedDict):
+  promotionalOffers: list[ApiPromotionOffers]
+  upcomingPromotionalOffers: list[ApiPromotionOffers]
+
+
+class ApiKeyImage(TypedDict):
+  type: str
+  url: str
+
+
+class ApiMapping(TypedDict):
+  pageType: str
+  pageSlug: str
+
+
+class ApiCatalogNs(TypedDict):
+  mappings: Optional[list[ApiMapping]]
+
+
+class ApiElement(TypedDict):
+  title: str
+  productSlug: Optional[str]
+  urlSlug: str
+  promotions: Optional[ApiPromotions]
+  keyImages: list[ApiKeyImage]
+  catalogNs: ApiCatalogNs
+  offerMappings: Optional[list[ApiMapping]]
+
+
+class ApiSearchStore(TypedDict):
+  elements: list[ApiElement]
+
+
+class ApiCatalog(TypedDict):
+  searchStore: ApiSearchStore
+
+
+class ApiData(TypedDict):
+  Catalog: ApiCatalog
+
+
+class ApiResult(TypedDict):
+  data: ApiData
+
+
+ApiResultAdapter = TypeAdapter(ApiResult)
+
+
+def iter_promotions(game: ApiElement) -> Iterable[ApiPromotionOffer]:
+  if game["promotions"]:
+    for i in game["promotions"]["promotionalOffers"]:
+      yield from i["promotionalOffers"]
+    for i in game["promotions"]["upcomingPromotionalOffers"]:
+      yield from i["promotionalOffers"]
+
+
+def get_image(game: ApiElement) -> str:
+  for i in game["keyImages"]:
+    if i["type"] in ("DieselStoreFrontWide", "OfferImageWide"):
+      return i["url"]
+  return ""
+
+
+def iter_mappings(game: ApiElement) -> Iterable[ApiMapping]:
+  if game["catalogNs"]["mappings"]:
+    yield from game["catalogNs"]["mappings"]
+  if game["offerMappings"]:
+    yield from game["offerMappings"]
+
+
+def get_slug(game: ApiElement) -> str:
+  for i in iter_mappings(game):
+    if i["pageType"] == "productHome":
+      return i["pageSlug"]
+  return game["productSlug"] or game["urlSlug"]
+
+
+async def get_free_games() -> list[Game]:
+  async with get_session().get(API) as response:
+    data = ApiResultAdapter.validate_python(await response.json())
+  result = list[Game]()
+  now_date = datetime.now(timezone.utc)
+  for game in data["data"]["Catalog"]["searchStore"]["elements"]:
+    for i in iter_promotions(game):
+      # Python不支持Z结束，须替换成+00:00
+      if i["startDate"] is None or i["endDate"] is None:
+        continue
+      start_date = datetime.fromisoformat(i["startDate"].replace("Z", "+00:00"))
+      end_date = datetime.fromisoformat(i["endDate"].replace("Z", "+00:00"))
+      if i["discountSetting"] == DISCOUNT_FREE and start_date < end_date and now_date < end_date:
+        result.append(
+          Game(
+            start_date=start_date,
+            end_date=end_date,
+            title=game["title"],
+            image=get_image(game),
+            slug=get_slug(game),
+          ),
+        )
+        break
+  return result
 
 
 class Cache(BaseModel):
-  games: list[api.Game]
+  games: list[Game]
 
 
 class EpicGamesCache(DailyCache):
@@ -29,70 +172,75 @@ class EpicGamesCache(DailyCache):
     )
 
   async def do_update(self) -> None:
-    games = await api.get_free_games()
+    games = await get_free_games()
     games.sort(key=lambda x: (x.end_date, x.slug))
-    model = Cache(games=games)
+    cache = Cache(games=games)
     with self.path.open("w") as f:
-      f.write(model.model_dump_json())
+      f.write(cache.model_dump_json())
 
-  def get(self) -> list[api.Game]:
+  def get(self) -> tuple[datetime, list[Game]]:
+    with self.date_path.open() as f:
+      date = datetime.fromisoformat(f.read())
     with self.path.open() as f:
-      data = Cache.model_validate_json(f.read())
-    return data.games
+      cache = Cache.model_validate_json(f.read())
+    return date, cache.games
 
-  def get_prev(self) -> tuple[datetime, list[api.Game]]:
+  def get_prev(self) -> Optional[tuple[datetime, list[Game]]]:
     prev_path = self.path.with_suffix(".prev.json")
     prev_date_path = self.date_path.with_suffix(".prev.date")
     if not prev_path.exists() or not prev_date_path.exists():
-      return datetime(1, 1, 1, tzinfo=timezone.utc), []
+      return None
     with prev_date_path.open() as f:
-      prev_date = datetime.fromisoformat(f.read())
+      date = datetime.fromisoformat(f.read())
     with prev_path.open() as f:
-      data = Cache.model_validate_json(f.read())
-    return prev_date, data.games
+      cache = Cache.model_validate_json(f.read())
+    return date, cache.games
 
 
 CACHE = EpicGamesCache()
 
 
-class EpicGamesModule(Module):
-  def __init__(self, force: bool) -> None:
-    self.force = force
+@register("epicgames")
+class EpicGamesModule(SimpleModule):
+  force: bool = False
 
   async def format(self) -> list[UniMessage[Segment]]:
     await CACHE.ensure()
     now_date = datetime.now(timezone.utc)
-    games = [game for game in CACHE.get() if now_date > game.start_date]
+    _, games = CACHE.get()
+    games = [game for game in games if now_date > game.start_date]
     if not self.force:
-      prev_date, prev_games = CACHE.get_prev()
-      prev_slugs = {game.slug for game in prev_games if prev_date > game.start_date}
-      games = [game for game in games if game.slug not in prev_slugs]
+      prev = CACHE.get_prev()
+      if prev:
+        prev_date, prev_games = prev
+        prev_slugs = {game.slug for game in prev_games if prev_date > game.start_date}
+        games = [game for game in games if game.slug not in prev_slugs]
     if not games:
       return []
     message = UniMessage[Segment](Text("Epic Games 今天可以喜加一："))
     for game in games:
       end_str = game.end_date.astimezone().strftime("%Y-%m-%d %H:%M")
-      text = f"\n{game.title}，截止到 {end_str}\n{api.URL_BASE}{game.slug}\n"
-      message.extend([Text(text), Image(url=game.image)])
+      text = f"{game.title}，截止到 {end_str}\n{URL_BASE}{game.slug}"
+      message.extend([Text.br(), Text(text), Text.br(), Image(url=game.image)])
     return [message]
-
-
-@register("epicgames")
-class EpicGamesModuleConfig(ModuleConfig):
-  force: bool = False
-
-  def create_module(self) -> Module:
-    return EpicGamesModule(self.force)
 
 
 epicgames = (
   CommandBuilder()
   .node("epicgames")
-  .parser(Alconna(
-    "epicgames",
-    Option("--no-cache", dest="no_cache", action=store_true, default=False, help_text="禁用缓存"),
-    meta=CommandMeta("查询 Epic Games 免费游戏"),
-  ))
+  .parser(
+    Alconna(
+      "epicgames",
+      Option(
+        "--no-cache",
+        dest="no_cache",
+        action=store_true,
+        default=False,
+        help_text="禁用缓存",
+      ),
+      meta=CommandMeta("查询 Epic Games 免费游戏"),
+    ),
+  )
   .build()
 )
 
@@ -103,7 +251,7 @@ async def handle_epicgames(no_cache: bool) -> None:
     await CACHE.update()
   else:
     await CACHE.ensure()
-  games = CACHE.get()
+  _, games = CACHE.get()
   if not games:
     await epicgames.finish("似乎没有可白嫖的游戏")
   games.sort(key=lambda x: x.end_date)
@@ -120,7 +268,7 @@ async def handle_epicgames(no_cache: bool) -> None:
       message.append(Text.br())
     message.extend(
       [
-        Text(text + f"\n{api.URL_BASE}{game.slug}"),
+        Text(text + f"\n{URL_BASE}{game.slug}"),
         Text.br(),
         Image(url=game.image),
       ],

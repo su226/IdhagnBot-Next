@@ -3,7 +3,7 @@ from datetime import date
 import nonebot
 from pydantic import BaseModel
 
-from idhagnbot.plugins.daily_push.module import Module, ModuleConfig
+from idhagnbot.plugins.daily_push.module import SimpleModule
 
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Segment, Text, UniMessage
@@ -16,16 +16,8 @@ class Countdown(BaseModel):
   after: str = ""
 
 
-class CountdownModuleConfig(ModuleConfig):
+class CountdownModule(SimpleModule):
   countdowns: list[Countdown]
-
-  def create_module(self) -> Module:
-    return CountdownModule(self.countdowns)
-
-
-class CountdownModule(Module):
-  def __init__(self, countdowns: list[Countdown]) -> None:
-    self.countdowns = countdowns
 
   async def format(self) -> list[UniMessage[Segment]]:
     lines = ["今天是："]

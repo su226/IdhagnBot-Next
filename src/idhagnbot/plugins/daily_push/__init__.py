@@ -17,12 +17,12 @@ from idhagnbot.context import get_target_id
 from idhagnbot.permission import CHANNEL_TYPES
 from idhagnbot.plugins.daily_push.module import (
   MODULE_REGISTRY,
-  ModuleConfig,
-  TargetAwareModuleConfig,
+  SimpleModule,
+  TargetAwareModule,
   register,
 )
-from idhagnbot.plugins.daily_push.modules.constant import ConstantModuleConfig
-from idhagnbot.plugins.daily_push.modules.countdown import CountdownModuleConfig
+from idhagnbot.plugins.daily_push.modules.constant import ConstantModule
+from idhagnbot.plugins.daily_push.modules.countdown import CountdownModule
 from idhagnbot.target import TargetConfig, TargetType
 
 nonebot.require("nonebot_plugin_alconna")
@@ -46,16 +46,16 @@ from nonebot_plugin_uninfo import SceneType, Uninfo, get_interface
 from idhagnbot.plugins.error import send_error
 
 
-class PushModule(BaseModel, extra="allow"):
+class ModuleConfig(BaseModel, extra="allow"):
   type: str
 
-  def to_module_config(self) -> Union[ModuleConfig, TargetAwareModuleConfig]:
+  def to_module(self) -> Union[SimpleModule, TargetAwareModule]:
     return MODULE_REGISTRY[self.type].model_validate(self.model_extra)
 
 
 class Push(BaseModel):
   time: time
-  modules: list[Union[PushModule, list[PushModule]]]
+  modules: list[Union[ModuleConfig, list[ModuleConfig]]]
   targets: list[TargetConfig]
 
 
@@ -72,14 +72,14 @@ CONFIG = SharedConfig("daily_push", Config, "eager")
 DATA = SharedData("daily_push", Data)
 driver = nonebot.get_driver()
 jobs: list[Job] = []
-register("constant")(ConstantModuleConfig)
-register("countdown")(CountdownModuleConfig)
+register("constant")(ConstantModule)
+register("countdown")(CountdownModule)
 try:
-  from idhagnbot.plugins.daily_push.modules.rank import RankModuleConfig
+  from idhagnbot.plugins.daily_push.modules.rank import RankModule
 except ImportError:
   pass
 else:
-  register("rank")(RankModuleConfig)
+  register("rank")(RankModule)
 
 
 @CONFIG.onload()
@@ -129,42 +129,42 @@ async def check_push(push_id: str) -> None:
 
 
 async def format_one_target_aware(
-  module: PushModule,
-  config: TargetAwareModuleConfig,
+  module: TargetAwareModule,
+  config: ModuleConfig,
   target: Target,
 ) -> tuple[Target, list[UniMessage[Segment]]]:
   try:
-    return target, await config.create_module(target).format()
+    return target, await module.format(target)
   except Exception as e:
-    logger.exception(f"每日推送模块运行失败: {module}")
-    description = f"模块运行失败：{module.type}"
+    logger.exception(f"每日推送模块运行失败: {config}")
+    description = f"模块运行失败：{config.type}"
     create_background_task(send_error("daily_push", description, e))
     return target, [UniMessage(Text(description))]
 
 
 async def format_one(
-  module: PushModule,
+  config: ModuleConfig,
   targets: list[Target],
 ) -> dict[Target, list[UniMessage[Segment]]]:
-  config = module.to_module_config()
-  if isinstance(config, TargetAwareModuleConfig):
+  module = config.to_module()
+  if isinstance(module, TargetAwareModule):
     return dict(
       await asyncio.gather(
         *(format_one_target_aware(module, config, target) for target in targets),
       ),
     )
   try:
-    messages = await config.create_module().format()
+    messages = await module.format()
   except Exception as e:
-    logger.exception(f"每日推送模块运行失败: {module}")
-    description = f"模块运行失败：{module.type}"
+    logger.exception(f"每日推送模块运行失败: {config}")
+    description = f"模块运行失败：{config.type}"
     create_background_task(send_error("daily_push", description, e))
     messages = [UniMessage[Segment](Text(description))]
   return dict.fromkeys(targets, messages)
 
 
 async def format_forward(
-  modules: list[PushModule],
+  modules: list[ModuleConfig],
   targets: list[Target],
 ) -> dict[Target, list[UniMessage[Segment]]]:
   merged = {target: list[UniMessage[Segment]]() for target in targets}
@@ -180,7 +180,7 @@ async def format_forward(
 
 
 async def format_all(
-  modules: list[Union[PushModule, list[PushModule]]],
+  modules: list[Union[ModuleConfig, list[ModuleConfig]]],
   targets: list[Target],
 ) -> dict[Target, list[UniMessage[Segment]]]:
   merged = {target: list[UniMessage[Segment]]() for target in targets}

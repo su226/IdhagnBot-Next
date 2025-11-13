@@ -22,7 +22,7 @@ from nonebot_plugin_alconna import (
 )
 
 from idhagnbot.plugins.daily_push.cache import DailyCache
-from idhagnbot.plugins.daily_push.module import Module, ModuleConfig, register
+from idhagnbot.plugins.daily_push.module import SimpleModule, register
 
 HISTORY_API = "https://baike.baidu.com/cms/home/eventsOnHistory/{month}.json"
 
@@ -72,9 +72,9 @@ class HistoryCache(DailyCache):
     items = data[month][day]
     for i in items:
       i["title"] = HTMLStripper.strip(i["title"])
-    model = Cache(items=items)
+    cache = Cache(items=items)
     with self.path.open("w") as f:
-      f.write(model.model_dump_json())
+      f.write(cache.model_dump_json())
 
   def get(self) -> tuple[datetime, list[ApiItem]]:
     with self.date_path.open() as f:
@@ -93,16 +93,11 @@ class HistoryCache(DailyCache):
 CACHE = HistoryCache()
 
 
-class HistoryModule(Module):
+@register("history")
+class HistoryModule(SimpleModule):
   async def format(self) -> list[UniMessage[Segment]]:
     await CACHE.ensure()
     return [UniMessage(Text(CACHE.format()))]
-
-
-@register("history")
-class HistoryModuleConfig(ModuleConfig):
-  def create_module(self) -> Module:
-    return HistoryModule()
 
 
 history = (

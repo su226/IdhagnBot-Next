@@ -22,7 +22,7 @@ from nonebot_plugin_alconna import (
 )
 
 from idhagnbot.plugins.daily_push.cache import DailyCache
-from idhagnbot.plugins.daily_push.module import Module, ModuleConfig, register
+from idhagnbot.plugins.daily_push.module import SimpleModule, register
 
 API = (
   "https://catalog.gog.com/v1/catalog?limit=48&price=between%3A0%2C0&order=desc%3Atrending"
@@ -74,10 +74,10 @@ class GogCache(DailyCache):
     super().__init__("gog.json", True)
 
   async def do_update(self) -> None:
-    items = await get_free_games()
-    model = Cache(items=items)
+    games = await get_free_games()
+    cache = Cache(items=games)
     with self.path.open("w") as f:
-      f.write(model.model_dump_json())
+      f.write(cache.model_dump_json())
 
   def get(self) -> tuple[datetime, list[Game]]:
     with self.date_path.open() as f:
@@ -101,9 +101,9 @@ class GogCache(DailyCache):
 CACHE = GogCache()
 
 
-class GogModule(Module):
-  def __init__(self, force: bool) -> None:
-    self.force = force
+@register("gog")
+class GogModule(SimpleModule):
+  force: bool = False
 
   async def format(self) -> list[UniMessage[Segment]]:
     await CACHE.ensure()
@@ -121,14 +121,6 @@ class GogModule(Module):
       text = f"{item.name}\n{URL_BASE}{item.slug}"
       message.extend([Text.br(), Text(text), Text.br(), Image(url=item.image)])
     return [message]
-
-
-@register("gog")
-class GogModuleConfig(ModuleConfig):
-  force: bool = False
-
-  def create_module(self) -> Module:
-    return GogModule(self.force)
 
 
 gog = (

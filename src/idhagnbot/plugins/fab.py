@@ -23,7 +23,7 @@ from nonebot_plugin_alconna import (
 )
 
 from idhagnbot.plugins.daily_push.cache import DailyCache
-from idhagnbot.plugins.daily_push.module import Module, ModuleConfig, register
+from idhagnbot.plugins.daily_push.module import SimpleModule, register
 
 API = "https://www.fab.com/i/blades/free_content_blade"
 HEADERS = {"Accept-Language": "zh-CN", "User-Agent": BROWSER_UA, "Priority": "u=0, i"}
@@ -84,10 +84,11 @@ class FabCache(DailyCache):
     )
 
   async def do_update(self) -> None:
-    games = await get_free_assets()
-    games.sort(key=lambda x: x.uid)
+    items = await get_free_assets()
+    items.sort(key=lambda x: x.uid)
+    cache = Cache(assets=items)
     with self.path.open("w") as f:
-      f.write(Cache(assets=games).model_dump_json())
+      f.write(cache.model_dump_json())
 
   def get(self) -> tuple[datetime, list[Asset]]:
     with self.date_path.open() as f:
@@ -111,9 +112,9 @@ class FabCache(DailyCache):
 CACHE = FabCache()
 
 
-class FabModule(Module):
-  def __init__(self, force: bool) -> None:
-    self.force = force
+@register("fab")
+class FabModule(SimpleModule):
+  force: bool = False
 
   async def format(self) -> list[UniMessage[Segment]]:
     await CACHE.ensure()
@@ -131,14 +132,6 @@ class FabModule(Module):
       text = f"{item.name}\n{URL_BASE}{item.uid}"
       message.extend([Text.br(), Text(text), Text.br(), Image(url=item.image)])
     return [message]
-
-
-@register("fab")
-class FabModuleConfig(ModuleConfig):
-  force: bool = False
-
-  def create_module(self) -> Module:
-    return FabModule(self.force)
 
 
 fab = (
