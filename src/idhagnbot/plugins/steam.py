@@ -32,7 +32,7 @@ class Config(BaseModel):
   proxy: str = ""
 
 
-CONFIG = SharedConfig("steam_points", Config)
+CONFIG = SharedConfig("steam", Config)
 API = "https://store.steampowered.com/search/results/?query&maxprice=free&specials=1&infinite=1"
 URL_BASE = "https://store.steampowered.com/app/"
 
