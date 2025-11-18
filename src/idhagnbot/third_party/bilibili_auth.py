@@ -1,9 +1,9 @@
 from pathlib import Path
-from typing import Any, Generic, Literal, TypedDict, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
 import jsonc
 from pydantic import BaseModel, SecretStr, TypeAdapter
-from typing_extensions import NotRequired
+from typing_extensions import NotRequired, TypedDict
 
 from idhagnbot.config import SharedConfig
 

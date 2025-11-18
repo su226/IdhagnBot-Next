@@ -4,12 +4,11 @@ from typing import (
   Literal,
   Optional,
   Protocol,
-  TypedDict,
   TypeVar,
 )
 
 from pydantic import TypeAdapter
-from typing_extensions import NotRequired
+from typing_extensions import NotRequired, TypedDict
 
 from idhagnbot.http import BROWSER_UA, get_session
 from idhagnbot.third_party.bilibili_auth import get_cookie, validate_result

@@ -1,9 +1,10 @@
 import asyncio
 import re
-from typing import Any, Optional, TypedDict
+from typing import Any, Optional
 
 import nonebot
 from pydantic import TypeAdapter, ValidationError
+from typing_extensions import TypedDict
 
 from idhagnbot.http import get_session
 from idhagnbot.plugins.link_parser.common import Content, FormatState, MatchState

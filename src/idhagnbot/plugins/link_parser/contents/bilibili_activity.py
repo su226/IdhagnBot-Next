@@ -1,8 +1,9 @@
 import re
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal
 
 import nonebot
 from pydantic import TypeAdapter, ValidationError
+from typing_extensions import TypedDict
 
 from idhagnbot.plugins.link_parser.common import FormatState, MatchState
 from idhagnbot.third_party.bilibili_activity import Activity, get

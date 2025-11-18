@@ -2,10 +2,11 @@ import enum
 from dataclasses import dataclass
 from datetime import datetime
 from html.parser import HTMLParser
-from typing import Optional, TypedDict
+from typing import Optional
 
 import nonebot
 from pydantic import BaseModel, TypeAdapter
+from typing_extensions import TypedDict
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig

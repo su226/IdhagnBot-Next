@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 from datetime import datetime, time, timezone
-from typing import Literal, Optional, TypedDict
+from typing import Literal, Optional
 from zoneinfo import ZoneInfo
 
 import nonebot
 from nonebot.typing import T_State
 from pydantic import BaseModel, TypeAdapter
-from typing_extensions import NotRequired
+from typing_extensions import NotRequired, TypedDict
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.http import BROWSER_UA, get_session

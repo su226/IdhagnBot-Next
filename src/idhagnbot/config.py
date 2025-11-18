@@ -92,7 +92,7 @@ class BaseConfig(Generic[TModel, Unpack[TParam]]):
 
   def onload(
     self,
-  ) -> Callable[[LoadHandler[TModel, Unpack[TParam]]], LoadHandler[TModel, Unpack[TParam]]]:
+  ) -> "Callable[[LoadHandler[TModel, Unpack[TParam]]], LoadHandler[TModel, Unpack[TParam]]]":
     def decorator(
       handler: "LoadHandler[TModel, Unpack[TParam]]",
     ) -> "LoadHandler[TModel, Unpack[TParam]]":

@@ -1,6 +1,6 @@
 import random
 from datetime import datetime, timedelta
-from typing import Literal, TypedDict
+from typing import Literal
 
 import nonebot
 from arclet.alconna import AllParam
@@ -9,6 +9,7 @@ from nonebot.permission import SUPERUSER
 from pydantic import BaseModel, HttpUrl, SecretStr, TypeAdapter
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Mapped, mapped_column
+from typing_extensions import TypedDict
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig

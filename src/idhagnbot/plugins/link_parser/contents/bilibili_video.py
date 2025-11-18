@@ -2,11 +2,12 @@ import asyncio
 import re
 import time
 from io import BytesIO
-from typing import Any, Literal, Optional, TypedDict
+from typing import Any, Literal, Optional
 
 import nonebot
 from PIL import Image
 from pydantic import TypeAdapter, ValidationError
+from typing_extensions import TypedDict
 
 from idhagnbot.http import BROWSER_UA, get_session
 from idhagnbot.image import to_segment

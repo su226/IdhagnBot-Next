@@ -1,9 +1,10 @@
 import re
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal
 
 import nonebot
 from nonebot_plugin_alconna import Image, UniMessage
 from pydantic import TypeAdapter, ValidationError
+from typing_extensions import TypedDict
 
 nonebot.require("nonebot_plugin_alconna")
 from idhagnbot.plugins.link_parser.common import FormatState, MatchState

@@ -1,10 +1,10 @@
 from datetime import date, datetime
 from html.parser import HTMLParser
 from io import StringIO
-from typing import TypedDict
 
 import nonebot
 from pydantic import BaseModel, TypeAdapter
+from typing_extensions import TypedDict
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.http import get_session
