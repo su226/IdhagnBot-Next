@@ -45,7 +45,6 @@ from nonebot_plugin_alconna import (
   Args,
   CommandMeta,
   Emoji,
-  Match,
   Reply,
   Segment,
   Text,
@@ -264,7 +263,7 @@ quote = (
 async def _(
   bot: Bot,
   event: Event,
-  count: Match[int],
+  count: int,
   message: OrigUniMsg,
   scene_id: SceneId,
   sql: async_scoped_session,
@@ -276,20 +275,20 @@ async def _(
     reply = message[Reply, 0]
   except IndexError:
     await quote.finish("请回复一条消息")
-  if count.result < 1 or count.result > 10:
+  if count < 1 or count > 10:
     await quote.finish("只能引用 1 至 10 条消息")
   info = await REPLY_EXTRACT_REGISTRY[adapter](bot, event, reply)
   messages = [info.message]
   user_ids = {info.message.user_id}
-  if count.result > 1:
+  if count > 1:
     records = await sql.scalars(
       select(Message)
       .where(Message.scene_id == scene_id, Message.time >= info.time)
       # 如果平台时间戳为浮点型，几乎不会出现相同时间戳的情况
       # 但如果时间戳为整型，则可能出现相同时间戳，因此预留一定余量
-      .limit(count.result + 10),
+      .limit(count + 10),
     )
-    records = list(islice(dropwhile(lambda x: x.message_id != info.id, records), 1, count.result))
+    records = list(islice(dropwhile(lambda x: x.message_id != info.id, records), 1, count))
     messages.extend(MessageInfo(x.user_id, UniMessage.load(x.content)) for x in records)
     user_ids.update(x.user_id for x in records)
   messages, users = await asyncio.gather(

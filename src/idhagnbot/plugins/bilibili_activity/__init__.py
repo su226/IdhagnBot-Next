@@ -20,7 +20,7 @@ from idhagnbot.third_party.bilibili_activity import Activity, fetch, get
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_apscheduler")
 nonebot.require("idhagnbot.plugins.error")
-from nonebot_plugin_alconna import Alconna, Args, CommandMeta, Match, Segment, Text, UniMessage
+from nonebot_plugin_alconna import Alconna, Args, CommandMeta, Segment, Text, UniMessage
 from nonebot_plugin_apscheduler import scheduler
 
 from idhagnbot.plugins.error import send_error
@@ -200,9 +200,9 @@ force_push = (
 
 
 @force_push.handle()
-async def handle_force_push(id: Match[int], scene_id: SceneId, scene_id_raw: SceneIdRaw) -> None:
+async def handle_force_push(id: int, scene_id: SceneId, scene_id_raw: SceneIdRaw) -> None:
   try:
-    src = await get(id.result)
+    src = await get(id)
   except Exception:
     await force_push.finish("无法获取这条动态")
   activity = Activity.parse(src)

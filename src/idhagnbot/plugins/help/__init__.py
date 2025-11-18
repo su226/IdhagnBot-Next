@@ -10,7 +10,7 @@ from idhagnbot.plugins.help.common import get_show_data, join_path, normalize_pa
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_uninfo")
-from nonebot_plugin_alconna import Alconna, Args, CommandMeta, Match, MultiVar
+from nonebot_plugin_alconna import Alconna, Args, CommandMeta, MultiVar
 from nonebot_plugin_alconna.uniseg import (
   At,
   Button,
@@ -68,17 +68,13 @@ async def handle_help(
   interface: QryItrface,
   scene: SceneId,
   roles: Roles,
-  path: Match[tuple[str]],
-  page: Match[int],
+  path: tuple[str, ...],
+  page: int,
 ) -> None:
   show_data = await get_show_data(scene, session, interface, roles)
-  if (
-    len(path.result) == 1
-    and (command := find_command(path.result[0]))
-    and command.can_show(show_data)
-  ):
+  if len(path) == 1 and (command := find_command(path[0])) and command.can_show(show_data):
     await help_.finish(command.format())
-  normalized_path = normalize_path(*path.result)
+  normalized_path = normalize_path(*path)
   try:
     category = CategoryItem.find(normalized_path, check=show_data)
   except (KeyError, ValueError):
@@ -95,7 +91,7 @@ async def handle_help(
     await help_.finish(
       Reference(nodes=[CustomNode(session.self_id, bot_name, [Text(page)]) for page in pages]),
     )
-  content, page_id, total_pages = category.format_page(show_data, normalized_path, page.result - 1)
+  content, page_id, total_pages = category.format_page(show_data, normalized_path, page - 1)
   message = UniMessage[Segment]([Text(content)])
   if page_id - 1 >= 0:
     value = f"help_{join_path(normalized_path)}_{page_id - 1}"
