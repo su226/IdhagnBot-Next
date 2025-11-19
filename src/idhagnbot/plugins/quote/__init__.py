@@ -64,6 +64,12 @@ except ImportError:
 else:
   register()
 try:
+  from idhagnbot.plugins.quote.satori import register
+except ImportError:
+  pass
+else:
+  register()
+try:
   from idhagnbot.plugins.quote.telegram import register
 except ImportError:
   pass
