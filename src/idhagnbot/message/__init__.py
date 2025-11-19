@@ -1,3 +1,6 @@
+import nonebot
+from nonebot.matcher import current_bot, current_event
+
 from idhagnbot.message.common import (
   EventTime,
   MergedEvent,
@@ -9,6 +12,9 @@ from idhagnbot.message.common import (
   send_message,
 )
 
+nonebot.require("nonebot_plugin_alconna")
+from nonebot_plugin_alconna import Image, UniMessage
+
 __all__ = [
   "EventTime",
   "MergedEvent",
@@ -17,6 +23,7 @@ __all__ = [
   "OrigMergedMsg",
   "OrigUniMsg",
   "UniMsg",
+  "send_image_or_animation",
   "send_message",
 ]
 
@@ -38,3 +45,24 @@ except ImportError:
   pass
 else:
   register()
+
+
+async def send_image_or_animation(image: Image) -> str:
+  uni = UniMessage(image)
+  bot = current_bot.get()
+  if bot.adapter.get_name() == "Telegram" and image.name.endswith(".gif"):
+    from nonebot.adapters.telegram import Bot, Event, Message
+    from nonebot.adapters.telegram.message import File
+
+    assert isinstance(bot, Bot)
+    message = await uni.export(bot)
+    assert isinstance(message, Message)
+    segment = message[0]
+    assert isinstance(segment, File)
+    segment.type = "animation"
+    event = current_event.get()
+    assert isinstance(event, Event)
+    receipt = await bot.send(event, message)
+    return receipt.message_id
+  receipt = await send_message(uni)
+  return receipt[0]

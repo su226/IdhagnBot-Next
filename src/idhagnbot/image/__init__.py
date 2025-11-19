@@ -353,6 +353,12 @@ def replace(
   dst.paste(paste_src, (x1, y1))
 
 
+def flatten(im: Image.Image, bg: color.RGB = (255, 255, 255)) -> Image.Image:
+  out_im = Image.new("RGB", im.size, bg)
+  out_im.paste(im, mask=im)
+  return out_im
+
+
 def _check_libimagequant() -> bool:
   global _libimagequant_available, _libimagequant_warned
   if _libimagequant_available is None:
@@ -366,46 +372,48 @@ def _check_libimagequant() -> bool:
   return _libimagequant_available
 
 
-def _add_transparency(im: Image.Image) -> None:
-  assert im.palette
-  if im.palette.mode != "RGBA":
-    return
-  for i in range(0, len(im.palette.palette), 4):
-    if im.palette.palette[i + 3] == 0:
-      im.info["transparency"] = i // 4
-      break
-
-
-def quantize(im: AnyImage, palette: Optional[Image.Image] = None) -> Image.Image:
+def quantize(im: AnyImage) -> Image.Image:
   config = CONFIG()
   im = from_cairo(im) if isinstance(im, cairo.ImageSurface) else im
   if config.libimagequant is True and _check_libimagequant():
     # Image.new 在 RGB 模式下不带 color 参数会给隐藏的 Alpha 通道填充 0 而非 255
     # 也就是颜色实际上是 (0, 0, 0, 0) 而非 (0, 0, 0, 255)
-    # 这会导致 libimagequant 产生的图片变绿
+    # 这会导致 libimagequant 产生的图片变绿（新版 libimagequant 似乎已经修复了这个问题）
     # 所以要么给所有的 Image.new 都显式加上 (0, 0, 0) 作为 color 参数
     # 要么 quantize 前先转换成 RGBA
-    im = im.convert("RGBA").quantize(method=Image.Quantize.LIBIMAGEQUANT, palette=palette)
-    _add_transparency(im)
-    return im
+    p = im.quantize(method=Image.Quantize.LIBIMAGEQUANT)
+    assert p.palette
+    if p.palette.mode != "RGBA":
+      return p
+    for i in range(0, len(p.palette.palette), 4):
+      if p.palette.palette[i + 3] == 0:
+        p.info["transparency"] = i // 4
+        break
+    return p
+  method = Image.Quantize[config.quantize.upper()]
   if im.mode == "RGBA":
-    method = Image.Quantize.FASTOCTREE
-  else:
-    method = Image.Quantize[config.quantize.upper()]
+    # RGBA 图片的 quantize 方法不能用 palette 参数，使用内部 API 强行量化有奇怪的问题
+    # 我们手搓一个
+    a = ImageChops.invert(im.getchannel("A").convert("1"))
+    rgb = flatten(im)
+    if config.dither:
+      palette = rgb.quantize(255, method=method)
+      p = rgb.quantize(method=method, palette=palette)
+    else:
+      p = rgb.quantize(255, method=method, dither=Image.Dither.NONE)
+    assert p.palette
+    palette_data = p.palette.tobytes()
+    pos = len(palette_data) // 3
+    p.palette.palette = palette_data + b"\0\0\0"
+    p.info["transparency"] = pos
+    p.paste(pos, mask=a)
+    return p
   # 必须要量化两次才有抖动仿色（除非用 libimagequant）
   # 参见 https://github.com/python-pillow/Pillow/issues/5836
-  if not palette:
-    palette = im.quantize(method=method)
-    if not config.dither:
-      _add_transparency(palette)
-      return palette
-  # HACK: RGBA 图片的 quantize 方法不能用 palette 参数，因此只能使用 Pillow 的内部 API
-  im = cast(
-    Image.Image,
-    cast(Any, palette)._new(im.im.convert("P", Image.Dither.FLOYDSTEINBERG, palette.im)),
-  )
-  _add_transparency(im)
-  return im
+  palette = im.quantize(method=method)
+  if not config.dither:
+    return palette
+  return im.quantize(method=method, palette=palette)
 
 
 class RemapTransform:
@@ -490,33 +498,37 @@ def to_segment(
   **kw: Any,
 ) -> ImageSeg:
   f = BytesIO()
-  if isinstance(im, cairo.ImageSurface):
-    if fmt == "png":
-      im.write_to_png(f)
-      return ImageSeg(raw=f)
-    im = from_cairo(im)
   if isinstance(im, Sequence):
-    frames = [from_cairo(x) if isinstance(x, cairo.ImageSurface) else x for x in im]
-    if len(frames) > 1:
+    if len(im) > 1:
       if isinstance(duration, Image.Image):
         duration = [im.info["duration"] for im in ImageSequence.Iterator(duration)]
       if isinstance(duration, list) and len(duration) != len(im):
         raise ValueError("Duration list length doesn't match frames count.")
-      if afmt.lower() == "gif":
+      frames = [from_cairo(x) if isinstance(x, cairo.ImageSurface) else x for x in im]
+      afmt = afmt.lower()
+      if afmt == "gif":
         frames = [x if x.mode == "P" else quantize(x) for x in frames]
         # 只对透明图片使用 disposal，防止不透明图片有鬼影
         disposal = 2 if any("transparency" in x.info for x in frames) else 0
         frames[0].save(
           f,
           "GIF",
-          append_images=im[1:],
+          append_images=frames[1:],
           save_all=True,
           loop=0,
           disposal=disposal,
           duration=duration,
           **kw,
         )
+      else:
+        frames[0].save(f, afmt, append_images=frames[1:], duration=duration)
+      return ImageSeg(raw=f, name=f"image.{afmt}")
+    im = im[0]
+  fmt = fmt.lower()
+  if isinstance(im, cairo.ImageSurface):
+    if fmt == "png":
+      im.write_to_png(f)
       return ImageSeg(raw=f)
-    im = frames[0]
+    im = from_cairo(im)
   im.save(f, fmt, **kw)
-  return ImageSeg(raw=f)
+  return ImageSeg(raw=f, name=f"image.{fmt}")
