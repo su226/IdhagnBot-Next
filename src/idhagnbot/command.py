@@ -58,7 +58,7 @@ class CommandBuilder:
       CommandItem(
         [self._parser.name, *self._aliases],
         self._parser.meta.description,
-        self._parser.formatter.format_node(),
+        self._parser.formatter.format_node,
         CommonData(
           node=self._node,
           default_grant_to=self._default_grant_to,
@@ -73,4 +73,5 @@ class CommandBuilder:
       auto_send_output=self._auto_reject,
       skip_for_unmatch=not self._auto_reject,
       use_cmd_start=True,
+      _depth=1,
     )

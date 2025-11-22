@@ -5,9 +5,11 @@ from traceback import format_exception_only
 from typing import Optional, cast
 
 import nonebot
-from apscheduler.events import JobExecutionEvent
+from apscheduler.events import EVENT_JOB_ERROR, JobExecutionEvent
 from nonebot import logger
 from nonebot.exception import ActionFailed
+from nonebot.matcher import Matcher
+from nonebot.message import run_postprocessor
 from pydantic import BaseModel, Field
 
 from idhagnbot.asyncio import create_background_task
@@ -48,7 +50,7 @@ async def try_send(message: UniMessage[Text], target: Target) -> None:
   try:
     await message.send(target)
   except ActionFailed:
-    logger.exception("发送异常出错")
+    logger.exception(f"发送异常消息 {message} 到 {target} 出错")
 
 
 def format_exception(exception: BaseException) -> str:
@@ -97,3 +99,11 @@ def on_job_error(event: JobExecutionEvent) -> None:
   create_background_task(
     send_error("scheduler", f"定时任务 {event.job_id} 失败", cast(BaseException, event.exception)),
   )
+
+
+scheduler.add_listener(on_job_error, EVENT_JOB_ERROR)
+
+
+@run_postprocessor
+async def _(matcher: Matcher, e: Exception) -> None:
+  create_background_task(send_error("matcher", f"响应器 {matcher} 出错", e))

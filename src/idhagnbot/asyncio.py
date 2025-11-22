@@ -1,14 +1,27 @@
-import asyncio
-from collections.abc import Coroutine
-from typing import Any, TypeVar
+from collections.abc import Awaitable
+from typing import TypeVar
 
-T = TypeVar("T")
-background_tasks = set[asyncio.Task[Any]]()
+import nonebot
+from nonebot import logger
+
+__all__ = ["create_background_task"]
+_T = TypeVar("_T")
+_driver = nonebot.get_driver()
 
 
-# https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
-def create_background_task(coro: Coroutine[Any, Any, T]) -> asyncio.Task[T]:
-  task = asyncio.create_task(coro)
-  background_tasks.add(task)
-  task.add_done_callback(background_tasks.discard)
-  return task
+async def _background_task_wrapper(coro: Awaitable[_T]) -> None:
+  try:
+    await coro
+  except Exception as e:
+    nonebot.require("idhagnbot.plugins.error")
+    from idhagnbot.plugins.error import send_error
+
+    description = "后台任务出错"
+    logger.exception(description)
+    await send_error("background_task", description, e)
+
+
+# 不要直接使用 asyncio.create_task
+# 参见 https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
+def create_background_task(coro: Awaitable[_T]) -> None:
+  _driver.task_group.start_soon(_background_task_wrapper, coro)
