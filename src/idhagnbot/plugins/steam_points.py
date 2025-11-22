@@ -41,7 +41,7 @@ URL_BASE = "https://store.steampowered.com/points/shop/reward/"
 
 
 class ApiCommunityItemData(TypedDict):
-  item_title: str
+  item_title: NotRequired[str]
   item_image_large: NotRequired[str]
 
 
@@ -50,6 +50,7 @@ class ApiDefinition(TypedDict):
   defid: int
   type: int
   point_cost: str
+  internal_description: str
   community_item_data: ApiCommunityItemData
   bundle_discount: int
 
@@ -82,7 +83,7 @@ async def get_free_items() -> list[Item]:
       items.append(
         Item(
           item["defid"],
-          item["community_item_data"]["item_title"],
+          item["community_item_data"].get("item_title", item["internal_description"]),
           (
             f"https://shared.akamai.steamstatic.com/community_assets/images/items/"
             f"{item['appid']}/{item['community_item_data']['item_image_large']}"
