@@ -1,10 +1,11 @@
-import asyncio
 from typing import Callable
 
 import nonebot
+from anyio.to_thread import run_sync
 from PIL import Image
 
 from idhagnbot import image
+from idhagnbot.asyncio import gather
 from idhagnbot.image.card import Card, CardAuthor, CardText
 from idhagnbot.plugins.bilibili_activity import extras
 from idhagnbot.plugins.bilibili_activity.common import fetch_image
@@ -21,7 +22,7 @@ CONTENT_TYPES = {
 
 
 async def get_appender(activity: ActivityBlocked[object]) -> Callable[[Card], None]:
-  avatar, append_extra = await asyncio.gather(
+  avatar, append_extra = await gather(
     fetch_image(activity.avatar),
     extras.format(activity.extra),
   )
@@ -56,4 +57,4 @@ async def format(activity: ActivityBlocked[object], can_ignore: bool) -> UniMess
       ],
     )
 
-  return await asyncio.to_thread(make)
+  return await run_sync(make)

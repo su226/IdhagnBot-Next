@@ -1,17 +1,18 @@
-import asyncio
 import json
 from collections.abc import Generator
 from itertools import chain
-from typing import Any, cast
+from typing import Any
 
 import cv2
 import nonebot
 import numpy as np
+from anyio.to_thread import run_sync
 from nonebot.adapters import Bot, Event
 from nonebot.typing import T_State
 from pydantic import BaseModel
 from sqlalchemy.orm import Mapped, mapped_column
 
+from idhagnbot.asyncio import gather_seq
 from idhagnbot.config import SharedConfig
 from idhagnbot.context import SceneIdRaw
 from idhagnbot.message import UniMsg
@@ -63,7 +64,7 @@ def extract_links(message: UniMessage[Segment]) -> Generator[str, None, None]:
 
 
 def decode(data: bytes) -> list[str]:
-  im = cv2.imdecode(cast(Any, np.frombuffer(data, "uint8")), cv2.IMREAD_COLOR)
+  im = cv2.imdecode(np.frombuffer(data, "uint8"), cv2.IMREAD_COLOR)
   if im is not None:
     _retval, decoded_info, _points, _straight_code = cv2.QRCodeDetector().detectAndDecodeMulti(im)
     return [data for data in decoded_info if data.startswith(("http://", "https://"))]
@@ -77,7 +78,7 @@ async def download_and_decode(
   image: Image,
 ) -> list[str]:
   data = await image_fetch(event, bot, state, image)
-  return await asyncio.to_thread(decode, data) if data else []
+  return await run_sync(decode, data) if data else []
 
 
 async def extract_qrcodes(
@@ -88,9 +89,7 @@ async def extract_qrcodes(
 ) -> list[str]:
   return list(
     chain.from_iterable(
-      await asyncio.gather(
-        *[download_and_decode(bot, event, state, seg) for seg in message[Image]],
-      ),
+      await gather_seq(download_and_decode(bot, event, state, seg) for seg in message[Image]),
     ),
   )
 
@@ -110,7 +109,7 @@ async def check_links(
   last = json.loads(last.last_state) if last else dict[str, Any]()
   matched = False
   for link in links:
-    results = await asyncio.gather(*[content.match(link, last) for content in CONTENTS])
+    results = await gather_seq(content.match(link, last) for content in CONTENTS)
     for content, result in zip(CONTENTS, results):
       if result.matched:
         if matched:

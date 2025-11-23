@@ -1,17 +1,19 @@
-import asyncio
 import random
+from collections.abc import Awaitable, Sequence
 from io import BytesIO
 from itertools import dropwhile, islice
 from typing import Optional
 from uuid import UUID, uuid4
 
 import nonebot
+from anyio.to_thread import run_sync
 from nonebot.adapters import Bot, Event
 from PIL import Image
 from sqlalchemy import select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from idhagnbot import text
+from idhagnbot.asyncio import gather, gather_map, gather_seq
 from idhagnbot.color import split_rgb
 from idhagnbot.command import CommandBuilder
 from idhagnbot.context import SceneId
@@ -105,47 +107,38 @@ def open_raw_avatar(data: bytes) -> Image.Image:
 
 async def fetch_avatar(info: UserInfo) -> Image.Image:
   if info.avatar.startswith("avatar://"):
-    return await asyncio.to_thread(generate_avatar, info)
+    return await run_sync(generate_avatar, info)
   if info.avatar.startswith("file://"):
-    return await asyncio.to_thread(open_avatar, info)
+    return await run_sync(open_avatar, info)
   async with get_session().get(info.avatar) as response:
-    return await asyncio.to_thread(open_raw_avatar, await response.read())
+    return await run_sync(open_raw_avatar, await response.read())
 
 
 async def fetch_avatars(users: dict[str, UserInfo]) -> dict[str, Image.Image]:
-  tasks = {user_id: asyncio.create_task(fetch_avatar(info)) for user_id, info in users.items()}
-  await asyncio.gather(*tasks.values())
-  return {user_id: task.result() for user_id, task in tasks.items()}
+  return await gather_map({user_id: fetch_avatar(info) for user_id, info in users.items()})
 
 
 async def fetch_image(bot: Bot, event: Event, segment: ImageSeg) -> None:
   segment.raw = await image_fetch(event, bot, {}, segment)
 
 
-async def fetch_images(bot: Bot, event: Event, messages: list[MessageInfo]) -> None:
-  tasks = list[asyncio.Task[None]]()
+async def fetch_images(bot: Bot, event: Event, messages: Sequence[MessageInfo]) -> None:
+  tasks = list[Awaitable[None]]()
   for message in messages:
-    tasks.extend(
-      asyncio.create_task(fetch_image(bot, event, segment))
-      for segment in message.message[ImageSeg]
-    )
-  await asyncio.gather(*tasks)
+    tasks.extend(fetch_image(bot, event, segment) for segment in message.message[ImageSeg])
+  await gather_seq(tasks)
 
 
-async def fetch_emojis(
-  bot: Bot,
-  messages: list[MessageInfo],
-) -> dict[str, Image.Image]:
+async def fetch_emojis(bot: Bot, messages: Sequence[MessageInfo]) -> dict[str, Image.Image]:
   fetch_emoji = EMOJI_REGISTRY.get(bot.adapter.get_name())
   if not fetch_emoji:
     return {}
-  tasks = dict[str, asyncio.Task[Image.Image]]()
+  tasks = dict[str, Awaitable[Image.Image]]()
   for message in messages:
     for emoji in message.message[Emoji]:
       if emoji.id not in tasks:
-        tasks[emoji.id] = asyncio.create_task(fetch_emoji(bot, emoji.id))
-  await asyncio.gather(*tasks.values())
-  return {emoji_id: task.result() for emoji_id, task in tasks.items()}
+        tasks[emoji.id] = fetch_emoji(bot, emoji.id)
+  return await gather_map(tasks)
 
 
 def render_content(
@@ -203,10 +196,10 @@ def render_content(
 async def render_chat(
   bot: Bot,
   event: Event,
-  messages: list[MessageInfo],
+  messages: Sequence[MessageInfo],
   users: dict[str, UserInfo],
 ) -> Image.Image:
-  avatars, _, emojis = await asyncio.gather(
+  avatars, _, emojis = await gather(
     fetch_avatars(users),
     fetch_images(bot, event, messages),
     fetch_emojis(bot, messages),
@@ -243,7 +236,7 @@ async def render_chat(
         y += gap_small
     return out_im
 
-  return await asyncio.to_thread(make)
+  return await run_sync(make)
 
 
 async def process_message(bot: Bot, event: Event, message: MessageInfo) -> MessageInfo:
@@ -297,9 +290,9 @@ async def _(
     records = list(islice(dropwhile(lambda x: x.message_id != info.id, records), 1, count))
     messages.extend(MessageInfo(x.user_id, UniMessage.load(x.content)) for x in records)
     user_ids.update(x.user_id for x in records)
-  messages, users = await asyncio.gather(
-    asyncio.gather(*(process_message(bot, event, message) for message in messages)),
-    asyncio.gather(*(get_user_info(bot, event, user_id) for user_id in user_ids)),
+  messages, users = await gather(
+    gather_seq(process_message(bot, event, message) for message in messages),
+    gather_seq(get_user_info(bot, event, user_id) for user_id in user_ids),
   )
   im = await render_chat(bot, event, messages, dict(users))
   dirname = get_data_dir("idhagnbot") / "quote" / scene_id.replace(":", "__")

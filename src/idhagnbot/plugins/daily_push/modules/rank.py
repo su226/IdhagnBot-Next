@@ -1,9 +1,9 @@
-import asyncio
 from datetime import date, timedelta
 
 import nonebot
 from sqlalchemy import desc, func, select
 
+from idhagnbot.asyncio import gather_seq
 from idhagnbot.context import get_target_id
 from idhagnbot.plugins.daily_push.module import TargetAwareModule
 
@@ -56,8 +56,8 @@ class RankModule(TargetAwareModule):
     else:
       scene_type = SceneType.GROUP
       scene_id = target.id
-    infos = await asyncio.gather(
-      *(interface.get_member(scene_type, scene_id, user_id) for user_id, _ in result),
+    infos = await gather_seq(
+      interface.get_member(scene_type, scene_id, user_id) for user_id, _ in result
     )
     for i, ((user_id, count), info) in enumerate(zip(result, infos)):
       prefix = EMOJIS[i] if i < len(EMOJIS) else f"{i + 1}."

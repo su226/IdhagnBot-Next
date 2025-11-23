@@ -1,11 +1,11 @@
-import asyncio
 import random
 from pathlib import Path
 
 import nonebot
-from PIL import Image, ImagePalette
+from anyio.to_thread import run_sync
+from PIL import Image
 
-from idhagnbot.color import RGB, blend, parse, split_rgb
+from idhagnbot.color import blend, parse, split_rgb
 from idhagnbot.command import CommandBuilder
 from idhagnbot.help import COMMAND_PREFIX
 from idhagnbot.image import to_segment
@@ -79,4 +79,4 @@ async def _(colors: tuple[str, ...]) -> None:
       frames.append(im)
     return to_segment(frames, DURATION)
 
-  await send_image_or_animation(await asyncio.to_thread(make))
+  await send_image_or_animation(await run_sync(make))

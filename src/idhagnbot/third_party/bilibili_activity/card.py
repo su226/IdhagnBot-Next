@@ -1,9 +1,10 @@
-import asyncio
 from io import BytesIO
 from typing import Optional
 
+from anyio.to_thread import run_sync
 from PIL import Image
 
+from idhagnbot.asyncio import gather_seq
 from idhagnbot.http import get_session
 from idhagnbot.image import get_scale_resample
 from idhagnbot.image.card import CONTENT_WIDTH, PADDING, WIDTH, Render
@@ -18,14 +19,14 @@ EMOTION_SIZE = 48
 async def fetch_emotion(url: str) -> Image.Image:
   async with get_session().get(url) as response:
     data = await response.read()
-  return await asyncio.to_thread(
+  return await run_sync(
     lambda: Image.open(BytesIO(data)).resize((EMOTION_SIZE, EMOTION_SIZE), get_scale_resample()),
   )
 
 
 async def fetch_emotions(richtext: RichText) -> dict[str, Image.Image]:
   urls = [node.url for node in richtext if isinstance(node, RichTextEmotion)]
-  surfaces = await asyncio.gather(*[fetch_emotion(url) for url in urls])
+  surfaces = await gather_seq(fetch_emotion(url) for url in urls)
   return dict(zip(urls, surfaces))
 
 

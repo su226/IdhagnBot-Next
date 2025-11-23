@@ -1,10 +1,11 @@
-import asyncio
 from typing import Callable
 
 import nonebot
+from anyio.to_thread import run_sync
 from PIL import Image, ImageOps
 
 from idhagnbot import image
+from idhagnbot.asyncio import gather
 from idhagnbot.image.card import Card, CardAuthor, CardCover, CardText
 from idhagnbot.plugins.bilibili_activity import extras
 from idhagnbot.plugins.bilibili_activity.common import IMAGE_GAP, fetch_image, fetch_images
@@ -16,7 +17,7 @@ from nonebot_plugin_alconna.uniseg import Segment, Text, UniMessage
 
 
 async def get_appender(activity: ActivityArticle[object]) -> Callable[[Card], None]:
-  avatar, covers, append_extra = await asyncio.gather(
+  avatar, covers, append_extra = await gather(
     fetch_image(activity.avatar),
     fetch_images(*activity.content.covers),
     extras.format(activity.extra),
@@ -65,4 +66,4 @@ async def format(activity: ActivityArticle[object], can_ignore: bool) -> UniMess
       ],
     )
 
-  return await asyncio.to_thread(make)
+  return await run_sync(make)

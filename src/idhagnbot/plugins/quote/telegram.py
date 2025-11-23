@@ -1,6 +1,4 @@
-import asyncio
 from datetime import datetime
-from io import BytesIO
 from pathlib import Path
 from typing import Optional
 
@@ -16,7 +14,7 @@ from nonebot.adapters.telegram.event import (
 from nonebot.adapters.telegram.model import ChatFullInfo
 from PIL import Image
 
-from idhagnbot.http import get_session
+from idhagnbot.image import open_url
 from idhagnbot.plugins.quote.common import (
   EMOJI_REGISTRY,
   REPLY_EXTRACT_REGISTRY,
@@ -81,21 +79,17 @@ async def get_user_info(bot: Bot, event: Event, user_id: str) -> UserInfo:
   return UserInfo(name, avatar)
 
 
-def open_emoji(data: bytes) -> Image.Image:
-  return Image.open(BytesIO(data))
-
-
 async def fetch_emoji(bot: Bot, id: str) -> Image.Image:
   assert isinstance(bot, TGBot)
   stickers = await bot.get_custom_emoji_stickers([id])
   assert stickers[0].thumbnail
   file = await bot.get_file(stickers[0].thumbnail.file_id)
   assert file.file_path
-  if Path(file.file_path).exists():
-    return Image.open(file.file_path)
-  url = f"{bot.bot_config.api_server}file/bot{bot.bot_config.token}/{file.file_path}"
-  async with get_session().get(url) as response:
-    return await asyncio.to_thread(open_emoji, await response.read())
+  if (path := Path(file.file_path)).exists():
+    url = path.as_uri()
+  else:
+    url = f"{bot.bot_config.api_server}file/bot{bot.bot_config.token}/{file.file_path}"
+  return await open_url(url)
 
 
 def register() -> None:

@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime, time, timedelta
 from itertools import chain
 from typing import Optional, Union
@@ -10,7 +9,7 @@ from nonebot.adapters import Bot
 from nonebot.exception import ActionFailed
 from pydantic import BaseModel, Field
 
-from idhagnbot.asyncio import create_background_task
+from idhagnbot.asyncio import create_background_task, gather_map, gather_seq
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig, SharedData
 from idhagnbot.context import get_target_id
@@ -132,14 +131,14 @@ async def format_one_target_aware(
   module: TargetAwareModule,
   config: ModuleConfig,
   target: Target,
-) -> tuple[Target, list[UniMessage[Segment]]]:
+) -> list[UniMessage[Segment]]:
   try:
-    return target, await module.format(target)
+    return await module.format(target)
   except Exception as e:
     logger.exception(f"每日推送模块运行失败: {config}")
     description = f"模块运行失败：{config.type}"
     create_background_task(send_error("daily_push", description, e))
-    return target, [UniMessage(Text(description))]
+    return [UniMessage(Text(description))]
 
 
 async def format_one(
@@ -148,10 +147,8 @@ async def format_one(
 ) -> dict[Target, list[UniMessage[Segment]]]:
   module = config.to_module()
   if isinstance(module, TargetAwareModule):
-    return dict(
-      await asyncio.gather(
-        *(format_one_target_aware(module, config, target) for target in targets),
-      ),
+    return await gather_map(
+      {target: format_one_target_aware(module, config, target) for target in targets},
     )
   try:
     messages = await module.format()
@@ -168,7 +165,7 @@ async def format_forward(
   targets: list[Target],
 ) -> dict[Target, list[UniMessage[Segment]]]:
   merged = {target: list[UniMessage[Segment]]() for target in targets}
-  for one in await asyncio.gather(*(format_one(module, targets) for module in modules)):
+  for one in await gather_seq(format_one(module, targets) for module in modules):
     for target, messages in one.items():
       merged[target].extend(messages)
   return {
@@ -184,11 +181,9 @@ async def format_all(
   targets: list[Target],
 ) -> dict[Target, list[UniMessage[Segment]]]:
   merged = {target: list[UniMessage[Segment]]() for target in targets}
-  for one in await asyncio.gather(
-    *(
-      format_forward(module, targets) if isinstance(module, list) else format_one(module, targets)
-      for module in modules
-    ),
+  for one in await gather_seq(
+    format_forward(module, targets) if isinstance(module, list) else format_one(module, targets)
+    for module in modules
   ):
     for target, messages in one.items():
       merged[target].extend(messages)
@@ -246,7 +241,7 @@ async def send_one(target: Target, messages: list[UniMessage[Segment]]) -> None:
 async def send_push(push: Push) -> None:
   targets = [target.target for target in push.targets]
   messages = await format_all(push.modules, targets)
-  await asyncio.gather(*(send_one(target, messages[target]) for target in targets))
+  await gather_seq(send_one(target, messages[target]) for target in targets)
 
 
 resend_push = (
@@ -272,7 +267,7 @@ async def target_match(target: TargetConfig, session: Uninfo) -> bool:
 
 
 async def format_if_match(push: Push, session: Uninfo) -> list[UniMessage[Segment]]:
-  matches = await asyncio.gather(*(target_match(target, session) for target in push.targets))
+  matches = await gather_seq(target_match(target, session) for target in push.targets)
   targets = [target.target for target, match in zip(push.targets, matches) if match]
   if targets:
     formatted = await format_all(push.modules, [targets[0]])
@@ -284,7 +279,7 @@ async def format_if_match(push: Push, session: Uninfo) -> list[UniMessage[Segmen
 async def handle_resend_push(session: Uninfo) -> None:
   messages = list(
     chain.from_iterable(
-      await asyncio.gather(*(format_if_match(push, session) for push in CONFIG().pushes.values())),
+      await gather_seq(format_if_match(push, session) for push in CONFIG().pushes.values()),
     ),
   )
   await init_reference(get_target(), messages)

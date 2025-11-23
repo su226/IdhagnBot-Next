@@ -1,12 +1,13 @@
-import asyncio
 import time
 from collections.abc import Awaitable
 from typing import Any, Callable, Optional, TypeVar, Union
 
 import nonebot
+from anyio.to_thread import run_sync
 from PIL import Image
 
 from idhagnbot import image as images
+from idhagnbot.asyncio import gather
 from idhagnbot.image.card import Card, CardAuthor, CardCover, CardLine, CardText
 from idhagnbot.plugins.bilibili_activity import extras
 from idhagnbot.plugins.bilibili_activity.common import (
@@ -93,7 +94,7 @@ async def get_pgc_appender(activity: ActivityPGC[object]) -> Callable[[Card], No
       return await fetch_image(activity.content.season_cover)
     return None
 
-  season_cover, episode_cover, append_extra = await asyncio.gather(
+  season_cover, episode_cover, append_extra = await gather(
     fetch_season_cover(),
     fetch_image(activity.content.episode_cover),
     extras.format(activity.extra),
@@ -115,7 +116,7 @@ async def get_pgc_appender(activity: ActivityPGC[object]) -> Callable[[Card], No
 
 
 async def get_live_appender(activity: ActivityLive[object]) -> Callable[[Card], None]:
-  avatar, cover, append_extra = await asyncio.gather(
+  avatar, cover, append_extra = await gather(
     fetch_image(activity.avatar),
     fetch_image(activity.content.cover),
     extras.format(activity.extra),
@@ -136,7 +137,7 @@ async def get_live_appender(activity: ActivityLive[object]) -> Callable[[Card], 
 
 
 async def get_live_rcmd_appender(activity: ActivityLiveRcmd[object]) -> Callable[[Card], None]:
-  avatar, cover, append_extra = await asyncio.gather(
+  avatar, cover, append_extra = await gather(
     fetch_image(activity.avatar),
     fetch_image(activity.content.cover),
     extras.format(activity.extra),
@@ -172,7 +173,7 @@ async def get_course_appender(activity: ActivityCourse[object]) -> Callable[[Car
       return await fetch_image(activity.avatar)
     return None
 
-  avatar, cover, append_extra = await asyncio.gather(
+  avatar, cover, append_extra = await gather(
     fetch_avatar(),
     fetch_image(activity.content.cover),
     extras.format(activity.extra),
@@ -198,7 +199,7 @@ async def get_course_appender(activity: ActivityCourse[object]) -> Callable[[Car
 
 
 async def get_playlist_appender(activity: ActivityPlaylist[object]) -> Callable[[Card], None]:
-  avatar, cover, append_extra = await asyncio.gather(
+  avatar, cover, append_extra = await gather(
     fetch_image(activity.avatar),
     fetch_image(activity.content.cover),
     extras.format(activity.extra),
@@ -300,7 +301,7 @@ async def format(activity: ActivityForward[object], can_ignore: bool) -> UniMess
     else:
       appender_coro = get_unknown_appender(activity.content.activity)
 
-  avatar, appender, emotions, append_extras = await asyncio.gather(
+  avatar, appender, emotions, append_extras = await gather(
     fetch_image(activity.avatar),
     appender_coro,
     fetch_emotions(activity.content.richtext),
@@ -329,4 +330,4 @@ async def format(activity: ActivityForward[object], can_ignore: bool) -> UniMess
       ],
     )
 
-  return await asyncio.to_thread(make)
+  return await run_sync(make)

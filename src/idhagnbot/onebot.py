@@ -1,8 +1,8 @@
-import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 from weakref import WeakKeyDictionary
 
+import anyio
 import nonebot
 from loguru import logger
 from nonebot.adapters.onebot.v11 import Bot, Event, Message, MessageSegment
@@ -32,9 +32,9 @@ class Rkey:
 
 driver = nonebot.get_driver()
 implementations = WeakKeyDictionary[Bot, str]()
-impl_locks = WeakKeyDictionary[Bot, asyncio.Lock]()
+impl_locks = WeakKeyDictionary[Bot, anyio.Lock]()
 rkey_cache = WeakKeyDictionary[Bot, dict[str, Rkey]]()
-rkey_locks = WeakKeyDictionary[Bot, asyncio.Lock]()
+rkey_locks = WeakKeyDictionary[Bot, anyio.Lock]()
 LAGRANGE = "Lagrange.OneBot"
 LLONEBOT = "LLOneBot"
 NAPCAT = "NapCat.Onebot"
@@ -42,7 +42,7 @@ NAPCAT = "NapCat.Onebot"
 
 async def get_implementation(bot: Bot) -> str:
   if bot not in implementations:
-    lock = impl_locks.setdefault(bot, asyncio.Lock())
+    lock = impl_locks.setdefault(bot, anyio.Lock())
     async with lock:
       if bot not in implementations:
         info = await bot.get_version_info()
@@ -160,7 +160,7 @@ def _is_rkey_cache_valid(bot: Bot) -> bool:
 
 async def get_rkey_cached(bot: Bot) -> dict[str, Rkey]:
   if not _is_rkey_cache_valid(bot):
-    lock = rkey_locks.setdefault(bot, asyncio.Lock())
+    lock = rkey_locks.setdefault(bot, anyio.Lock())
     async with lock:
       if not _is_rkey_cache_valid(bot):
         return await get_rkey(bot)

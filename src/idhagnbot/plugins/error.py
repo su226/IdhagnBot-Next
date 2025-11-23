@@ -1,4 +1,3 @@
-import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from traceback import format_exception_only
@@ -12,7 +11,7 @@ from nonebot.matcher import Matcher
 from nonebot.message import run_postprocessor
 from pydantic import BaseModel, Field
 
-from idhagnbot.asyncio import create_background_task
+from idhagnbot.asyncio import create_background_task, gather_seq
 from idhagnbot.config import SharedConfig
 from idhagnbot.target import TargetConfig
 
@@ -70,7 +69,7 @@ async def send_queued_error(id: str) -> None:
   )
   if info.additional_count:
     message += Text(f"\n还有 {info.additional_count} 个异常")
-  await asyncio.gather(*[try_send(message, target.target) for target in config.warn_target])
+  await gather_seq(try_send(message, target.target) for target in config.warn_target)
 
 
 async def send_error(id: str, description: str, exception: BaseException) -> None:
@@ -92,7 +91,7 @@ async def send_error(id: str, description: str, exception: BaseException) -> Non
   message = UniMessage(
     [Text(f"[{id}]: {description}\n"), Text(format_exception(exception)).code()],
   )
-  await asyncio.gather(*[try_send(message, target.target) for target in config.warn_target])
+  await gather_seq(try_send(message, target.target) for target in config.warn_target)
 
 
 def on_job_error(event: JobExecutionEvent) -> None:

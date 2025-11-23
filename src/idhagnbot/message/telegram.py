@@ -1,8 +1,8 @@
-import asyncio
 from datetime import datetime, timezone
 from itertools import chain
 from typing import Optional, cast
 
+import anyio
 import nonebot
 from nonebot.adapters import Bot, Event
 from nonebot.adapters.telegram import Adapter, Message, MessageSegment
@@ -33,7 +33,7 @@ async def merged_event(bot: Bot, event: Event) -> Optional[list[Event]]:
   _, events = media_groups.setdefault(event.media_group_id, (now, []))
   events.append(event)
   media_groups[event.media_group_id] = (now, events)
-  await asyncio.sleep(0.1)
+  await anyio.sleep(0.1)
   time, _ = media_groups[event.media_group_id]
   if time != now:
     return None

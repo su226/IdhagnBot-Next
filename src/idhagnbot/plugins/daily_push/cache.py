@@ -1,9 +1,9 @@
-import asyncio
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 from zoneinfo import ZoneInfo
 
+import anyio
 import nonebot
 
 nonebot.require("nonebot_plugin_localstore")
@@ -20,7 +20,7 @@ class BaseCache:
     enable_prev: bool = False,
     extra_files: Optional[list[str]] = None,
   ) -> None:
-    self.lock = asyncio.Lock()
+    self.lock = anyio.Lock()
     self.path = BASE_DIR / filename
     self.date_path = self.path.with_suffix(".date")
     self.enable_prev = enable_prev

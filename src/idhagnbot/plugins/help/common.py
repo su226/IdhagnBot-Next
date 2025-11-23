@@ -1,9 +1,9 @@
-import asyncio
 from enum import Enum
 
 import nonebot
 from nonebot.exception import ActionFailed
 
+from idhagnbot.asyncio import gather_seq
 from idhagnbot.help import ShowData
 
 nonebot.require("nonebot_plugin_uninfo")
@@ -18,7 +18,7 @@ async def get_available_groups(session: Session, interface: Interface, user_id: 
     groups = await interface.get_scenes(SceneType.GROUP)
   except ActionFailed:
     groups = []
-  results = await asyncio.gather(*(in_group(group.id) for group in groups))
+  results = await gather_seq(in_group(group.id) for group in groups)
   scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
   return [f"{scope}:group:{group.id}" for group, result in zip(groups, results) if result]
 

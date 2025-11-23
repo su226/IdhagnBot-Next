@@ -1,4 +1,3 @@
-import asyncio
 import re
 from typing import Any, Optional
 
@@ -6,6 +5,7 @@ import nonebot
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import TypedDict
 
+from idhagnbot.asyncio import gather_seq
 from idhagnbot.http import get_session
 from idhagnbot.plugins.link_parser.common import Content, FormatState, MatchState
 from idhagnbot.plugins.link_parser.contents import bilibili_activity, bilibili_video
@@ -45,7 +45,7 @@ async def match(link: str, last_state: dict[str, Any]) -> MatchState:
     location = response.headers.get("Location")
   if not location:
     return MatchState(False, {})
-  results = await asyncio.gather(*[content.match(location, {}) for content in CONTENTS])
+  results = await gather_seq(content.match(location, {}) for content in CONTENTS)
   for content, result in zip(CONTENTS, results):
     if result.matched:
       return MatchState(

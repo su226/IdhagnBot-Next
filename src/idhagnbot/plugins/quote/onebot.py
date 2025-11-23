@@ -1,6 +1,4 @@
-import asyncio
 from datetime import datetime, timezone
-from io import BytesIO
 
 import nonebot
 from nonebot.adapters import Bot, Event
@@ -10,7 +8,7 @@ from nonebot.adapters.onebot.v11.event import Reply as OBReply
 from PIL import Image
 from yarl import URL
 
-from idhagnbot.http import get_session
+from idhagnbot.image import open_url
 from idhagnbot.onebot import LAGRANGE, get_implementation, get_rkey_cached
 from idhagnbot.plugins.quote.common import (
   EMOJI_REGISTRY,
@@ -71,13 +69,8 @@ async def process_message(
   return message
 
 
-def open_emoji(data: bytes) -> Image.Image:
-  return Image.open(BytesIO(data))
-
-
 async def fetch_emoji(bot: Bot, id: str) -> Image.Image:
-  async with get_session().get(f"https://koishi.js.org/QFace/static/s{id}.png") as response:
-    return await asyncio.to_thread(open_emoji, await response.read())
+  return await open_url(f"https://koishi.js.org/QFace/static/s{id}.png")
 
 
 def register() -> None:

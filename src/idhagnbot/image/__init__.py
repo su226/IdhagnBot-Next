@@ -1,4 +1,3 @@
-import asyncio
 import math
 from collections.abc import Generator, Sequence
 from io import BytesIO
@@ -15,6 +14,7 @@ from typing import (
 
 import cairo
 import nonebot
+from anyio.to_thread import run_sync
 from nonebot import logger
 from PIL import Image, ImageChops, ImageDraw, ImageOps, ImageSequence, features
 from pydantic import BaseModel
@@ -482,10 +482,10 @@ def load(im: Image.Image, _type: type[T]) -> PixelAccess[T]:
 async def open_url(url: str) -> Image.Image:
   if url.startswith("file://"):
     path = path_from_url(url)
-    return await asyncio.to_thread(lambda: Image.open(path))
+    return await run_sync(lambda: Image.open(path))
   async with get_session().get(url) as response:
     data = await response.read()
-    return await asyncio.to_thread(lambda: Image.open(BytesIO(data)))
+    return await run_sync(lambda: Image.open(BytesIO(data)))
 
 
 def colorize(

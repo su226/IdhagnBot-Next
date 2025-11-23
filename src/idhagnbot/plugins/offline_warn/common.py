@@ -1,6 +1,6 @@
-import asyncio
 from dataclasses import dataclass
 
+import anyio
 import nonebot
 from nonebot import logger
 from nonebot.adapters import Bot
@@ -28,7 +28,7 @@ class QueuedMessage:
 
 CONFIG = SharedConfig("offline_warn", Config)
 queued_messages = list[QueuedMessage]()
-lock = asyncio.Lock()  # 防止多个机器人同时上线时出错（尤其是启动时）
+lock = anyio.Lock()  # 防止多个机器人同时上线时出错（尤其是启动时）
 
 
 async def queue_message(message: str) -> None:

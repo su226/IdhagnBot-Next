@@ -1,11 +1,12 @@
-import asyncio
 import math
 from typing import Callable
 
 import nonebot
+from anyio.to_thread import run_sync
 from PIL import Image, ImageOps
 
 from idhagnbot import image
+from idhagnbot.asyncio import gather
 from idhagnbot.image.card import Card, CardAuthor, CardCover
 from idhagnbot.plugins.bilibili_activity import extras
 from idhagnbot.plugins.bilibili_activity.common import (
@@ -25,7 +26,7 @@ async def get_appender(activity: ActivityImage[object]) -> Callable[[Card], None
   image_infos = (
     activity.content.images[:9] if len(activity.content.images) > 9 else activity.content.images
   )
-  avatar, images, emotions, append_extra = await asyncio.gather(
+  avatar, images, emotions, append_extra = await gather(
     fetch_image(activity.avatar),
     fetch_images(*[image.src for image in image_infos]),
     fetch_emotions(activity.content.richtext),
@@ -81,4 +82,4 @@ async def format(activity: ActivityImage[object], can_ignore: bool) -> UniMessag
       ],
     )
 
-  return await asyncio.to_thread(make)
+  return await run_sync(make)

@@ -1,15 +1,15 @@
-import asyncio
 from collections import deque
 from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta
 from typing import Optional
 
 import nonebot
+from anyio import get_cancelled_exc_class
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_MISSED, JobEvent
 from loguru import logger
 from nonebot.exception import ActionFailed
 
-from idhagnbot.asyncio import create_background_task
+from idhagnbot.asyncio import create_background_task, gather_seq
 from idhagnbot.command import CommandBuilder
 from idhagnbot.context import SceneId, SceneIdRaw, get_scene, get_target, get_target_id
 from idhagnbot.permission import ADMINISTRATOR_OR_ABOVE
@@ -43,7 +43,7 @@ def schedule(date: datetime) -> None:
   async def check_activity() -> None:
     try:
       await try_check_all()
-    except asyncio.CancelledError:
+    except get_cancelled_exc_class():
       pass  # 这里仅仅是防止在关闭机器人时日志出现 CancelledError
 
   scheduler.add_job(
@@ -124,7 +124,7 @@ async def try_check(user: common.User) -> int:
           f"https://t.bilibili.com/{activity.id}",
         ),
       )
-    await asyncio.gather(*[try_send(activity, message, target) for target in user.targets])
+    await gather_seq(try_send(activity, message, target) for target in user.targets)
 
   if user._offset == -1:
     try:
@@ -173,7 +173,7 @@ async def try_check_all(concurrency: Optional[int] = None) -> tuple[int, int]:
     users = list[common.User]()
     while current_queue and len(users) < concurrency:
       users.append(current_queue.popleft())
-  results = await asyncio.gather(*[try_check(user) for user in users])
+  results = await gather_seq(try_check(user) for user in users)
   current_queue.extend(users)
   return len([x for x in results if x]), sum(results)
 

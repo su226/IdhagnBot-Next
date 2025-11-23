@@ -1,4 +1,3 @@
-import asyncio
 import itertools
 import platform
 import time
@@ -7,13 +6,16 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any, Callable, Literal, TypeVar, Union
 
+import anyio
 import nonebot
 import psutil
+from anyio.to_thread import run_sync
 from nonebot.adapters import Bot
 from PIL import Image
 from psutil._common import sdiskpart
 from pydantic import BaseModel, Field
 
+from idhagnbot.asyncio import gather, gather_seq
 from idhagnbot.color import split_rgb
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig
@@ -186,7 +188,7 @@ def simple(fn: Callable[[], T]) -> Callable[[Bot], Awaitable[list[T]]]:
 
 async def get_cpu_bar(bot: Bot) -> Sequence[BarItem]:
   psutil.cpu_percent()
-  await asyncio.sleep(1)
+  await anyio.sleep(1)
   cpu_util = psutil.cpu_percent()
   cpu_freq = psutil.cpu_freq().current
   cpu_freq = f"{round(cpu_freq / 1000, 1)}GHz" if cpu_freq > 1000 else f"{round(cpu_freq)}MHz"
@@ -332,7 +334,7 @@ async def get_diskio(bot: Bot) -> list[Item]:
   counter = psutil.disk_io_counters()
   if not counter:
     return []
-  await asyncio.sleep(1)
+  await anyio.sleep(1)
   counter1 = psutil.disk_io_counters()
   if not counter1:
     return []
@@ -343,7 +345,7 @@ async def get_diskio(bot: Bot) -> list[Item]:
 
 async def get_network(bot: Bot) -> list[Item]:
   before = psutil.net_io_counters(True)
-  await asyncio.sleep(1)
+  await anyio.sleep(1)
   after = psutil.net_io_counters(True)
   after.pop("lo", None)
   counters = [(counter, before[name]) for name, counter in after.items()]
@@ -481,9 +483,9 @@ idhagnfetch = (
 async def _(bot: Bot, bot_nick: BotAnyNick, bot_info: BotUser) -> None:
   config = CONFIG()
   # 分开获取头像，防止干扰网络信息
-  items, bar_items = await asyncio.gather(
-    asyncio.gather(*(ITEMS[name](bot) for name in config.items)),
-    asyncio.gather(*(BAR_ITEMS[name](bot) for name in config.bar_items)),
+  items, bar_items = await gather(
+    gather_seq(ITEMS[name](bot) for name in config.items),
+    gather_seq(BAR_ITEMS[name](bot) for name in config.bar_items),
   )
   avatar = await open_url(bot_info.avatar) if bot_info.avatar and config.avatar_size else None
 
@@ -546,4 +548,4 @@ async def _(bot: Bot, bot_nick: BotAnyNick, bot_info: BotUser) -> None:
     im.paste(info_im, (x, y), info_im)
     return to_segment(im)
 
-  await idhagnfetch.finish(await asyncio.to_thread(make))
+  await idhagnfetch.finish(await run_sync(make))

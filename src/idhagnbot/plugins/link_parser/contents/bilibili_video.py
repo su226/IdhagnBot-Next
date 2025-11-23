@@ -1,10 +1,10 @@
-import asyncio
 import re
 import time
 from io import BytesIO
 from typing import Any, Literal, Optional
 
 import nonebot
+from anyio.to_thread import run_sync
 from PIL import Image
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import TypedDict
@@ -209,6 +209,6 @@ async def format(
   bvid = data_view["bvid"]
   aid = data_view["aid"]
   return FormatState(
-    UniMessage([await asyncio.to_thread(make), Text(f"https://b23.tv/{bvid} (av{aid})")]),
+    UniMessage([await run_sync(make), Text(f"https://b23.tv/{bvid} (av{aid})")]),
     {"type": "bilibili_video", "aid": aid, "bvid": bvid},
   )
