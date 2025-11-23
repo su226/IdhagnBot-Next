@@ -3,7 +3,7 @@ from typing import Optional
 import nonebot
 
 from idhagnbot.command import CommandBuilder
-from idhagnbot.context import SceneId
+from idhagnbot.context import BotAnyNick, SceneId
 from idhagnbot.help import CategoryItem, CommandItem
 from idhagnbot.permission import Roles
 from idhagnbot.plugins.help.common import get_show_data, join_path, normalize_path
@@ -70,6 +70,7 @@ async def handle_help(
   roles: Roles,
   path: tuple[str, ...],
   page: int,
+  bot_nick: BotAnyNick,
 ) -> None:
   show_data = await get_show_data(scene, session, interface, roles)
   if len(path) == 1 and (command := find_command(path[0])) and command.can_show(show_data):
@@ -83,13 +84,8 @@ async def handle_help(
     pages = category.format_all(show_data, normalized_path)
     if len(pages) == 1:
       await help_.finish(pages[0])
-    bot_info = await interface.get_member(session.scene.type, session.scene.id, session.self_id)
-    if bot_info:
-      bot_name = bot_info.nick or bot_info.user.nick or bot_info.user.name or "IdhagnBot"
-    else:
-      bot_name = "IdhagnBot"
     await help_.finish(
-      Reference(nodes=[CustomNode(session.self_id, bot_name, [Text(page)]) for page in pages]),
+      Reference(nodes=[CustomNode(session.self_id, bot_nick, [Text(page)]) for page in pages]),
     )
   content, page_id, total_pages = category.format_page(show_data, normalized_path, page - 1)
   message = UniMessage[Segment]([Text(content)])

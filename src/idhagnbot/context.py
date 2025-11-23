@@ -2,7 +2,7 @@ import re
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Union
 
 import nonebot
 from nonebot.adapters import Bot
@@ -15,7 +15,7 @@ from idhagnbot.permission import CHANNEL_TYPES
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_uninfo")
 from nonebot_plugin_alconna import Target, get_bot
-from nonebot_plugin_uninfo import Scene, SceneType, Uninfo, get_interface
+from nonebot_plugin_uninfo import Member, QryItrface, Scene, SceneType, Uninfo, User, get_interface
 
 
 class Context(BaseModel):
@@ -142,3 +142,69 @@ def in_scene(scene_id: str, scene_ids: set[str]) -> bool:
   if GROUP in scene_ids and GROUP_RE.match(scene_id):
     return True
   return GUILD in scene_ids and bool(GUILD_RE.match(scene_id))
+
+
+async def get_bot_id(bot: Bot) -> str:
+  try:
+    from nonebot.adapters.satori import Bot as SatoriBot
+
+    if isinstance(bot, SatoriBot):
+      return bot.get_self_id()
+  except ImportError:
+    pass
+  return bot.self_id
+
+
+BotId = Annotated[str, Depends(get_bot_id)]
+
+
+async def get_bot_member_or_user(
+  interface: QryItrface,
+  self_id: BotId,
+  session: Uninfo,
+) -> Union[Member, User, None]:
+  if member := await interface.get_member(session.scene.type, session.scene.id, self_id):
+    return member
+  if user := await interface.get_user(self_id):
+    return user
+  return None
+
+
+BotMemberOrUser = Annotated[Union[Member, User], Depends(get_bot_member_or_user)]
+
+
+async def get_bot_user(member_or_user: BotMemberOrUser) -> User:
+  return member_or_user.user if isinstance(member_or_user, Member) else member_or_user
+
+
+BotUser = Annotated[User, Depends(get_bot_user)]
+BotMember = Annotated[Member, Depends(get_bot_member_or_user)]
+
+
+async def get_bot_user_name(user: BotUser) -> str:
+  return user.name or user.id
+
+
+async def get_bot_user_nick(user: BotUser) -> str:
+  return user.nick or user.name or user.id
+
+
+async def get_bot_member_nick(member: BotMember) -> str:
+  return member.nick or member.user.nick or member.user.name or member.id
+
+
+async def get_bot_any_nick(member_or_user: BotMemberOrUser) -> str:
+  if isinstance(member_or_user, Member):
+    return (
+      member_or_user.nick
+      or member_or_user.user.nick
+      or member_or_user.user.name
+      or member_or_user.id
+    )
+  return member_or_user.nick or member_or_user.name or member_or_user.id
+
+
+BotUserName = Annotated[str, Depends(get_bot_user_name)]
+BotUserNick = Annotated[str, Depends(get_bot_user_nick)]
+BotMemberNick = Annotated[str, Depends(get_bot_member_nick)]
+BotAnyNick = Annotated[str, Depends(get_bot_any_nick)]

@@ -1,3 +1,4 @@
+import asyncio
 import math
 from collections.abc import Generator, Sequence
 from io import BytesIO
@@ -20,6 +21,8 @@ from pydantic import BaseModel
 
 from idhagnbot import color
 from idhagnbot.config import SharedConfig
+from idhagnbot.http import get_session
+from idhagnbot.url import path_from_url
 
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna.uniseg import Image as ImageSeg
@@ -43,16 +46,23 @@ __all__ = [
   "circle",
   "colorize",
   "contain_down",
+  "flatten",
   "frames",
   "from_cairo",
+  "get_resample",
+  "get_scale_resample",
   "load",
+  "open_url",
   "paste",
   "quantize",
   "replace",
   "resize_canvas",
   "resize_height",
   "resize_width",
+  "rounded_rectangle",
   "sample_frames",
+  "square",
+  "to_cairo",
   "to_segment",
 ]
 
@@ -452,6 +462,15 @@ class PixelAccess(Protocol[T]):
 
 def load(im: Image.Image, _type: type[T]) -> PixelAccess[T]:
   return cast(PixelAccess[T], im.load())
+
+
+async def open_url(url: str) -> Image.Image:
+  if url.startswith("file://"):
+    path = path_from_url(url)
+    return await asyncio.to_thread(lambda: Image.open(path))
+  async with get_session().get(url) as response:
+    data = await response.read()
+    return await asyncio.to_thread(lambda: Image.open(BytesIO(data)))
 
 
 def colorize(
