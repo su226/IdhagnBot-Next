@@ -106,38 +106,53 @@ def from_cairo(surface: cairo.ImageSurface) -> Image.Image:
   w = surface.get_width()
   h = surface.get_height()
   data = surface.get_data()
+  stride = surface.get_stride()
   surface_format = surface.get_format()
   if surface_format == cairo.Format.A1:
+    # Format.A1 的转换很慢
     if not data:
       return Image.new("1", (w, h))
     data_w = math.ceil(w / 32) * 32
-    im = Image.frombytes("1", (data_w, h), bytes(data))
+    im = Image.frombuffer("1", (data_w, h), data.tobytes())
     for x in range(0, w, 8):
       im.paste(im.crop((x, 0, x + 8, h)).transpose(Image.Transpose.FLIP_LEFT_RIGHT), (x, 0))
     return im.crop((0, 0, w, h))
   if surface_format == cairo.Format.A8:
     if not data:
       return Image.new("L", (w, h))
-    data_w = math.ceil(w / 4) * 4
-    return Image.frombytes("L", (data_w, h), bytes(data)).crop((0, 0, w, h))
+    return Image.frombuffer("L", (w, h), data.tobytes(), "raw", "L", stride, 1)
   if surface_format == cairo.Format.RGB24:
     if not data:
       return Image.new("RGB", (w, h))
-    b, g, r, _ = Image.frombytes("RGBX", (w, h), bytes(data)).split()
-    return Image.merge("RGB", (r, g, b))
+    return Image.frombuffer("RGB", (w, h), data.tobytes(), "raw", "BGRX", stride)
   if surface_format == cairo.Format.ARGB32:
     if not data:
       return Image.new("RGBA", (w, h))
-    b, g, r, a = Image.frombytes("RGBa", (w, h), bytes(data)).convert("RGBA").split()
-    return Image.merge("RGBA", (r, g, b, a))  # BGRa -> BGRA -> RGBA
+    return Image.frombuffer("RGBA", (w, h), data.tobytes(), "raw", "BGRa", stride)
   raise NotImplementedError(f"Unsupported format: {surface_format}")
 
 
 def to_cairo(im: Image.Image) -> cairo.ImageSurface:
-  im = im.convert("RGBA").convert("RGBa")  # 不能由 RGB 直接转换为 RGBa
-  r, g, b, a = im.split()
-  data = memoryview(bytearray(Image.merge("RGBa", (b, g, r, a)).tobytes()))
-  return cairo.ImageSurface.create_for_data(data, cairo.FORMAT_ARGB32, im.width, im.height)
+  if im.mode == "1":
+    # 1 模式的转换很慢
+    w, h = im.size
+    data_w = math.ceil(w / 32) * 32
+    im = ImageOps.expand(im, (0, 0, data_w - w, 0))
+    for x in range(0, data_w, 8):
+      im.paste(im.crop((x, 0, x + 8, h)).transpose(Image.Transpose.FLIP_LEFT_RIGHT), (x, 0))
+    data = bytearray(im.tobytes())
+    return cairo.ImageSurface.create_for_data(data, cairo.FORMAT_A1, w, h)
+  if im.mode == "L":
+    stride = math.ceil(im.width / 4) * 4
+    data = bytearray(im.tobytes("raw", "L", stride))
+    return cairo.ImageSurface.create_for_data(data, cairo.FORMAT_A8, im.width, im.height)
+  if im.mode == "RGB":
+    data = bytearray(im.tobytes("raw", "BGRX"))
+    return cairo.ImageSurface.create_for_data(data, cairo.FORMAT_RGB24, im.width, im.height)
+  if im.mode == "RGBA":
+    data = bytearray(im.tobytes("raw", "BGRa"))
+    return cairo.ImageSurface.create_for_data(data, cairo.FORMAT_ARGB32, im.width, im.height)
+  raise NotImplementedError(f"Unsupported mode: {im.mode}")
 
 
 def circle(im: Image.Image, antialias: Union[bool, float] = True) -> None:
@@ -503,6 +518,7 @@ def to_segment(
   im: Sequence[AnyImage],
   duration: Union[list[int], int, Image.Image],
   *,
+  fmt: str = ...,
   afmt: str = ...,
   **kw: Any,
 ) -> ImageSeg: ...
