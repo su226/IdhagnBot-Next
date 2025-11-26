@@ -1,4 +1,5 @@
-from typing import Callable, TypeVar, Union
+from collections.abc import Callable
+from typing import TypeVar
 
 import nonebot
 from pydantic import BaseModel
@@ -18,8 +19,8 @@ class TargetAwareModule(BaseModel):
     raise NotImplementedError
 
 
-MODULE_REGISTRY: dict[str, type[Union[SimpleModule, TargetAwareModule]]] = {}
-T = TypeVar("T", bound=Union[SimpleModule, TargetAwareModule])
+MODULE_REGISTRY: dict[str, type[SimpleModule | TargetAwareModule]] = {}
+T = TypeVar("T", bound=SimpleModule | TargetAwareModule)
 
 
 def register(name: str) -> Callable[[type[T]], type[T]]:

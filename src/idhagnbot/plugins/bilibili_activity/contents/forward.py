@@ -1,6 +1,6 @@
 import time
-from collections.abc import Awaitable
-from typing import Any, Callable, Optional, TypeVar, Union
+from collections.abc import Awaitable, Callable
+from typing import Any, TypeVar
 
 import nonebot
 from anyio.to_thread import run_sync
@@ -74,7 +74,7 @@ def pgc_title_formatter(activity: ActivityPGC[object]) -> str:
 
 
 def checker(
-  activity: Union[ActivityText[object], ActivityImage[object], ActivityOpus[object]],
+  activity: ActivityText[object] | ActivityImage[object] | ActivityOpus[object],
 ) -> None:
   config = CONFIG()
   if config.ignore_forward_lottery:
@@ -87,7 +87,7 @@ def checker(
 
 
 async def get_pgc_appender(activity: ActivityPGC[object]) -> Callable[[Card], None]:
-  async def fetch_season_cover() -> Optional[Image.Image]:
+  async def fetch_season_cover() -> Image.Image | None:
     if activity.avatar:
       return await fetch_image(activity.avatar)
     if activity.content.season_cover:
@@ -168,7 +168,7 @@ async def get_live_rcmd_appender(activity: ActivityLiveRcmd[object]) -> Callable
 
 
 async def get_course_appender(activity: ActivityCourse[object]) -> Callable[[Card], None]:
-  async def fetch_avatar() -> Optional[Image.Image]:
+  async def fetch_avatar() -> Image.Image | None:
     if activity.avatar:
       return await fetch_image(activity.avatar)
     return None

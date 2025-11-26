@@ -1,15 +1,14 @@
 import codecs
 import random
 import re
+from itertools import pairwise
 from pathlib import Path
-from typing import Optional
 
 import nonebot
 from pydantic import BaseModel
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig
-from idhagnbot.itertools import pairwise
 from idhagnbot.plugins.fortune.strfile import read_header, read_offsets, read_raw_text
 
 nonebot.require("nonebot_plugin_alconna")
@@ -38,7 +37,7 @@ RE_033 = re.compile(r"\033\[(\d+;)*\d+m")
 
 
 class StrFileChoice:
-  def __init__(self, path: Path, length: int, long_or_short: Optional[bool]) -> None:
+  def __init__(self, path: Path, length: int, long_or_short: bool | None) -> None:
     self.path = path
     with path.open("rb") as f:
       self.header = read_header(f)

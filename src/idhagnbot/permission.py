@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 from enum import Enum
-from typing import Annotated, Any, Literal, Union, cast
+from typing import Annotated, Any, Literal, cast
 
 import nonebot
 from nonebot.params import Depends
@@ -14,7 +14,7 @@ nonebot.require("nonebot_plugin_uninfo")
 from nonebot_plugin_uninfo import SceneType, Uninfo
 
 Node = tuple[str, ...]
-Value = Union[bool, Literal["default"]]
+Value = bool | Literal["default"]
 
 
 def parse_node(value: str) -> Node:
@@ -25,7 +25,7 @@ class NodeTrie(StringTrie):
   def __init__(self, *args: Any, **kw: Any) -> None:
     super().__init__(*args, separator=".", **kw)
 
-  def _path_from_key(self, key: Union[str, Node]) -> Iterable[str]:
+  def _path_from_key(self, key: str | Node) -> Iterable[str]:
     if isinstance(key, str):
       return parse_node(key)
     return key

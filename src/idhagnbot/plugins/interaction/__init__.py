@@ -98,7 +98,7 @@ interaction = nonebot.on_message(check_interaction, permission("interaction"))
 
 
 @interaction.handle()
-async def _(state: T_State, session: Uninfo) -> None:
+async def _(*, state: T_State, session: Uninfo) -> None:
   user1 = session.user.nick or session.user.name or session.user.id
   if state["passive"]:
     await interaction.finish(f"{user1} 被 {state['user2']} {state['action']}了")

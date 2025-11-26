@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import nonebot
 from nonebot.typing import T_State
@@ -16,7 +16,7 @@ class CommandBuilder:
     self._node = ""
     self._category = ""
     self._default_grant_to = DEFAULT
-    self._parser: Optional[Alconna[Any]] = None
+    self._parser: Alconna[Any] | None = None
     self._aliases: set[str] = set()
     self._state = None
     self._auto_reject = True

@@ -165,7 +165,13 @@ repeat = nonebot.on_message(can_repeat, permission("repeat"))
 
 
 @repeat.handle()
-async def _(bot: Bot, events: MergedEvent, message: OrigMergedMsg, scene_id: SceneIdRaw) -> None:
+async def _(
+  *,
+  bot: Bot,
+  events: MergedEvent,
+  message: OrigMergedMsg,
+  scene_id: SceneIdRaw,
+) -> None:
   try:
     if handler := HANDLER_REGISTRY.get(bot.adapter.get_name()):
       await handler(bot, events, message, scene_id)

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Optional, Union, overload
+from typing import Any, overload
 
 from PIL import Image, ImageOps
 from typing_extensions import Self
@@ -67,7 +67,7 @@ class CardText(Render):
 
   def __init__(
     self,
-    content: Union[textutil.Layout, str],
+    content: textutil.Layout | str,
     font: str = "sans-serif",
     size: float = 32,
     *args: Any,
@@ -286,7 +286,7 @@ class CardTab(Render):
     self,
     content: str = "",
     title: str = "",
-    icon: Optional[Image.Image] = None,
+    icon: Image.Image | None = None,
   ) -> None:
     self.icon = icon
     box = CONTENT_WIDTH - 8

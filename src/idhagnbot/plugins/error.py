@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from traceback import format_exception_only
-from typing import Optional, cast
+from typing import cast
 
 import nonebot
 from apscheduler.events import EVENT_JOB_ERROR, JobExecutionEvent
@@ -24,7 +24,7 @@ __all__ = ["send_error"]
 
 
 class Config(BaseModel):
-  warn_interval: dict[str, Optional[timedelta]] = Field(default_factory=dict)
+  warn_interval: dict[str, timedelta | None] = Field(default_factory=dict)
   warn_target: list[TargetConfig] = Field(default_factory=list)
 
 

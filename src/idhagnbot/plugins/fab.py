@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from datetime import datetime, time
-from typing import Optional
 from zoneinfo import ZoneInfo
 
 import nonebot
@@ -98,7 +97,7 @@ class FabCache(DailyCache):
       cache = Cache.model_validate_json(f.read())
     return date, cache.assets
 
-  def get_prev(self) -> Optional[tuple[datetime, list[Asset]]]:
+  def get_prev(self) -> tuple[datetime, list[Asset]] | None:
     prev_path = self.path.with_suffix(".prev.json")
     prev_date_path = self.date_path.with_suffix(".prev.date")
     if not prev_path.exists() or not prev_date_path.exists():
@@ -156,7 +155,7 @@ fab = (
 
 
 @fab.handle()
-async def _(no_cache: bool) -> None:
+async def _(*, no_cache: bool) -> None:
   if no_cache:
     await CACHE.update()
   else:

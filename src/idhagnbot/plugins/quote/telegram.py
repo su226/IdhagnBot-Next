@@ -1,6 +1,5 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import nonebot
 from nonebot.adapters import Bot, Event
@@ -38,7 +37,7 @@ def extract_name(sender: ChatFullInfo) -> tuple[str, str]:
   return str(sender.id), ""
 
 
-async def get_file_url(bot: TGBot, file_id: str) -> Optional[str]:
+async def get_file_url(bot: TGBot, file_id: str) -> str | None:
   file = await bot.get_file(file_id)
   if not file.file_path:
     return None

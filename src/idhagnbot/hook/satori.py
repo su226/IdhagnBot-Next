@@ -1,5 +1,5 @@
 from itertools import chain
-from typing import Any, Optional
+from typing import Any
 
 import nonebot
 from nonebot.adapters import Bot as BaseBot
@@ -23,7 +23,7 @@ async def _parse_from_data(
   bot: BaseBot,
   api: str,
   data: dict[str, Any],
-) -> Optional[tuple[UniMessage[Segment], Target]]:
+) -> tuple[UniMessage[Segment], Target] | None:
   if api != "message_create":
     return None
   assert isinstance(bot, Bot)
@@ -52,7 +52,7 @@ async def on_calling_api(bot: BaseBot, api: str, data: dict[str, Any]) -> None:
 
 async def on_called_api(
   bot: BaseBot,
-  e: Optional[Exception],
+  e: Exception | None,
   api: str,
   data: dict[str, Any],
   result: Any,

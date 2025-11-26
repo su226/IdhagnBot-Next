@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 import nonebot
 from nonebot.adapters import Bot, Event
@@ -17,12 +16,12 @@ nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna.uniseg import Receipt
 
 
-async def message_id(bot: Bot, event: Event) -> Optional[str]:
+async def message_id(bot: Bot, event: Event) -> str | None:
   assert isinstance(event, SatoriEvent)
   return event.message.id if event.message else None
 
 
-async def event_time(bot: Bot, event: Event) -> Optional[datetime]:
+async def event_time(bot: Bot, event: Event) -> datetime | None:
   assert isinstance(event, SatoriEvent)
   return event.timestamp
 

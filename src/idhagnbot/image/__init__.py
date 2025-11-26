@@ -1,16 +1,7 @@
 import math
 from collections.abc import Generator, Sequence
 from io import BytesIO
-from typing import (
-  Any,
-  Literal,
-  Optional,
-  Protocol,
-  TypeVar,
-  Union,
-  cast,
-  overload,
-)
+from typing import Any, Literal, Protocol, TypeVar, cast, overload
 
 import cairo
 import nonebot
@@ -68,7 +59,7 @@ __all__ = [
 
 
 Resample = Literal["nearest", "bilinear", "bicubic"]
-ScaleResample = Union[Resample, Literal["box", "hamming", "lanczos"]]
+ScaleResample = Resample | Literal["box", "hamming", "lanczos"]
 Quantize = Literal["mediancut", "maxcoverage", "fastoctree"]
 
 
@@ -84,13 +75,13 @@ CONFIG = SharedConfig("image", Config)
 Anchor = Literal["lt", "lm", "lb", "mt", "mm", "mb", "rt", "rm", "rb"]
 Size = tuple[int, int]
 Point = tuple[float, float]
-Color = Union[color.RGB, int]
+Color = color.RGB | int
 Plane = tuple[Point, Point, Point, Point]
 PerspectiveData = tuple[float, float, float, float, float, float, float, float]
 PasteColor = tuple[Color, Size]
-AnyImage = Union[Image.Image, cairo.ImageSurface]
+AnyImage = Image.Image | cairo.ImageSurface
 T = TypeVar("T")
-_libimagequant_available: Optional[bool] = None
+_libimagequant_available: bool | None = None
 _libimagequant_warned: bool = False
 
 
@@ -155,7 +146,7 @@ def to_cairo(im: Image.Image) -> cairo.ImageSurface:
   raise NotImplementedError(f"Unsupported mode: {im.mode}")
 
 
-def circle(im: Image.Image, antialias: Union[bool, float] = True) -> None:
+def circle(im: Image.Image, antialias: bool | float = True) -> None:
   ratio = (2 if antialias else 1) if isinstance(antialias, bool) else antialias
   if ratio > 1:
     mask = Image.new("L", (round(im.width * ratio), round(im.height * ratio)))
@@ -171,11 +162,7 @@ def circle(im: Image.Image, antialias: Union[bool, float] = True) -> None:
   im.putalpha(mask)
 
 
-def rounded_rectangle(
-  im: Image.Image,
-  radius: int,
-  antialias: Union[bool, float] = True,
-) -> None:
+def rounded_rectangle(im: Image.Image, radius: int, antialias: bool | float = True) -> None:
   ratio = (2 if antialias else 1) if isinstance(antialias, bool) else antialias
   if ratio > 1:
     circle = Image.new("L", (round(radius * 2 * ratio), round(radius * 2 * ratio)))
@@ -301,7 +288,7 @@ def sample_frames(im: Image.Image, frametime: int) -> Generator[Image.Image, Non
 
 def paste(
   dst: Image.Image,
-  src: Union[AnyImage, PasteColor],
+  src: AnyImage | PasteColor,
   xy: Point = (0, 0),
   anchor: Anchor = "lt",
 ) -> None:
@@ -350,7 +337,7 @@ def paste(
 
 def replace(
   dst: Image.Image,
-  src: Union[AnyImage, PasteColor],
+  src: AnyImage | PasteColor,
   xy: Point = (0, 0),
   anchor: Anchor = "lt",
 ) -> None:
@@ -442,7 +429,7 @@ def quantize(im: AnyImage) -> Image.Image:
 
 
 class RemapTransform:
-  def __init__(self, old_size: Size, new_plane: Plane, old_plane: Optional[Plane] = None) -> None:
+  def __init__(self, old_size: Size, new_plane: Plane, old_plane: Plane | None = None) -> None:
     widths = [point[0] for point in new_plane]
     heights = [point[1] for point in new_plane]
     self.old_size = old_size
@@ -459,7 +446,7 @@ class RemapTransform:
     import numpy as np
 
     matrix: list[list[float]] = []
-    for p1, p2 in zip(old_plane, new_plane):
+    for p1, p2 in zip(old_plane, new_plane, strict=True):
       matrix.append([p2[0], p2[1], 1, 0, 0, 0, -p1[0] * p2[0], -p1[0] * p2[1]])
       matrix.append([0, 0, 0, p2[0], p2[1], 1, -p1[1] * p2[0], -p1[1] * p2[1]])
     a = np.array(matrix)
@@ -490,9 +477,9 @@ async def open_url(url: str) -> Image.Image:
 
 def colorize(
   image: AnyImage,
-  black: Union[str, int, tuple[int, ...]],
-  white: Union[str, int, tuple[int, ...]],
-  mid: Union[str, int, tuple[int, ...], None] = None,
+  black: str | int | tuple[int, ...],
+  white: str | int | tuple[int, ...],
+  mid: str | int | tuple[int, ...] | None = None,
   blackpoint: int = 0,
   whitepoint: int = 255,
   midpoint: int = 127,
@@ -516,7 +503,7 @@ def to_segment(im: AnyImage, *, fmt: str = ..., **kw: Any) -> ImageSeg: ...
 @overload
 def to_segment(
   im: Sequence[AnyImage],
-  duration: Union[list[int], int, Image.Image],
+  duration: list[int] | int | Image.Image,
   *,
   fmt: str = ...,
   afmt: str = ...,
@@ -525,8 +512,8 @@ def to_segment(
 
 
 def to_segment(
-  im: Union[AnyImage, Sequence[AnyImage]],
-  duration: Union[list[int], int, Image.Image] = 0,
+  im: AnyImage | Sequence[AnyImage],
+  duration: list[int] | int | Image.Image = 0,
   *,
   fmt: str = "png",
   afmt: str = "gif",

@@ -1,4 +1,5 @@
-from typing import Callable
+from collections.abc import Callable
+from itertools import islice
 
 from PIL import Image
 
@@ -9,7 +10,7 @@ from idhagnbot.third_party.bilibili_activity import ExtraGoods
 
 
 async def format(extra: ExtraGoods) -> Callable[[Card], None]:
-  images = await fetch_images(*(i.image for i, _ in zip(extra.goods, range(5))))
+  images = await fetch_images(*(i.image for i in islice(extra.goods, 5)))
 
   def appender(card: Card) -> None:
     try:

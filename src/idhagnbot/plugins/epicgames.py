@@ -1,6 +1,5 @@
 from collections.abc import Iterable
 from datetime import datetime, time, timezone
-from typing import Optional
 from zoneinfo import ZoneInfo
 
 import nonebot
@@ -48,8 +47,8 @@ class ApiDiscountSetting(TypedDict):
 
 
 class ApiPromotionOffer(TypedDict):
-  startDate: Optional[str]
-  endDate: Optional[str]
+  startDate: str | None
+  endDate: str | None
   discountSetting: ApiDiscountSetting
 
 
@@ -73,17 +72,17 @@ class ApiMapping(TypedDict):
 
 
 class ApiCatalogNs(TypedDict):
-  mappings: Optional[list[ApiMapping]]
+  mappings: list[ApiMapping] | None
 
 
 class ApiElement(TypedDict):
   title: str
-  productSlug: Optional[str]
+  productSlug: str | None
   urlSlug: str
-  promotions: Optional[ApiPromotions]
+  promotions: ApiPromotions | None
   keyImages: list[ApiKeyImage]
   catalogNs: ApiCatalogNs
-  offerMappings: Optional[list[ApiMapping]]
+  offerMappings: list[ApiMapping] | None
 
 
 class ApiSearchStore(TypedDict):
@@ -186,7 +185,7 @@ class EpicGamesCache(DailyCache):
       cache = Cache.model_validate_json(f.read())
     return date, cache.games
 
-  def get_prev(self) -> Optional[tuple[datetime, list[Game]]]:
+  def get_prev(self) -> tuple[datetime, list[Game]] | None:
     prev_path = self.path.with_suffix(".prev.json")
     prev_date_path = self.date_path.with_suffix(".prev.date")
     if not prev_path.exists() or not prev_date_path.exists():
@@ -247,7 +246,7 @@ epicgames = (
 
 
 @epicgames.handle()
-async def handle_epicgames(no_cache: bool) -> None:
+async def handle_epicgames(*, no_cache: bool) -> None:
   if no_cache:
     await CACHE.update()
   else:

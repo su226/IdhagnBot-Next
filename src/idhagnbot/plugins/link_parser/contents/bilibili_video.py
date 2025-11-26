@@ -1,7 +1,7 @@
 import re
 import time
 from io import BytesIO
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import nonebot
 from anyio.to_thread import run_sync
@@ -38,7 +38,7 @@ RE2 = re.compile(
 INFO_API = "https://api.bilibili.com/x/web-interface/view/detail"
 
 
-def match_link(link: str) -> Optional[str]:
+def match_link(link: str) -> str | None:
   if match := RE1.match(link):
     return match[1]
   if match := RE2.match(link):

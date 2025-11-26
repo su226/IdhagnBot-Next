@@ -44,7 +44,7 @@ class ApiVote(TypedDict):
   vote_id: int
   uid: int
   desc: str
-  join_num: Optional[int]
+  join_num: int | None
   end_time: int
 
 
@@ -238,11 +238,11 @@ class ApiOpusPic(TypedDict):
   url: str
   width: int
   height: int
-  size: Optional[float]
+  size: float | None
 
 
 class ApiOpus(TypedDict):
-  title: Optional[str]
+  title: str | None
   summary: ApiDesc
   pics: list[ApiOpusPic]
 
@@ -273,10 +273,10 @@ class ApiTopic(TypedDict):
 
 
 class ApiDynamicModule(TypedDict):
-  additional: Optional[ApiAdditional]
-  desc: Optional[ApiDesc]
-  major: Optional[ApiMajor]
-  topic: Optional[ApiTopic]
+  additional: ApiAdditional | None
+  desc: ApiDesc | None
+  major: ApiMajor | None
+  topic: ApiTopic | None
 
 
 class ApiStatItem(TypedDict):
@@ -301,7 +301,7 @@ class ApiModules(TypedDict):
 
 
 class ApiDynamic(TypedDict):
-  id_str: Optional[str]
+  id_str: str | None
   modules: ApiModules
   type: str
   orig: NotRequired["ApiDynamic"]
@@ -317,7 +317,7 @@ class ApiDetailResult(TypedDict):
   item: ApiDynamic
 
 
-async def fetch(uid: int, offset: str = "") -> tuple[list[ApiDynamic], Optional[str]]:
+async def fetch(uid: int, offset: str = "") -> tuple[list[ApiDynamic], str | None]:
   http = get_session()
   headers = {
     "Cookie": get_cookie(),
@@ -1016,10 +1016,10 @@ class Activity(Generic[TContent, TExtra]):
   top: bool
   type: str
   content: TContent
-  stat: Optional[Stat]
+  stat: Stat | None
   time: int
-  extra: Optional[Extra[TExtra]]
-  topic: Optional[Topic]
+  extra: Extra[TExtra] | None
+  topic: Topic | None
 
   @staticmethod
   def parse(item: ApiDynamic) -> "Activity[object, object]":

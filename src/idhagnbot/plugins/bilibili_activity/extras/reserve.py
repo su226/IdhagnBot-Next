@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 from idhagnbot import text
 from idhagnbot.image.card import Card, CardTab

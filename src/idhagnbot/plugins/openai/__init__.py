@@ -123,6 +123,7 @@ ai = (
 
 @ai.handle()
 async def handle_ai(
+  *,
   bot: Bot,
   event: Event,
   session: Uninfo,
@@ -204,7 +205,7 @@ reset = (
 
 
 @reset.handle()
-async def handle_reset(scene_id: SceneIdRaw, sql: async_scoped_session) -> None:
+async def handle_reset(*, scene_id: SceneIdRaw, sql: async_scoped_session) -> None:
   current = await sql.get(Ignore, scene_id)
   if current:
     current.time = datetime.now()

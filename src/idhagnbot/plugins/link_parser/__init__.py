@@ -110,7 +110,7 @@ async def check_links(
   matched = False
   for link in links:
     results = await gather_seq(content.match(link, last) for content in CONTENTS)
-    for content, result in zip(CONTENTS, results):
+    for content, result in zip(CONTENTS, results, strict=True):
       if result.matched:
         if matched:
           state["multiple"] = True
@@ -127,7 +127,7 @@ url_parser = nonebot.on_message(check_links, permission("link_parser"))
 
 
 @url_parser.handle()
-async def _(state: T_State, sql: async_scoped_session, scene: SceneIdRaw) -> None:
+async def _(*, state: T_State, sql: async_scoped_session, scene: SceneIdRaw) -> None:
   result = await state["content"].format(**state["state"])
   current = await sql.get(LastState, scene)
   if current:

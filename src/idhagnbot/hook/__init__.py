@@ -1,4 +1,4 @@
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 
 from nonebot.adapters import Bot
 
@@ -49,7 +49,7 @@ async def _(bot: Bot, api: str, data: dict[str, Any]) -> None:
 @Bot.on_called_api
 async def _(
   bot: Bot,
-  e: Optional[Exception],
+  e: Exception | None,
   api: str,
   data: dict[str, Any],
   result: Any,

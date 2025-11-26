@@ -1,10 +1,9 @@
 from io import BytesIO
-from typing import Optional
 
 from anyio.to_thread import run_sync
 from PIL import Image
 
-from idhagnbot.asyncio import gather_seq
+from idhagnbot.asyncio import gather_map
 from idhagnbot.http import get_session
 from idhagnbot.image import get_scale_resample
 from idhagnbot.image.card import CONTENT_WIDTH, PADDING, WIDTH, Render
@@ -25,13 +24,13 @@ async def fetch_emotion(url: str) -> Image.Image:
 
 
 async def fetch_emotions(richtext: RichText) -> dict[str, Image.Image]:
-  urls = [node.url for node in richtext if isinstance(node, RichTextEmotion)]
-  surfaces = await gather_seq(fetch_emotion(url) for url in urls)
-  return dict(zip(urls, surfaces))
+  return await gather_map(
+    {node.url: fetch_emotion(node.url) for node in richtext if isinstance(node, RichTextEmotion)},
+  )
 
 
 class CardTopic(Render):
-  def __init__(self, topic: Optional[Topic]) -> None:
+  def __init__(self, topic: Topic | None) -> None:
     self._im = None
     if topic:
       self._im = render("#" + topic.name, "sans", 32, color=0x008AC5, box=CONTENT_WIDTH)

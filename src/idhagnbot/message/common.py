@@ -1,6 +1,6 @@
 from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
 import nonebot
 from nonebot.adapters import Bot, Event
@@ -10,23 +10,23 @@ nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Segment, UniMessage, UniversalMessage
 from nonebot_plugin_alconna.uniseg import Receipt
 
-MERGED_EVENT_REGISTRY = dict[str, Callable[[Bot, Event], Awaitable[Optional[list[Event]]]]]()
+MERGED_EVENT_REGISTRY = dict[str, Callable[[Bot, Event], Awaitable[list[Event] | None]]]()
 MERGED_MSG_REGISTRY = dict[
   str,
-  Callable[[Bot, list[Event], UniMessage[Segment]], Awaitable[Optional[UniMessage[Segment]]]],
+  Callable[[Bot, list[Event], UniMessage[Segment]], Awaitable[UniMessage[Segment] | None]],
 ]()
 ORIG_MERGED_MSG_REGISTRY = dict[
   str,
-  Callable[[Bot, list[Event], UniMessage[Segment]], Awaitable[Optional[UniMessage[Segment]]]],
+  Callable[[Bot, list[Event], UniMessage[Segment]], Awaitable[UniMessage[Segment] | None]],
 ]()
-MESSAGE_ID_REGISTRY = dict[str, Callable[[Bot, Event], Awaitable[Optional[str]]]]()
-EVENT_TIME_REGISTRY = dict[str, Callable[[Bot, Event], Awaitable[Optional[datetime]]]]()
+MESSAGE_ID_REGISTRY = dict[str, Callable[[Bot, Event], Awaitable[str | None]]]()
+EVENT_TIME_REGISTRY = dict[str, Callable[[Bot, Event], Awaitable[datetime | None]]]()
 SENT_MESSAGE_ID_REGISTRY = dict[str, Callable[[Receipt], Awaitable[list[str]]]]()
 UniMsg = Annotated[UniMessage[Segment], UniversalMessage()]
 OrigUniMsg = Annotated[UniMessage[Segment], UniversalMessage(origin=True)]
 
 
-async def merged_event(bot: Bot, event: Event) -> Optional[list[Event]]:
+async def merged_event(bot: Bot, event: Event) -> list[Event] | None:
   if handler := MERGED_EVENT_REGISTRY.get(bot.adapter.get_name()):
     return await handler(bot, event)
   return [event]
@@ -35,7 +35,7 @@ async def merged_event(bot: Bot, event: Event) -> Optional[list[Event]]:
 MergedEvent = Annotated[list[Event], Depends(merged_event)]
 
 
-async def merged_msg(bot: Bot, events: MergedEvent, msg: UniMsg) -> Optional[UniMessage[Segment]]:
+async def merged_msg(bot: Bot, events: MergedEvent, msg: UniMsg) -> UniMessage[Segment] | None:
   if handler := MERGED_MSG_REGISTRY.get(bot.adapter.get_name()):
     return await handler(bot, events, msg)
   return msg
@@ -48,7 +48,7 @@ async def orig_merged_msg(
   bot: Bot,
   events: MergedEvent,
   msg: OrigUniMsg,
-) -> Optional[UniMessage[Segment]]:
+) -> UniMessage[Segment] | None:
   if handler := ORIG_MERGED_MSG_REGISTRY.get(bot.adapter.get_name()):
     return await handler(bot, events, msg)
   return msg
@@ -57,7 +57,7 @@ async def orig_merged_msg(
 OrigMergedMsg = Annotated[UniMessage[Segment], Depends(orig_merged_msg)]
 
 
-async def message_id(bot: Bot, event: Event) -> Optional[str]:
+async def message_id(bot: Bot, event: Event) -> str | None:
   if handler := MESSAGE_ID_REGISTRY.get(bot.adapter.get_name()):
     return await handler(bot, event)
   return None

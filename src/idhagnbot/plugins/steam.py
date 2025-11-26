@@ -2,7 +2,6 @@ import enum
 from dataclasses import dataclass
 from datetime import datetime
 from html.parser import HTMLParser
-from typing import Optional
 
 import nonebot
 from pydantic import BaseModel, TypeAdapter
@@ -63,7 +62,7 @@ class Parser(HTMLParser):
     self.games: list[Game] = []
     self.mode = ParserMode.NONE
 
-  def handle_starttag(self, tag: str, attrs: list[tuple[str, Optional[str]]]) -> None:
+  def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
     if tag == "a":
       self.game = Game(0, "", "")
       for key, value in attrs:
@@ -131,7 +130,7 @@ class SteamCache(DailyCache):
       cache = Cache.model_validate_json(f.read())
     return date, cache.items
 
-  def get_prev(self) -> Optional[tuple[datetime, list[Game]]]:
+  def get_prev(self) -> tuple[datetime, list[Game]] | None:
     prev_path = self.path.with_suffix(".prev.json")
     prev_date_path = self.date_path.with_suffix(".prev.date")
     if not prev_path.exists() or not prev_date_path.exists():
@@ -189,7 +188,7 @@ steam = (
 
 
 @steam.handle()
-async def _(no_cache: bool) -> None:
+async def _(*, no_cache: bool) -> None:
   if no_cache:
     await CACHE.update()
   else:

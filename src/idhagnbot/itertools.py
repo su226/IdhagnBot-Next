@@ -1,9 +1,9 @@
 import sys
 from collections.abc import Generator, Iterable
-from itertools import islice, tee
+from itertools import islice
 from typing import NoReturn, TypeVar
 
-__all__ = ["batched", "pairwise"]
+__all__ = ["batched"]
 T = TypeVar("T")
 SimpleGenerator = Generator[T, NoReturn, None]
 
@@ -18,13 +18,3 @@ else:
     it = iter(iterable)
     while batch := tuple(islice(it, n)):
       yield batch
-
-
-if sys.version_info >= (3, 10):
-  from itertools import pairwise
-else:
-
-  def pairwise(iterable: Iterable[T]) -> SimpleGenerator[tuple[T, T]]:
-    a, b = tee(iterable)
-    next(b, None)
-    yield from zip(a, b)

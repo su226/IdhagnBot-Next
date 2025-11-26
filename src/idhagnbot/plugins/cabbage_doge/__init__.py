@@ -44,7 +44,7 @@ cabbage_doge = (
 
 
 @cabbage_doge.handle()
-async def _(colors: tuple[str, ...]) -> None:
+async def _(*, colors: tuple[str, ...]) -> None:
   color_values = []
   for i in colors:
     value = parse(i)

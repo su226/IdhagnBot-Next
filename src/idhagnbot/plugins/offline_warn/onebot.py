@@ -1,5 +1,5 @@
 import time
-from typing import Literal, Union
+from typing import Literal
 
 import nonebot
 from nonebot import logger
@@ -30,7 +30,7 @@ offline = nonebot.on_type((NapCatOfflineEvent, LagrangeOfflineEvent))
 
 
 @offline.handle()
-async def handle_offline(event: Union[NapCatOfflineEvent, LagrangeOfflineEvent]) -> None:
+async def handle_offline(*, event: NapCatOfflineEvent | LagrangeOfflineEvent) -> None:
   now_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(event.time))
   tag = event.tag
   message = event.message

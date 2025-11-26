@@ -1,11 +1,11 @@
 import math
-from typing import Any, Literal, Optional, Union, cast, overload
+from typing import Any, Literal, TypeAlias, Union, cast, overload
 
 import cairo
 import gi
 from PIL import Image
 from pydantic import BaseModel, Field
-from typing_extensions import Self, TypeAlias
+from typing_extensions import Self
 
 from idhagnbot import image
 from idhagnbot.color import split_rgb
@@ -34,7 +34,7 @@ class Config(BaseModel):
 CONFIG = SharedConfig("text", Config)
 Layout: TypeAlias = Pango.Layout
 Wrap = Literal["word", "char", "word_char"]
-Ellipsize = Literal[None, "start", "middle", "end"]
+Ellipsize = Literal["start", "middle", "end"] | None
 Align = Literal["l", "m", "r"]
 ImageAlign = Literal["top", "middle", "baseline", "bottom"]
 WRAPS: dict[Wrap, Pango.WrapMode] = {
@@ -94,7 +94,7 @@ class RichText:
     self._utf8 = bytearray()
     self._attrs = Pango.AttrList()
     self._images: dict[int, cairo.ImageSurface] = {}
-    self._layout = cast(Any, Layout)(self._context)
+    self._layout = Layout.new(self._context)
     self._frozen = False
 
   def _render_images(self, cr: "cairo.Context[Any]", attr: Pango.AttrShape, do_path: bool) -> None:
@@ -244,7 +244,7 @@ def layout(
   font: str,
   size: float,
   *,
-  box: Optional[int] = None,
+  box: int | None = None,
   wrap: Wrap = "word",
   ellipsize: Ellipsize = None,
   markup: bool = False,
@@ -284,7 +284,7 @@ def render(
   color: image.Color = ...,
   stroke: float = ...,
   stroke_color: image.Color = ...,
-  box: Optional[int] = ...,
+  box: int | None = ...,
   wrap: Wrap = ...,
   ellipsize: Ellipsize = ...,
   markup: bool = ...,
@@ -293,7 +293,7 @@ def render(
   lines: int = ...,
 ) -> Image.Image: ...
 def render(
-  content: Union[str, Layout],
+  content: str | Layout,
   *args: Any,
   color: image.Color = (0, 0, 0),
   stroke: float = 0,
@@ -348,7 +348,7 @@ def paste(
   color: image.Color = ...,
   stroke: float = ...,
   stroke_color: image.Color = ...,
-  box: Optional[int] = ...,
+  box: int | None = ...,
   wrap: Wrap = ...,
   ellipsize: Ellipsize = ...,
   markup: bool = ...,

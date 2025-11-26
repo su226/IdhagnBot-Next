@@ -1,7 +1,6 @@
 from collections import deque
 from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta
-from typing import Optional
 
 import nonebot
 from anyio import get_cancelled_exc_class
@@ -30,7 +29,7 @@ queue = deque[common.User]()
 
 
 @common.CONFIG.onload()
-def onload(prev: Optional[common.Config], curr: common.Config) -> None:
+def onload(prev: common.Config | None, curr: common.Config) -> None:
   global queue
   queue = deque[common.User]()
   for i in curr.users:
@@ -162,7 +161,7 @@ async def try_check(user: common.User) -> int:
     return 0
 
 
-async def try_check_all(concurrency: Optional[int] = None) -> tuple[int, int]:
+async def try_check_all(concurrency: int | None = None) -> tuple[int, int]:
   if concurrency is None:
     concurrency = common.CONFIG().concurrency
   current_queue = queue
@@ -200,7 +199,7 @@ force_push = (
 
 
 @force_push.handle()
-async def handle_force_push(id: int, scene_id: SceneId, scene_id_raw: SceneIdRaw) -> None:
+async def handle_force_push(*, id: int, scene_id: SceneId, scene_id_raw: SceneIdRaw) -> None:
   try:
     src = await get(id)
   except Exception:

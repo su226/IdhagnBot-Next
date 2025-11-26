@@ -1,5 +1,5 @@
+from collections.abc import Callable
 from time import localtime, strftime
-from typing import Callable
 
 from idhagnbot import text
 from idhagnbot.image.card import Card, CardTab

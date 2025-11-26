@@ -1,6 +1,5 @@
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
-from typing import Optional
 from zoneinfo import ZoneInfo
 
 import anyio
@@ -18,7 +17,7 @@ class BaseCache:
     self,
     filename: str,
     enable_prev: bool = False,
-    extra_files: Optional[list[str]] = None,
+    extra_files: list[str] | None = None,
   ) -> None:
     self.lock = anyio.Lock()
     self.path = BASE_DIR / filename
@@ -73,7 +72,7 @@ class DailyCache(BaseCache):
     self,
     filename: str,
     enable_prev: bool = False,
-    extra_files: Optional[list[str]] = None,
+    extra_files: list[str] | None = None,
     update_time: time = DEFAULT_UPDATE_TIME,
   ) -> None:
     super().__init__(filename, enable_prev, extra_files)
@@ -92,7 +91,7 @@ class WeeklyCache(BaseCache):
     self,
     filename: str,
     enable_prev: bool = False,
-    extra_files: Optional[list[str]] = None,
+    extra_files: list[str] | None = None,
     update_weekday: int = 0,
     update_time: time = DEFAULT_UPDATE_TIME,
   ) -> None:

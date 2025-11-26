@@ -31,6 +31,7 @@ help_page = nonebot.on_notice(check_help_page)
 
 @help_page.handle()
 async def handle_help_page(
+  *,
   bot: Bot,
   event: InteractionButtonEvent,
   session: Uninfo,

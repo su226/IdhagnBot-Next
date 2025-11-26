@@ -28,7 +28,7 @@ HISTORY_API = "https://baike.baidu.com/cms/home/eventsOnHistory/{month}.json"
 
 
 class HTMLStripper(HTMLParser):
-  def __init__(self):
+  def __init__(self) -> None:
     super().__init__()
     self.f = StringIO()
 
@@ -121,7 +121,7 @@ history = (
 
 
 @history.handle()
-async def _(no_cache: bool) -> None:
+async def _(*, no_cache: bool) -> None:
   if no_cache:
     await CACHE.update()
   else:

@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 from datetime import datetime, time
-from typing import Literal, Optional, cast
+from typing import Literal, cast
 from zoneinfo import ZoneInfo
 
 import nonebot
@@ -41,7 +41,7 @@ class Level(BaseModel):
   daily: int
   demon: int
   author: str
-  demon_tier: Optional[float] = None
+  demon_tier: float | None = None
   has_image: bool = False
 
   @staticmethod
@@ -132,11 +132,11 @@ class Level(BaseModel):
       daily_id = f"Weekly #{self.daily - 100000}"
     else:
       daily_id = f"Daily #{self.daily}"
-    return f'''\
+    return f"""\
 "{self.name}" by {self.author}
 Level #{self.id} {daily_id}
 {self.difficulty_name()}{demon_tier} {self.stars}⭐{coins}
-🕔{self.length_name()} ⬇️{self.downloads} 👍{self.likes} 🔮{self.orbs()}'''
+🕔{self.length_name()} ⬇️{self.downloads} 👍{self.likes} 🔮{self.orbs()}"""
 
 
 class Cache(BaseModel):
@@ -182,7 +182,7 @@ class GeometryDashCache(DailyCache):
       cache = Cache.model_validate_json(f.read())
     return date, cache.level
 
-  def get_prev(self) -> Optional[tuple[datetime, Level]]:
+  def get_prev(self) -> tuple[datetime, Level] | None:
     prev_path = self.path.with_suffix(".prev.json")
     prev_date_path = self.date_path.with_suffix(".prev.date")
     if not prev_path.exists() or not prev_date_path.exists():
@@ -291,7 +291,7 @@ geometrydash_event = (
 @geometrydash_daily.handle()
 @geometrydash_weekly.handle()
 @geometrydash_event.handle()
-async def handle_epicgames_android(no_cache: bool, state: T_State) -> None:
+async def handle_epicgames_android(*, no_cache: bool, state: T_State) -> None:
   cache: GeometryDashCache = state["cache"]
   if no_cache:
     await cache.update()

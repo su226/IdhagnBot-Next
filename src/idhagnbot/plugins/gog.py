@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 import nonebot
 from pydantic import BaseModel, TypeAdapter
@@ -87,7 +86,7 @@ class GogCache(DailyCache):
       cache = Cache.model_validate_json(f.read())
     return date, cache.items
 
-  def get_prev(self) -> Optional[tuple[datetime, list[Game]]]:
+  def get_prev(self) -> tuple[datetime, list[Game]] | None:
     prev_path = self.path.with_suffix(".prev.json")
     prev_date_path = self.date_path.with_suffix(".prev.date")
     if not prev_path.exists() or not prev_date_path.exists():
@@ -145,7 +144,7 @@ gog = (
 
 
 @gog.handle()
-async def _(no_cache: bool) -> None:
+async def _(*, no_cache: bool) -> None:
   if no_cache:
     await CACHE.update()
   else:

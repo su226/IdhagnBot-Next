@@ -2,7 +2,7 @@ import re
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Optional, Union
+from typing import Annotated
 
 import nonebot
 from nonebot.adapters import Bot
@@ -109,7 +109,7 @@ def get_target(scene_id: str) -> Target:
   raise ValueError("无效场景 ID")
 
 
-async def get_scene(scene_id: str) -> Optional[Scene]:
+async def get_scene(scene_id: str) -> Scene | None:
   if match := PRIVATE_RE.match(scene_id):
     bot = await get_bot(predicate=_uninfo_predicate(match["platform"]), rand=True)
     interface = get_interface(bot)
@@ -162,7 +162,7 @@ async def get_bot_member_or_user(
   interface: QryItrface,
   self_id: BotId,
   session: Uninfo,
-) -> Union[Member, User, None]:
+) -> Member | User | None:
   if member := await interface.get_member(session.scene.type, session.scene.id, self_id):
     return member
   if user := await interface.get_user(self_id):
@@ -170,7 +170,7 @@ async def get_bot_member_or_user(
   return None
 
 
-BotMemberOrUser = Annotated[Union[Member, User], Depends(get_bot_member_or_user)]
+BotMemberOrUser = Annotated[Member | User, Depends(get_bot_member_or_user)]
 
 
 async def get_bot_user(member_or_user: BotMemberOrUser) -> User:

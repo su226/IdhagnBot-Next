@@ -1,6 +1,5 @@
 from datetime import datetime, time, timedelta
 from itertools import chain
-from typing import Optional, Union
 
 import nonebot
 from apscheduler.job import Job
@@ -48,13 +47,13 @@ from idhagnbot.plugins.error import send_error
 class ModuleConfig(BaseModel, extra="allow"):
   type: str
 
-  def to_module(self) -> Union[SimpleModule, TargetAwareModule]:
+  def to_module(self) -> SimpleModule | TargetAwareModule:
     return MODULE_REGISTRY[self.type].model_validate(self.model_extra)
 
 
 class Push(BaseModel):
   time: time
-  modules: list[Union[ModuleConfig, list[ModuleConfig]]]
+  modules: list[ModuleConfig | list[ModuleConfig]]
   targets: list[TargetConfig]
 
 
@@ -82,7 +81,7 @@ else:
 
 
 @CONFIG.onload()
-def _(prev: Optional[Config], curr: Config) -> None:  # noqa: ARG001
+def _(prev: Config | None, curr: Config) -> None:  # noqa: ARG001
   for job in jobs:
     job.remove()
   jobs.clear()
@@ -177,7 +176,7 @@ async def format_forward(
 
 
 async def format_all(
-  modules: list[Union[ModuleConfig, list[ModuleConfig]]],
+  modules: list[ModuleConfig | list[ModuleConfig]],
   targets: list[Target],
 ) -> dict[Target, list[UniMessage[Segment]]]:
   merged = {target: list[UniMessage[Segment]]() for target in targets}
@@ -268,7 +267,7 @@ async def target_match(target: TargetConfig, session: Uninfo) -> bool:
 
 async def format_if_match(push: Push, session: Uninfo) -> list[UniMessage[Segment]]:
   matches = await gather_seq(target_match(target, session) for target in push.targets)
-  targets = [target.target for target, match in zip(push.targets, matches) if match]
+  targets = [target.target for target, match in zip(push.targets, matches, strict=True) if match]
   if targets:
     formatted = await format_all(push.modules, [targets[0]])
     return formatted[targets[0]]
@@ -276,7 +275,7 @@ async def format_if_match(push: Push, session: Uninfo) -> list[UniMessage[Segmen
 
 
 @resend_push.handle()
-async def handle_resend_push(session: Uninfo) -> None:
+async def handle_resend_push(*, session: Uninfo) -> None:
   messages = list(
     chain.from_iterable(
       await gather_seq(format_if_match(push, session) for push in CONFIG().pushes.values()),

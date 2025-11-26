@@ -1,5 +1,3 @@
-from typing import Optional
-
 import nonebot
 
 from idhagnbot.command import CommandBuilder
@@ -32,7 +30,7 @@ except ImportError:
   pass
 
 
-def find_command(name: str) -> Optional[CommandItem]:
+def find_command(name: str) -> CommandItem | None:
   try:
     return CommandItem.find(name)
   except KeyError:
@@ -64,6 +62,7 @@ help_ = (
 
 @help_.handle()
 async def handle_help(
+  *,
   session: Uninfo,
   interface: QryItrface,
   scene: SceneId,

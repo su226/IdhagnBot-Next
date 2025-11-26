@@ -2,7 +2,6 @@ import random
 import re
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
-from typing import Optional
 
 import nonebot
 from arclet.alconna import AllParam
@@ -43,10 +42,10 @@ from idhagnbot.plugins.error import send_error
 
 
 class Config(BaseModel):
-  proxy: Optional[HttpUrl] = None
+  proxy: HttpUrl | None = None
 
   @property
-  def proxy_aiohttp(self) -> Optional[str]:
+  def proxy_aiohttp(self) -> str | None:
     return str(self.proxy) if self.proxy else None
 
 
@@ -197,7 +196,7 @@ emojimix_command = (
 
 
 @emojimix_command.handle()
-async def _(emojis: Match[UniMessage[Text]], bot_id: BotId, bot_nick: BotAnyNick) -> None:
+async def _(*, emojis: Match[UniMessage[Text]], bot_id: BotId, bot_nick: BotAnyNick) -> None:
   cache = CACHE()
 
   if not emojis.available:
@@ -295,7 +294,7 @@ emojimix_quick = nonebot.on_message(check_emojimix_quick, permission=permission(
 
 
 @emojimix_quick.handle()
-async def _(state: T_State) -> None:
+async def _(*, state: T_State) -> None:
   emoji1 = state["emoji1"]
   emoji2 = state["emoji2"]
   swap = state["swap"]

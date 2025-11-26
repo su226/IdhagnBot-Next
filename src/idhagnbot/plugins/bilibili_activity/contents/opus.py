@@ -1,5 +1,5 @@
 import math
-from typing import Callable
+from collections.abc import Callable
 
 import nonebot
 from anyio.to_thread import run_sync

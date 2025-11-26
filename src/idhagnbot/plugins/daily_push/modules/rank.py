@@ -59,7 +59,7 @@ class RankModule(TargetAwareModule):
     infos = await gather_seq(
       interface.get_member(scene_type, scene_id, user_id) for user_id, _ in result
     )
-    for i, ((user_id, count), info) in enumerate(zip(result, infos)):
+    for i, ((user_id, count), info) in enumerate(zip(result, infos, strict=True)):
       prefix = EMOJIS[i] if i < len(EMOJIS) else f"{i + 1}."
       nickname = info.nick or info.user.nick or info.user.name or info.user.id if info else user_id
       lines.append(f"{prefix} {nickname} - {count} 条")

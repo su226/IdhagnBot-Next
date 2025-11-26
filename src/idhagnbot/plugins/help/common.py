@@ -20,7 +20,9 @@ async def get_available_groups(session: Session, interface: Interface, user_id: 
     groups = []
   results = await gather_seq(in_group(group.id) for group in groups)
   scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
-  return [f"{scope}:group:{group.id}" for group, result in zip(groups, results) if result]
+  return [
+    f"{scope}:group:{group.id}" for group, result in zip(groups, results, strict=True) if result
+  ]
 
 
 async def get_show_data(

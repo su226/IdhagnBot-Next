@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import nonebot
 from nonebot.adapters import Bot
@@ -34,7 +34,7 @@ def _parse_from_data(
   bot: Bot,
   api: str,
   data: dict[str, Any],
-) -> Optional[tuple[UniMessage[Segment], Target]]:
+) -> tuple[UniMessage[Segment], Target] | None:
   if api in ("send_private_msg", "send_group_msg", "send_msg"):
     message = data["message"]
   elif api in ("send_private_forward_msg", "send_group_forward_msg", "send_forward_msg"):
@@ -68,7 +68,7 @@ async def on_calling_api(bot: Bot, api: str, data: dict[str, Any]) -> None:
 
 async def on_called_api(
   bot: Bot,
-  e: Optional[Exception],
+  e: Exception | None,
   api: str,
   data: dict[str, Any],
   result: Any,

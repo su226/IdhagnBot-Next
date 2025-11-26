@@ -1,4 +1,4 @@
-from typing import Any, Union
+from typing import Any
 
 import nonebot
 
@@ -9,7 +9,7 @@ from nonebot_plugin_alconna import Segment, Text, UniMessage
 
 
 class ConstantModule(SimpleModule):
-  message: Union[str, list[dict[str, Any]]]
+  message: str | list[dict[str, Any]]
 
   async def format(self) -> list[UniMessage[Segment]]:
     if isinstance(self.message, str):

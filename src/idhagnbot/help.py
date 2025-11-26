@@ -1,7 +1,8 @@
 import html
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, ClassVar, Optional, Union
+from typing import ClassVar
 
 import nonebot
 from pydantic import BaseModel, Field
@@ -39,7 +40,7 @@ class CommonData(BaseModel):
   scope: str = ""
   has_scene: set[str] = Field(default_factory=set)
   in_scene: set[str] = Field(default_factory=set)
-  private: Optional[bool] = None
+  private: bool | None = None
   default_grant_to: set[str] = Field(default_factory=lambda: {"default"})
   condition: Callable[["ShowData"], bool] = noop_condition
 
@@ -100,7 +101,7 @@ class UserCategory(UserData):
 
 class Config(BaseModel):
   page_size: int = 10
-  user_helps: list[Union[str, UserString, UserCommand, UserCategory]] = Field(default_factory=list)
+  user_helps: list[str | UserString | UserCommand | UserCategory] = Field(default_factory=list)
 
 
 CONFIG = SharedConfig("help", Config)
@@ -109,7 +110,7 @@ COMMAND_PREFIX = next(iter(nonebot.get_driver().config.command_start))
 
 
 @CONFIG.onload()
-def onload(prev: Optional[Config], curr: Config) -> None:
+def onload(prev: Config | None, curr: Config) -> None:
   if prev:
     CommandItem.remove_user_items()
     CategoryItem.ROOT.remove_user_items()
@@ -131,7 +132,7 @@ def onload(prev: Optional[Config], curr: Config) -> None:
 
 
 class Item:
-  def __init__(self, data: Optional[CommonData]) -> None:
+  def __init__(self, data: CommonData | None) -> None:
     self.data = CommonData() if data is None else data
 
   def __call__(self) -> str:
@@ -174,7 +175,7 @@ class Item:
 
 
 class StringItem(Item):
-  def __init__(self, string: str, data: Optional[CommonData] = None) -> None:
+  def __init__(self, string: str, data: CommonData | None = None) -> None:
     super().__init__(data)
     self.string = string
 
@@ -196,10 +197,10 @@ class CommandItem(Item):
 
   def __init__(
     self,
-    names: Optional[list[str]] = None,
+    names: list[str] | None = None,
     brief: str = "",
-    usage: Union[str, Callable[[], str]] = "",
-    data: Optional[CommonData] = None,
+    usage: str | Callable[[], str] = "",
+    data: CommonData | None = None,
   ) -> None:
     super().__init__(data)
     self.names = names or []
@@ -260,7 +261,7 @@ class CommandItem(Item):
 class CategoryItem(Item):
   ROOT: "CategoryItem"
 
-  def __init__(self, name: str, brief: str = "", data: Optional[CommonData] = None) -> None:
+  def __init__(self, name: str, brief: str = "", data: CommonData | None = None) -> None:
     super().__init__(data)
     self.name = name
     self.brief = brief
@@ -290,9 +291,9 @@ class CategoryItem(Item):
   @classmethod
   def find(
     cls,
-    path: Union[str, list[str]],
+    path: str | list[str],
     create: bool = False,
-    check: Optional[ShowData] = None,
+    check: ShowData | None = None,
   ) -> "CategoryItem":
     cur = CategoryItem.ROOT
     if check and not cur.can_show(check):

@@ -1,5 +1,5 @@
 from itertools import chain
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
 
 import nonebot
 from nonebot.adapters import Bot
@@ -21,7 +21,7 @@ from nonebot_plugin_alconna import Segment, SupportScope, Target, UniMessage
 
 
 def _normalize_entities(
-  entities: list[Union[MessageEntity, dict[str, Any]]],
+  entities: list[MessageEntity | dict[str, Any]],
 ) -> list[dict[str, Any]]:
   return [
     entity.model_dump(exclude_none=True) if isinstance(entity, MessageEntity) else entity
@@ -33,7 +33,7 @@ def _parse_from_data(
   bot: Bot,
   api: str,
   data: dict[str, Any],
-) -> Optional[tuple[UniMessage[Segment], Target]]:
+) -> tuple[UniMessage[Segment], Target] | None:
   if api == "send_message":
     if data.get("parse_mode") is not None:
       return None
@@ -175,7 +175,7 @@ async def on_calling_api(bot: Bot, api: str, data: dict[str, Any]) -> None:
 
 async def on_called_api(
   bot: Bot,
-  e: Optional[Exception],
+  e: Exception | None,
   api: str,
   data: dict[str, Any],
   result: Any,

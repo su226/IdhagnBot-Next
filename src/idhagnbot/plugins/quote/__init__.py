@@ -2,7 +2,6 @@ import random
 from collections.abc import Awaitable, Sequence
 from io import BytesIO
 from itertools import dropwhile, islice
-from typing import Optional
 from uuid import UUID, uuid4
 
 import nonebot
@@ -144,7 +143,7 @@ async def fetch_emojis(bot: Bot, messages: Sequence[MessageInfo]) -> dict[str, I
 def render_content(
   message: UniMessage[Segment],
   emojis: dict[str, Image.Image],
-  user: Optional[UserInfo],
+  user: UserInfo | None,
 ) -> Image.Image:
   rows = list[Image.Image]()
   if user:
@@ -226,7 +225,7 @@ async def render_chat(
         height += gap if message.user_id != messages[i - 1].user_id else gap_small
     out_im = Image.new("RGBA", (width, height))
     y = 0
-    for i, (message, im) in enumerate(zip(messages, contents)):
+    for i, (message, im) in enumerate(zip(messages, contents, strict=True)):
       replace(out_im, im, (avatar_size + gap, y))
       y += im.height
       if i == len(messages) - 1 or messages[i + 1].user_id != message.user_id:
@@ -260,6 +259,7 @@ quote = (
 
 @quote.handle()
 async def _(
+  *,
   bot: Bot,
   event: Event,
   count: int,
@@ -314,7 +314,7 @@ random_quote = (
 
 
 @random_quote.handle()
-async def _(scene_id: SceneId, sql: async_scoped_session) -> None:
+async def _(*, scene_id: SceneId, sql: async_scoped_session) -> None:
   dirname = get_data_dir("idhagnbot") / "quote" / scene_id.replace(":", "__")
   dirname.mkdir(parents=True, exist_ok=True)
   files = list(dirname.iterdir())
@@ -335,6 +335,7 @@ delete_quote = (
 
 @delete_quote.handle()
 async def _(
+  *,
   bot: Bot,
   event: Event,
   message: OrigUniMsg,

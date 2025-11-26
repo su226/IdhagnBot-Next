@@ -24,8 +24,8 @@
 #       DYNAMIC_TYPE_SUBSCRIPTION
 # 4311: DYNAMIC_TYPE_SUBSCRIPTION_NEW
 
-from collections.abc import Awaitable
-from typing import Any, Callable, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import Any, TypeVar
 
 import nonebot
 

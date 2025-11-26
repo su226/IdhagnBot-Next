@@ -1,5 +1,5 @@
 import re
-from typing import Any, Optional
+from typing import Any
 
 import nonebot
 from pydantic import TypeAdapter, ValidationError
@@ -46,7 +46,7 @@ async def match(link: str, last_state: dict[str, Any]) -> MatchState:
   if not location:
     return MatchState(False, {})
   results = await gather_seq(content.match(location, {}) for content in CONTENTS)
-  for content, result in zip(CONTENTS, results):
+  for content, result in zip(CONTENTS, results, strict=True):
     if result.matched:
       return MatchState(
         True,
@@ -71,7 +71,7 @@ async def match(link: str, last_state: dict[str, Any]) -> MatchState:
 async def format(
   slug: str,
   link: str,
-  content: Optional[Content],
+  content: Content | None,
   state: dict[str, Any],
   **kw: Any,
 ) -> FormatState:

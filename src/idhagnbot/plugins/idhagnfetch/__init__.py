@@ -1,10 +1,10 @@
 import itertools
 import platform
 import time
-from collections.abc import Awaitable, Generator, Iterable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Generator, Iterable, Mapping, Sequence
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Callable, Literal, TypeVar, Union
+from typing import Any, Literal, TypeVar
 
 import anyio
 import nonebot
@@ -19,10 +19,9 @@ from idhagnbot.asyncio import gather, gather_seq
 from idhagnbot.color import split_rgb
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig
-from idhagnbot.context import BotAnyNick, BotId, BotUser
+from idhagnbot.context import BotAnyNick, BotUser
 from idhagnbot.image import get_scale_resample, open_url, paste, to_segment
 from idhagnbot.itertools import batched
-from idhagnbot.plugins.idhagnfetch.distro import get_distro
 from idhagnbot.plugins.idhagnfetch.gpu import get_gpu_info
 from idhagnbot.text import escape, render
 
@@ -132,7 +131,7 @@ def format_utilization(used: int, total: int) -> str:
   return f"{used_f:.1f}/{total_f:.1f}{units[-1]}iB"
 
 
-def format_timedelta(seconds: Union[float, timedelta]) -> str:
+def format_timedelta(seconds: float | timedelta) -> str:
   if isinstance(seconds, timedelta):
     seconds = seconds.total_seconds()
   seconds = round(seconds)
@@ -157,7 +156,7 @@ SYSTEM = f"{_uname.system} {_uname.release}"
 CPU_MODEL = _uname.processor or _uname.machine
 if _uname.system == "Linux":
   try:
-    SYSTEM += f" ({get_distro()})"
+    SYSTEM += f" ({platform.freedesktop_os_release()['PRETTY_NAME']})"
   except (OSError, KeyError):
     pass
 if _uname.system in ("Linux", "Darwin"):
@@ -480,7 +479,7 @@ idhagnfetch = (
 
 
 @idhagnfetch.handle()
-async def _(bot: Bot, bot_nick: BotAnyNick, bot_info: BotUser) -> None:
+async def _(*, bot: Bot, bot_nick: BotAnyNick, bot_info: BotUser) -> None:
   config = CONFIG()
   # 分开获取头像，防止干扰网络信息
   items, bar_items = await gather(

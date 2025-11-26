@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, time, timezone
-from typing import Literal, Optional
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 import nonebot
@@ -142,7 +142,7 @@ class EpicGamesMobileCache(DailyCache):
       cache = Cache.model_validate_json(f.read())
     return date, cache.games
 
-  def get_prev(self) -> Optional[tuple[datetime, list[Game]]]:
+  def get_prev(self) -> tuple[datetime, list[Game]] | None:
     prev_path = self.path.with_suffix(".prev.json")
     prev_date_path = self.date_path.with_suffix(".prev.date")
     if not prev_path.exists() or not prev_date_path.exists():
@@ -228,7 +228,7 @@ epicgames_ios = (
 
 @epicgames_android.handle()
 @epicgames_ios.handle()
-async def handle_epicgames_android(no_cache: bool, state: T_State) -> None:
+async def handle_epicgames_android(*, no_cache: bool, state: T_State) -> None:
   cache: EpicGamesMobileCache = state["cache"]
   if no_cache:
     await cache.update()

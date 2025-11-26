@@ -1,5 +1,4 @@
 import re
-from typing import Union
 
 import nonebot
 from nonebot.adapters.onebot.v11 import Adapter, FriendRecallNoticeEvent, GroupRecallNoticeEvent
@@ -19,7 +18,7 @@ SUPER_EMOTE_RE = re.compile(r"^/[A-Za-z0-9\u4e00-\u9fa5]+$")
 
 
 async def handle_recall(
-  _: Union[GroupRecallNoticeEvent, FriendRecallNoticeEvent],
+  _: GroupRecallNoticeEvent | FriendRecallNoticeEvent,
   scene_id: SceneIdRaw,
 ) -> None:
   if last := last_messages.get(scene_id):

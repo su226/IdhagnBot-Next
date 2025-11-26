@@ -1,6 +1,5 @@
 import colorsys
 import re
-from typing import Optional
 
 NAMES = {
   0x000000: "CSS: black",
@@ -839,7 +838,7 @@ HSL_RE = re.compile(
 RGB = tuple[int, int, int]
 
 
-def parse(src: str) -> Optional[int]:
+def parse(src: str) -> int | None:
   if src in VALUES:
     return VALUES[src]
   if match := LONG_HEX_RE.match(src):

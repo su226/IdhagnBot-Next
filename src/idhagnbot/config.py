@@ -1,8 +1,9 @@
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
-from typing import Any, Callable, ClassVar, Generic, Literal, Optional, TypeVar
+from typing import Any, ClassVar, Generic, Literal, TypeVar
 
 import nonebot
 import yaml
@@ -22,7 +23,7 @@ from nonebot_plugin_localstore import get_cache_dir, get_config_dir, get_data_di
 
 TModel = TypeVar("TModel", bound=BaseModel)
 TParam = TypeVarTuple("TParam")
-LoadHandler = Callable[[Optional[TModel], TModel, Unpack[TParam]], None]
+LoadHandler = Callable[[TModel | None, TModel, Unpack[TParam]], None]
 Reloadable = Literal[False, "eager", "lazy"]
 CONFIG_DIR = get_config_dir("idhagnbot")
 DATA_DIR = get_data_dir("idhagnbot")
@@ -92,10 +93,10 @@ class BaseConfig(Generic[TModel, Unpack[TParam]]):
 
   def onload(
     self,
-  ) -> "Callable[[LoadHandler[TModel, Unpack[TParam]]], LoadHandler[TModel, Unpack[TParam]]]":
+  ) -> Callable[[LoadHandler[TModel, Unpack[TParam]]], LoadHandler[TModel, Unpack[TParam]]]:
     def decorator(
-      handler: "LoadHandler[TModel, Unpack[TParam]]",
-    ) -> "LoadHandler[TModel, Unpack[TParam]]":
+      handler: LoadHandler[TModel, Unpack[TParam]],
+    ) -> LoadHandler[TModel, Unpack[TParam]]:
       self.handlers.append(handler)
       return handler
 
@@ -151,7 +152,7 @@ class SessionConfig(BaseConfig[TModel, str]):
         fallback = self._get_fallback(session)
     return file
 
-  def _get_fallback(self, name: str) -> Optional[str]:
+  def _get_fallback(self, name: str) -> str | None:
     if match := GROUP_ID_RE.match(name):
       return f"{match['platform']}__group"
     if match := GROUP_RE.match(name):

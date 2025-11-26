@@ -1,5 +1,5 @@
 from collections.abc import Awaitable, Iterable, Mapping
-from typing import Any, Literal, TypeVar, Union, cast, overload
+from typing import Any, Literal, TypeVar, cast, overload
 
 import anyio
 import nonebot
@@ -102,7 +102,7 @@ async def gather(
   /,
   *,
   return_exceptions: Literal[True],
-) -> tuple[Union[_T1, BaseException]]: ...
+) -> tuple[_T1 | BaseException]: ...
 @overload
 async def gather(
   coro1: Awaitable[_T1],
@@ -111,8 +111,8 @@ async def gather(
   *,
   return_exceptions: Literal[True],
 ) -> tuple[
-  Union[_T1, BaseException],
-  Union[_T2, BaseException],
+  _T1 | BaseException,
+  _T2 | BaseException,
 ]: ...
 @overload
 async def gather(
@@ -123,9 +123,9 @@ async def gather(
   *,
   return_exceptions: Literal[True],
 ) -> tuple[
-  Union[_T1, BaseException],
-  Union[_T2, BaseException],
-  Union[_T3, BaseException],
+  _T1 | BaseException,
+  _T2 | BaseException,
+  _T3 | BaseException,
 ]: ...
 @overload
 async def gather(
@@ -137,10 +137,10 @@ async def gather(
   *,
   return_exceptions: Literal[True],
 ) -> tuple[
-  Union[_T1, BaseException],
-  Union[_T2, BaseException],
-  Union[_T3, BaseException],
-  Union[_T4, BaseException],
+  _T1 | BaseException,
+  _T2 | BaseException,
+  _T3 | BaseException,
+  _T4 | BaseException,
 ]: ...
 @overload
 async def gather(
@@ -153,11 +153,11 @@ async def gather(
   *,
   return_exceptions: Literal[True],
 ) -> tuple[
-  Union[_T1, BaseException],
-  Union[_T2, BaseException],
-  Union[_T3, BaseException],
-  Union[_T4, BaseException],
-  Union[_T5, BaseException],
+  _T1 | BaseException,
+  _T2 | BaseException,
+  _T3 | BaseException,
+  _T4 | BaseException,
+  _T5 | BaseException,
 ]: ...
 @overload
 async def gather(
@@ -171,22 +171,22 @@ async def gather(
   *,
   return_exceptions: Literal[True],
 ) -> tuple[
-  Union[_T1, BaseException],
-  Union[_T2, BaseException],
-  Union[_T3, BaseException],
-  Union[_T4, BaseException],
-  Union[_T5, BaseException],
-  Union[_T6, BaseException],
+  _T1 | BaseException,
+  _T2 | BaseException,
+  _T3 | BaseException,
+  _T4 | BaseException,
+  _T5 | BaseException,
+  _T6 | BaseException,
 ]: ...
 @overload
 async def gather(
   *coros: Awaitable[_T],
   return_exceptions: Literal[True],
-) -> tuple[Union[_T, BaseException], ...]: ...
+) -> tuple[_T | BaseException, ...]: ...
 async def gather(  # pyright: ignore[reportInconsistentOverload]
   *coros: Awaitable[_T],
   return_exceptions: bool = False,
-) -> Union[tuple[_T, ...], tuple[Union[_T, BaseException], ...]]:
+) -> tuple[_T, ...] | tuple[_T | BaseException, ...]:
   async def wrapper(i: int, coro: Awaitable[_T]) -> None:
     try:
       results[i] = await coro
@@ -196,13 +196,13 @@ async def gather(  # pyright: ignore[reportInconsistentOverload]
       else:
         raise
 
-  results: list[Union[_T, BaseException, None]] = [None for _ in coros]
+  results: list[_T | BaseException | None] = [None for _ in coros]
 
   async with anyio.create_task_group() as tg:
     for i, coro in enumerate(coros):
       tg.start_soon(wrapper, i, coro)
 
-  return cast(Any, results)
+  return cast(Any, tuple(results))
 
 
 @overload
@@ -218,7 +218,7 @@ async def gather_seq(
 async def gather_seq(
   coros: Iterable[Awaitable[_T]],
   return_exceptions: bool = False,
-) -> Union[tuple[_T, ...], tuple[Union[_T, BaseException], ...]]:
+) -> tuple[_T, ...] | tuple[_T | BaseException, ...]:
   return await gather(*coros, return_exceptions=return_exceptions)
 
 
@@ -231,11 +231,11 @@ async def gather_map(
 async def gather_map(
   coros: Mapping[_T1, Awaitable[_T2]],
   return_exceptions: Literal[True],
-) -> dict[_T1, Union[_T2, BaseException]]: ...
+) -> dict[_T1, _T2 | BaseException]: ...
 async def gather_map(
   coros: Mapping[_T1, Awaitable[_T2]],
   return_exceptions: bool = False,
-) -> Union[dict[_T1, _T2], dict[_T1, Union[_T2, BaseException]]]:
+) -> dict[_T1, _T2] | dict[_T1, _T2 | BaseException]:
   async def wrapper(k: _T1, coro: Awaitable[_T2]) -> None:
     try:
       results[k] = await coro
@@ -245,7 +245,7 @@ async def gather_map(
       else:
         raise
 
-  results: dict[_T1, Union[_T2, BaseException, None]] = dict.fromkeys(coros)
+  results: dict[_T1, _T2 | BaseException | None] = dict.fromkeys(coros)
 
   async with anyio.create_task_group() as tg:
     for k, coro in coros.items():

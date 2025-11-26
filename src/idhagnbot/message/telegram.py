@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from itertools import chain
-from typing import Optional, cast
+from typing import TypeGuard, cast
 
 import anyio
 import nonebot
@@ -8,7 +8,6 @@ from nonebot.adapters import Bot, Event
 from nonebot.adapters.telegram import Adapter, Message, MessageSegment
 from nonebot.adapters.telegram.event import EditedMessageEvent, MessageEvent
 from nonebot.adapters.telegram.model import Message as RawMessage
-from typing_extensions import TypeGuard
 
 from idhagnbot.message.common import (
   EVENT_TIME_REGISTRY,
@@ -26,7 +25,7 @@ from nonebot_plugin_alconna.uniseg import Receipt
 media_groups = dict[str, tuple[datetime, list[MessageEvent]]]()
 
 
-async def merged_event(bot: Bot, event: Event) -> Optional[list[Event]]:
+async def merged_event(bot: Bot, event: Event) -> list[Event] | None:
   if not isinstance(event, MessageEvent) or not event.media_group_id:
     return [event]
   now = datetime.now(timezone.utc)
@@ -50,7 +49,7 @@ async def merged_msg(
   bot: Bot,
   events: list[Event],
   msg: UniMessage[Segment],
-) -> Optional[UniMessage[Segment]]:
+) -> UniMessage[Segment] | None:
   if len(events) > 1 and _is_message_events(events):
     chained = chain.from_iterable(cast(Message[MessageSegment], event.message) for event in events)
     return UniMessage.of(Message(chained), bot)
@@ -61,7 +60,7 @@ async def orig_merged_msg(
   bot: Bot,
   events: list[Event],
   msg: UniMessage[Segment],
-) -> Optional[UniMessage[Segment]]:
+) -> UniMessage[Segment] | None:
   if len(events) > 1 and _is_message_events(events):
     chained = chain.from_iterable(
       cast(Message[MessageSegment], event.original_message) for event in events
@@ -70,13 +69,13 @@ async def orig_merged_msg(
   return msg
 
 
-async def message_id(bot: Bot, event: Event) -> Optional[str]:
+async def message_id(bot: Bot, event: Event) -> str | None:
   if isinstance(event, MessageEvent):
     return str(event.message_id)
   return None
 
 
-async def event_time(bot: Bot, event: Event) -> Optional[datetime]:
+async def event_time(bot: Bot, event: Event) -> datetime | None:
   if isinstance(event, EditedMessageEvent):
     return datetime.fromtimestamp(event.edit_date)
   if date := getattr(event, "date", None):
