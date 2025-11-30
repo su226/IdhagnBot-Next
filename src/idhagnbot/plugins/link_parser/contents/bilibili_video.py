@@ -155,9 +155,9 @@ async def format(
   data_stat = data_view["stat"]
 
   http = get_session()
-  async with http.get(data_card["face"]) as response:
+  async with http.get(data_card["face"], headers={"User-Agent": BROWSER_UA}) as response:
     avatar_data = await response.read()
-  async with http.get(data_view["pic"]) as response:
+  async with http.get(data_view["pic"], headers={"User-Agent": BROWSER_UA}) as response:
     cover_data = await response.read()
 
   def make() -> ImageSeg:
