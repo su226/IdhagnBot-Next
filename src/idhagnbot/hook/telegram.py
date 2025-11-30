@@ -15,14 +15,14 @@ from idhagnbot.hook.common import (
   call_message_sending_hook,
   call_message_sent_hook,
 )
+from idhagnbot.url import path_from_url
 
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Segment, SupportScope, Target, UniMessage
+from nonebot_plugin_alconna.uniseg.segment import Media
 
 
-def _normalize_entities(
-  entities: list[MessageEntity | dict[str, Any]],
-) -> list[dict[str, Any]]:
+def _normalize_entities(entities: list[MessageEntity | dict[str, Any]]) -> list[dict[str, Any]]:
   return [
     entity.model_dump(exclude_none=True) if isinstance(entity, MessageEntity) else entity
     for entity in entities
@@ -41,7 +41,7 @@ def _parse_from_data(
       data["text"],
       _normalize_entities(data.get("entities") or []),
     )
-    message = UniMessage.of(Message(entities), bot)
+    message = Message(entities)
   elif api in (
     "send_photo",
     "send_audio",
@@ -71,7 +71,6 @@ def _parse_from_data(
       )
     elif api == "send_voice":
       message.append(File.voice(data["voice"]))
-    message = UniMessage.of(message, bot)
   elif api == "send_media_group":
     medias = to_jsonable_python(data["media"], exclude_none=True)
     if medias[0].get("parse_mode") is not None:
@@ -92,63 +91,50 @@ def _parse_from_data(
         message.append(
           File.video(media["media"], media.get("thumbnail"), media.get("has_spoiler")),
         )
-    message = UniMessage.of(message, bot)
   elif api == "send_video_note":
-    message = UniMessage.of(
-      Message(UnCombinFile.video_note(data["video_note"], data.get("thumbnail"))),
-      bot,
-    )
+    message = Message(UnCombinFile.video_note(data["video_note"], data.get("thumbnail")))
   elif api == "send_location":
-    message = UniMessage.of(
-      Message(
-        MessageSegment.location(
-          data["latitude"],
-          data["longitude"],
-          data.get("horizontal_accuracy"),
-          data.get("live_period"),
-          data.get("heading"),
-          data.get("proximity_alert_radius"),
-        ),
+    message = Message(
+      MessageSegment.location(
+        data["latitude"],
+        data["longitude"],
+        data.get("horizontal_accuracy"),
+        data.get("live_period"),
+        data.get("heading"),
+        data.get("proximity_alert_radius"),
       ),
-      bot,
     )
   elif api == "send_venue":
-    message = UniMessage.of(
-      Message(
-        MessageSegment.venue(
-          data["latitude"],
-          data["longitude"],
-          data["title"],
-          data["address"],
-          data.get("foursquare_id"),
-          data.get("foursquare_type"),
-          data.get("google_place_id"),
-          data.get("google_place_type"),
-        ),
+    message = Message(
+      MessageSegment.venue(
+        data["latitude"],
+        data["longitude"],
+        data["title"],
+        data["address"],
+        data.get("foursquare_id"),
+        data.get("foursquare_type"),
+        data.get("google_place_id"),
+        data.get("google_place_type"),
       ),
-      bot,
     )
   elif api == "send_poll":
-    message = UniMessage.of(
-      Message(
-        MessageSegment.poll(
-          data["question"],
-          [option["text"] for option in data["options"]],
-          data.get("is_anonymous"),
-          data.get("type"),
-          data.get("allows_multiple_answers"),
-          data.get("correct_option_id"),
-          data.get("explanation"),
-          data.get("open_period"),
-          data.get("close_date"),
-        ),
+    message = Message(
+      MessageSegment.poll(
+        data["question"],
+        [option["text"] for option in data["options"]],
+        data.get("is_anonymous"),
+        data.get("type"),
+        data.get("allows_multiple_answers"),
+        data.get("correct_option_id"),
+        data.get("explanation"),
+        data.get("open_period"),
+        data.get("close_date"),
       ),
-      bot,
     )
   elif api == "send_dice":
-    message = UniMessage.of(Message(MessageSegment.dice(data["emoji"])), bot)
+    message = Message(MessageSegment.dice(data["emoji"]))
   elif api == "send_chat_action":
-    message = UniMessage.of(Message(MessageSegment.chat_action(data["action"])), bot)
+    message = Message(MessageSegment.chat_action(data["action"]))
   else:
     return None
   chat_id = data["chat_id"]
@@ -156,6 +142,15 @@ def _parse_from_data(
     private = int(chat_id) > 0
   except ValueError:
     private = False
+  # nonebot-plugin-alconna 的 bug？并未处理 Telegram 的文件内容是 tuple[str, bytes] 的情况
+  message = UniMessage.of(message, bot)
+  for segment in message[Media]:
+    if isinstance(segment.id, tuple):
+      segment.name, segment.raw = segment.id
+      segment.id = None
+    elif segment.id and segment.id.startswith("file://"):
+      segment.path = path_from_url(segment.id)
+      segment.id = None
   target = Target(
     chat_id,
     private=private,

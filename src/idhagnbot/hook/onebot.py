@@ -1,3 +1,4 @@
+import base64
 from typing import Any
 
 import nonebot
@@ -12,9 +13,11 @@ from idhagnbot.hook.common import (
   call_message_sending_hook,
   call_message_sent_hook,
 )
+from idhagnbot.url import path_from_url
 
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Segment, SupportScope, Target, UniMessage
+from nonebot_plugin_alconna.uniseg.segment import Media
 
 
 def _normalize_message(raw: Any) -> Message:
@@ -57,7 +60,18 @@ def _parse_from_data(
       self_id=bot.self_id,
       scope=SupportScope.qq_client,
     )
-  return UniMessage.of(message, bot), target
+  message = UniMessage.of(message, bot)
+  for i in message[Media]:
+    if i.id:
+      if i.id.startswith("base64://"):
+        i.raw = base64.b64decode(i.id[9:])
+        i.id = None
+        i.url = None
+      elif i.id.startswith("file://"):
+        i.path = path_from_url(i.id)
+        i.id = None
+        i.url = None
+  return message, target
 
 
 async def on_calling_api(bot: Bot, api: str, data: dict[str, Any]) -> None:

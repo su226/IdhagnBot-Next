@@ -4,7 +4,7 @@ from typing import Any
 import nonebot
 from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters.satori import Adapter, Bot, Message
-from nonebot.adapters.satori.models import ChannelType
+from nonebot.adapters.satori.models import ChannelType, MessageReceipt
 from nonebot.exception import ActionFailed
 
 from idhagnbot.hook.common import (
@@ -19,6 +19,59 @@ nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Segment, SupportScope, Target, UniMessage
 
 
+async def _parse_target_from_id(channel_id: str, bot: Bot) -> Target:
+  try:
+    channel = await bot.channel_get(channel_id=channel_id)
+    is_private = channel.type == ChannelType.DIRECT
+  except ActionFailed:
+    is_private = False
+  if is_private:
+    is_channel = False
+  else:
+    try:
+      await bot.guild_get(guild_id=channel_id)
+      is_channel = False
+    except ActionFailed:
+      is_channel = True
+  return Target(
+    channel_id,
+    "",  # Satori 无法从 channel_id 获取 guild_id
+    is_channel,
+    is_private,
+    self_id=bot.self_id,
+    scope=SupportScope.ensure_satori(bot.platform),
+  )
+
+
+async def _parse_target_from_receipt(receipt: MessageReceipt, bot: Bot) -> Target | None:
+  channel = receipt.channel
+  if not channel:
+    return None
+  is_private = channel.type == ChannelType.DIRECT
+  guild = receipt.guild
+  if guild:
+    guild_id = guild.id
+    is_channel = channel.id != guild_id
+  elif is_private:
+    guild_id = ""
+    is_channel = False
+  else:
+    guild_id = ""
+    try:
+      await bot.guild_get(guild_id=channel.id)
+      is_channel = False
+    except ActionFailed:
+      is_channel = True
+  return Target(
+    channel.id,
+    guild_id,
+    is_channel,
+    is_private,
+    self_id=bot.self_id,
+    scope=SupportScope.ensure_satori(bot.platform),
+  )
+
+
 async def _parse_from_data(
   bot: BaseBot,
   api: str,
@@ -26,22 +79,9 @@ async def _parse_from_data(
 ) -> tuple[UniMessage[Segment], Target] | None:
   if api != "message_create":
     return None
-  assert isinstance(bot, Bot)
-  try:
-    channel = await bot.channel_get(channel_id=data["channel_id"])
-  except ActionFailed:
-    return None
-  parent_id = channel.parent_id or ""
-  target = Target(
-    channel.id,
-    parent_id,
-    parent_id not in ("", channel.id),
-    channel.type == ChannelType.DIRECT,
-    self_id=bot.self_id,
-    scope=SupportScope.ensure_satori(bot.platform),
-  )
   message = UniMessage.of(Message(data["content"]), bot)
-  return message, target
+  assert isinstance(bot, Bot)
+  return message, await _parse_target_from_id(data["channel_id"], bot)
 
 
 async def on_calling_api(bot: BaseBot, api: str, data: dict[str, Any]) -> None:
@@ -60,21 +100,10 @@ async def on_called_api(
   if not e:
     if api != "message_create" or not result:
       return
-    channel = result[0].channel
     assert isinstance(bot, Bot)
-    if not channel:
-      try:
-        channel = await bot.channel_get(channel_id=data["channel_id"])
-      except ActionFailed:
-        return
-    parent_id = channel.parent_id or ""
-    target = Target(
-      channel.id,
-      parent_id,
-      parent_id not in ("", channel.id),
-      channel.type == ChannelType.DIRECT,
-      self_id=bot.self_id,
-      scope=SupportScope.ensure_satori(bot.platform),
+    target = await _parse_target_from_receipt(result[0], bot) or await _parse_target_from_id(
+      data["channel_id"],
+      bot,
     )
     chained = Message(chain.from_iterable(Message(message.content) for message in result))
     message = UniMessage.of(chained, bot)
