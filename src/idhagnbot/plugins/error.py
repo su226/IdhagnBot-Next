@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from traceback import format_exception_only
+from traceback import format_exception_only, format_tb
 from typing import cast
 
 import nonebot
@@ -17,7 +17,7 @@ from idhagnbot.target import TargetConfig
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_apscheduler")
-from nonebot_plugin_alconna import Target, Text, UniMessage
+from nonebot_plugin_alconna import SerializeFailed, Target, Text, UniMessage
 from nonebot_plugin_apscheduler import scheduler
 
 __all__ = ["send_error"]
@@ -26,6 +26,7 @@ __all__ = ["send_error"]
 class Config(BaseModel):
   warn_interval: dict[str, timedelta | None] = Field(default_factory=dict)
   warn_target: list[TargetConfig] = Field(default_factory=list)
+  warn_length_limit: int = 4096
 
 
 class Data(BaseModel):
@@ -36,7 +37,7 @@ class Data(BaseModel):
 class QueueInfo:
   date: datetime
   description: str
-  exception: BaseException
+  exception: BaseException | str
   additional_count: int = 0
 
 
@@ -48,31 +49,39 @@ queue = dict[str, QueueInfo]()
 async def try_send(message: UniMessage[Text], target: Target) -> None:
   try:
     await message.send(target)
-  except ActionFailed:
-    logger.exception(f"发送异常消息 {message} 到 {target} 出错")
+  except (ActionFailed, SerializeFailed):
+    logger.exception(f"发送异常消息 {message!r} 到 {target} 出错")
 
 
 def format_exception(exception: BaseException) -> str:
-  # 包括 traceback 可能会消息过长，部分平台（如 Telegram）发送不了
-  return "".join(format_exception_only(None, exception)).rstrip()
+  return format_exception_only(exception)[0] + format_tb(exception.__traceback__)[0][:-1]
+
+
+def trim_message(message: str, length: int) -> str:
+  if len(message) <= length:
+    return message
+  return message[: length - 3] + "..."
+
+
+def trim_messages(header: str, content: str, footer: str, length: int) -> tuple[str, str, str]:
+  return header, trim_message(content, length - len(header) - len(footer)), footer
 
 
 async def send_queued_error(id: str) -> None:
   config = CONFIG()
   last_warn[id] = datetime.now(timezone.utc)
   info = queue.pop(id)
-  message = UniMessage(
-    [
-      Text(f"[{id}|{info.date.astimezone():%Y-%m-%d %H:%M:%S}]: {info.description}\n"),
-      Text(format_exception(info.exception)).code(),
-    ],
+  header, content, footer = trim_messages(
+    f"[{id}|{info.date.astimezone():%Y-%m-%d %H:%M:%S}]: {info.description}\n",
+    info.exception if isinstance(info.exception, str) else format_exception(info.exception),
+    f"\n还有 {info.additional_count} 个异常" if info.additional_count else "",
+    config.warn_length_limit,
   )
-  if info.additional_count:
-    message += Text(f"\n还有 {info.additional_count} 个异常")
+  message = UniMessage([Text(header), Text(content).code(), Text(footer)])
   await gather_seq(try_send(message, target.target) for target in config.warn_target)
 
 
-async def send_error(id: str, description: str, exception: BaseException) -> None:
+async def send_error(id: str, description: str, exception: BaseException | str) -> None:
   config = CONFIG()
   interval = config.warn_interval.get(id, timedelta())
   if interval is None:
@@ -88,16 +97,20 @@ async def send_error(id: str, description: str, exception: BaseException) -> Non
         scheduler.add_job(send_queued_error, "date", (id,), run_date=next)
       return
     last_warn[id] = now
-  message = UniMessage(
-    [Text(f"[{id}]: {description}\n"), Text(format_exception(exception)).code()],
+  header, content, footer = trim_messages(
+    f"[{id}]: {description}\n",
+    exception if isinstance(exception, str) else format_exception(exception),
+    "",
+    config.warn_length_limit,
   )
+  message = UniMessage([Text(header), Text(content).code()])
   await gather_seq(try_send(message, target.target) for target in config.warn_target)
 
 
 def on_job_error(event: JobExecutionEvent) -> None:
-  create_background_task(
-    send_error("scheduler", f"定时任务 {event.job_id} 失败", cast(BaseException, event.exception)),
-  )
+  exception = format_exception_only(cast(BaseException, event.exception))[0]
+  exception += cast(str, event.traceback)[:-1]
+  create_background_task(send_error("scheduler", f"定时任务 {event.job_id} 失败", exception))
 
 
 scheduler.add_listener(on_job_error, EVENT_JOB_ERROR)
