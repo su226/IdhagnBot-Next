@@ -32,20 +32,24 @@ DETAIL_API_OLD = (
 )
 
 
+# 20251209: 获取空间的 API 采用了新的模型（部分 ID 改为字符串；部分字段必定出现但可能为 null）
+# 但获取详情的 API 依然是旧的模型（上述 ID 仍为整数；上述字段可能不出现）
+
+
 class ApiAuthorModule(TypedDict):
   mid: int
   name: str
   face: str
-  pub_ts: int
+  pub_ts: str | int
   label: str
 
 
 class ApiVote(TypedDict):
-  vote_id: int
-  uid: int
+  vote_id: str | int
+  uid: str | int
   desc: str
-  join_num: int | None
-  end_time: int
+  join_num: str | int | None
+  end_time: str | int
 
 
 class ApiUgc(TypedDict):
@@ -57,7 +61,7 @@ class ApiUgc(TypedDict):
 
 
 class ApiReserveButtonData(TypedDict):
-  disable: NotRequired[int]
+  disable: NotRequired[int | None]
 
 
 class ApiReserveButton(TypedDict):
@@ -105,11 +109,11 @@ class ApiAdditionalCommon(TypedDict):
 
 class ApiAdditional(TypedDict):
   type: str
-  vote: NotRequired[ApiVote]
-  ugc: NotRequired[ApiUgc]
-  reserve: NotRequired[ApiReserve]
-  goods: NotRequired[ApiGoods]
-  common: NotRequired[ApiAdditionalCommon]
+  vote: NotRequired[ApiVote | None]
+  ugc: NotRequired[ApiUgc | None]
+  reserve: NotRequired[ApiReserve | None]
+  goods: NotRequired[ApiGoods | None]
+  common: NotRequired[ApiAdditionalCommon | None]
 
 
 class ApiEmoji(TypedDict):
@@ -119,8 +123,8 @@ class ApiEmoji(TypedDict):
 class ApiRichTextNode(TypedDict):
   type: str
   text: str
-  emoji: NotRequired[ApiEmoji]
-  rid: NotRequired[str]
+  emoji: NotRequired[ApiEmoji | None]
+  rid: NotRequired[str | None]
 
 
 class ApiDesc(TypedDict):
@@ -170,8 +174,8 @@ class ApiMusic(TypedDict):
 
 
 class ApiPgc(TypedDict):
-  season_id: int
-  epid: int
+  season_id: str | int
+  epid: str | int
   title: str
   cover: str
   stat: ApiArchiveStat
@@ -189,7 +193,7 @@ class ApiCommon(TypedDict):
 
 
 class ApiLive(TypedDict):
-  id: int
+  id: str | int
   title: str
   desc_first: str
   cover: str
@@ -223,7 +227,7 @@ class ApiLiveRcmdData(TypedDict):
 
 
 class ApiCourse(TypedDict):
-  id: int
+  id: str | int
   title: str
   sub_title: str
   desc: str
@@ -253,22 +257,22 @@ class ApiBlocked(TypedDict):
 
 class ApiMajor(TypedDict):
   type: str
-  draw: NotRequired[ApiDraw]
-  archive: NotRequired[ApiArchive]
-  article: NotRequired[ApiArticle]
-  music: NotRequired[ApiMusic]
-  pgc: NotRequired[ApiPgc]
-  common: NotRequired[ApiCommon]
-  live: NotRequired[ApiLive]
-  live_rcmd: NotRequired[ApiLiveRcmd]
-  courses: NotRequired[ApiCourse]
-  none: NotRequired[ApiNone]
-  opus: NotRequired[ApiOpus]
-  blocked: NotRequired[ApiBlocked]
+  draw: NotRequired[ApiDraw | None]
+  archive: NotRequired[ApiArchive | None]
+  article: NotRequired[ApiArticle | None]
+  music: NotRequired[ApiMusic | None]
+  pgc: NotRequired[ApiPgc | None]
+  common: NotRequired[ApiCommon | None]
+  live: NotRequired[ApiLive | None]
+  live_rcmd: NotRequired[ApiLiveRcmd | None]
+  courses: NotRequired[ApiCourse | None]
+  none: NotRequired[ApiNone | None]
+  opus: NotRequired[ApiOpus | None]
+  blocked: NotRequired[ApiBlocked | None]
 
 
 class ApiTopic(TypedDict):
-  id: int
+  id: str | int
   name: str
 
 
@@ -296,15 +300,15 @@ class ApiTagModule(TypedDict):
 class ApiModules(TypedDict):
   module_author: ApiAuthorModule
   module_dynamic: ApiDynamicModule
-  module_stat: NotRequired[ApiStatModule]
-  module_tag: NotRequired[ApiTagModule]
+  module_stat: NotRequired[ApiStatModule | None]
+  module_tag: NotRequired[ApiTagModule | None]
 
 
 class ApiDynamic(TypedDict):
   id_str: str | None
   modules: ApiModules
   type: str
-  orig: NotRequired["ApiDynamic"]
+  orig: NotRequired["ApiDynamic | None"]
 
 
 class ApiSpaceResult(TypedDict):
@@ -373,11 +377,13 @@ def parse_richtext(text: list[ApiRichTextNode]) -> RichText:
     if node["type"] == "RICH_TEXT_NODE_TYPE_TEXT":
       nodes.append(RichTextText(node["text"]))
     elif node["type"] == "RICH_TEXT_NODE_TYPE_EMOJI":
-      assert "emoji" in node
-      nodes.append(RichTextEmotion(node["text"], node["emoji"]["icon_url"]))
+      emoji = node.get("emoji")
+      assert emoji
+      nodes.append(RichTextEmotion(node["text"], emoji["icon_url"]))
     elif node["type"] == "RICH_TEXT_NODE_TYPE_LOTTERY":
-      assert "rid" in node
-      nodes.append(RichTextLottery(node["text"], int(node["rid"])))
+      rid = node.get("rid")
+      assert rid
+      nodes.append(RichTextLottery(node["text"], int(rid)))
     else:
       nodes.append(RichTextOther(node["text"]))
   return nodes
@@ -418,9 +424,9 @@ class ContentImage(ContentParser["ContentImage"]):
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentImage":
     module = item["modules"]["module_dynamic"]
-    major = module["major"]
-    if major:
-      assert "draw" in major
+    if major := module["major"]:
+      draw = major.get("draw")
+      assert draw
       images = [
         Image(
           image["src"],
@@ -428,7 +434,7 @@ class ContentImage(ContentParser["ContentImage"]):
           image["height"],
           image["size"],
         )
-        for image in major["draw"]["items"]
+        for image in draw["items"]
       ]
     else:
       images = []
@@ -453,8 +459,8 @@ class ContentOpus(ContentParser["ContentOpus"]):
   def parse(item: ApiDynamic) -> "ContentOpus":
     major = item["modules"]["module_dynamic"]["major"]
     assert major
-    assert "opus" in major
-    opus = major["opus"]
+    opus = major.get("opus")
+    assert opus
     desc = opus["summary"]
     return ContentOpus(
       opus["title"] or "",
@@ -490,8 +496,8 @@ class ContentVideo(ContentParser["ContentVideo"]):
     module = item["modules"]["module_dynamic"]
     major = module["major"]
     assert major
-    assert "archive" in major
-    video = major["archive"]
+    video = major.get("archive")
+    assert video
     duration_text = video["duration_text"]
     try:
       duration_seg = duration_text.split(":")
@@ -503,8 +509,7 @@ class ContentVideo(ContentParser["ContentVideo"]):
       duration = int(h) * 3600 + int(m) * 60 + int(s)
     except ValueError:
       duration = -1
-    desc = module["desc"]
-    if desc:
+    if desc := module.get("desc"):
       text = desc["text"]
       richtext = parse_richtext(desc["rich_text_nodes"])
     else:
@@ -541,14 +546,14 @@ class ContentArticle(ContentParser["ContentArticle"]):
   def parse(item: ApiDynamic) -> "ContentArticle":
     major = item["modules"]["module_dynamic"]["major"]
     assert major
-    assert "article" in major
-    major = major["article"]
+    article = major.get("article")
+    assert article
     return ContentArticle(
-      major["id"],
-      major["title"],
-      major["desc"],
-      major["covers"],
-      major["label"],
+      article["id"],
+      article["title"],
+      article["desc"],
+      article["covers"],
+      article["label"],
     )
 
 
@@ -569,11 +574,11 @@ class ContentAudio(ContentParser["ContentAudio"]):
   def parse(item: ApiDynamic) -> "ContentAudio":
     module = item["modules"]["module_dynamic"]
     desc = module["desc"]
-    major = module["major"]
     assert desc
+    major = module["major"]
     assert major
-    assert "music" in major
-    audio = major["music"]
+    audio = major.get("music")
+    assert audio
     return ContentAudio(
       audio["id"],
       audio["title"],
@@ -610,11 +615,11 @@ class ContentPGC(ContentParser["ContentPGC"]):
     author = modules["module_author"]
     major = modules["module_dynamic"]["major"]
     assert major
-    assert "pgc" in major
-    pgc = major["pgc"]
+    pgc = major.get("pgc")
+    assert pgc
     return ContentPGC(
-      pgc["season_id"],
-      pgc["epid"],
+      int(pgc["season_id"]),
+      int(pgc["epid"]),
       author["name"],
       pgc["title"],
       author["face"],
@@ -640,12 +645,12 @@ class ContentCommon(ContentParser["ContentCommon"]):
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentCommon":
     module = item["modules"]["module_dynamic"]
-    major = module["major"]
     desc = module["desc"]
     assert desc
+    major = module["major"]
     assert major
-    assert "common" in major
-    common = major["common"]
+    common = major.get("common")
+    assert common
     return ContentCommon(
       desc["text"],
       parse_richtext(desc["rich_text_nodes"]),
@@ -674,10 +679,10 @@ class ContentLive(ContentParser["ContentLive"]):
   def parse(item: ApiDynamic) -> "ContentLive":
     major = item["modules"]["module_dynamic"]["major"]
     assert major
-    assert "live" in major
-    live = major["live"]
+    live = major.get("live")
+    assert live
     return ContentLive(
-      live["id"],
+      int(live["id"]),
       live["title"],
       live["desc_first"],
       live["cover"],
@@ -709,9 +714,9 @@ class ContentLiveRcmd(ContentParser["ContentLiveRcmd"]):
   def parse(item: ApiDynamic) -> "ContentLiveRcmd":
     major = item["modules"]["module_dynamic"]["major"]
     assert major
-    assert "live_rcmd" in major
-    live = TypeAdapter(ApiLiveRcmdData).validate_json(major["live_rcmd"]["content"])
-    live = live["live_play_info"]
+    live_rcmd = major.get("live_rcmd")
+    assert live_rcmd
+    live = TypeAdapter(ApiLiveRcmdData).validate_json(live_rcmd["content"])["live_play_info"]
     return ContentLiveRcmd(
       int(live["live_id"]),
       live["room_id"],
@@ -744,10 +749,10 @@ class ContentCourse(ContentParser["ContentCourse"]):
   def parse(item: ApiDynamic) -> "ContentCourse":
     major = item["modules"]["module_dynamic"]["major"]
     assert major
-    assert "courses" in major
-    course = major["courses"]
+    course = major.get("courses")
+    assert course
     return ContentCourse(
-      course["id"],
+      int(course["id"]),
       course["title"],
       course["sub_title"],
       course["desc"],
@@ -783,16 +788,18 @@ class ContentForward(ContentParser["ContentForward"]):
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentForward":
     desc = item["modules"]["module_dynamic"]["desc"]
-    assert "orig" in item
     assert desc
-    if item["orig"]["type"] == "DYNAMIC_TYPE_NONE":
+    orig = item.get("orig")
+    assert orig
+    if orig["type"] == "DYNAMIC_TYPE_NONE":
       original = None  # 源动态失效
-      major = item["orig"]["modules"]["module_dynamic"]["major"]
+      major = orig["modules"]["module_dynamic"]["major"]
       assert major
-      assert "none" in major
-      error_text = major["none"]["tips"]
+      none = major.get("none")
+      assert none
+      error_text = none["tips"]
     else:
-      original = Activity.parse(item["orig"])
+      original = Activity.parse(orig)
       error_text = ""
     return ContentForward(
       desc["text"],
@@ -814,8 +821,9 @@ class ContentBlocked(ContentParser["ContentBlocked"]):
   def parse(item: ApiDynamic) -> "ContentBlocked":
     major = item["modules"]["module_dynamic"]["major"]
     assert major
-    assert "blocked" in major
-    return ContentBlocked(major["blocked"]["hint_message"])
+    blocked = major.get("blocked")
+    assert blocked
+    return ContentBlocked(blocked["hint_message"])
 
 
 class ContentUnknown(ContentParser["ContentUnknown"]):
@@ -857,13 +865,14 @@ class ExtraVote(ExtraParser["ExtraVote"]):
 
   @staticmethod
   def parse(item: ApiAdditional) -> "ExtraVote":
-    assert "vote" in item
+    vote = item.get("vote")
+    assert vote
     return ExtraVote(
-      item["vote"]["vote_id"],
-      item["vote"]["uid"],
-      item["vote"]["desc"],
-      item["vote"]["join_num"] or 0,  # 0 人时是 null
-      item["vote"]["end_time"],
+      int(vote["vote_id"]),
+      int(vote["uid"]),
+      vote["desc"],
+      int(vote["join_num"] or 0),  # 0 人时是 null
+      int(vote["end_time"]),
     )
 
 
@@ -877,13 +886,14 @@ class ExtraVideo(ExtraParser["ExtraVideo"]):
 
   @staticmethod
   def parse(item: ApiAdditional) -> "ExtraVideo":
-    assert "ugc" in item
+    video = item.get("ugc")
+    assert video
     return ExtraVideo(
-      int(item["ugc"]["id_str"]),
-      item["ugc"]["title"],
-      item["ugc"]["desc_second"],
-      item["ugc"]["duration"],
-      item["ugc"]["cover"],
+      int(video["id_str"]),
+      video["title"],
+      video["desc_second"],
+      video["duration"],
+      video["cover"],
     )
 
 
@@ -903,28 +913,30 @@ class ExtraReserve(ExtraParser["ExtraReserve"]):
 
   @staticmethod
   def parse(item: ApiAdditional) -> "ExtraReserve":
-    assert "reserve" in item
-    reserve_type = "video" if item["reserve"]["stype"] == 1 else "live"
+    reserve = item.get("reserve")
+    assert reserve
+    reserve_type = "video" if reserve["stype"] == 1 else "live"
+    button = reserve["button"]
     if reserve_type == "live":
-      if item["reserve"]["button"]["type"] == 1:
+      if button["type"] == 1:
         status = "streaming"
       else:
-        status = "expired" if "disable" in item["reserve"]["button"]["uncheck"] else "reserving"
+        status = "expired" if "disable" in button["uncheck"] else "reserving"
     else:
-      status = "expired" if item["reserve"]["button"]["type"] == 1 else "reserving"
-    desc3 = item["reserve"].get("desc3", None)
+      status = "expired" if button["type"] == 1 else "reserving"
+    desc3 = reserve.get("desc3", None)
     return ExtraReserve(
-      item["reserve"]["rid"],
-      item["reserve"]["up_mid"],
-      item["reserve"]["title"],
-      item["reserve"]["desc1"]["text"],
-      item["reserve"]["desc2"]["text"],
-      item["reserve"]["reserve_total"],
+      reserve["rid"],
+      reserve["up_mid"],
+      reserve["title"],
+      reserve["desc1"]["text"],
+      reserve["desc2"]["text"],
+      reserve["reserve_total"],
       desc3["text"] if desc3 else "",
       desc3["jump_url"] if desc3 else "",
       reserve_type,
       status,
-      item["reserve"]["jump_url"],
+      reserve["jump_url"],
     )
 
 
@@ -945,12 +957,15 @@ class ExtraGoods(ExtraParser["ExtraGoods"]):
 
   @staticmethod
   def parse(item: ApiAdditional) -> "ExtraGoods":
-    assert "goods" in item
-    goods = [
-      Goods(i["id"], i["name"], i["brief"], i["price"], i["jump_url"], i["cover"])
-      for i in item["goods"]["items"]
-    ]
-    return ExtraGoods(item["goods"]["head_text"], goods)
+    goods = item.get("goods")
+    assert goods
+    return ExtraGoods(
+      goods["head_text"],
+      [
+        Goods(i["id"], i["name"], i["brief"], i["price"], i["jump_url"], i["cover"])
+        for i in goods["items"]
+      ],
+    )
 
 
 @dataclass
@@ -963,13 +978,14 @@ class ExtraCommon(ExtraParser["ExtraCommon"]):
 
   @staticmethod
   def parse(item: ApiAdditional) -> "ExtraCommon":
-    assert "common" in item
+    common = item.get("common")
+    assert common
     return ExtraCommon(
-      item["common"]["head_text"],
-      item["common"]["title"],
-      item["common"]["cover"],
-      item["common"]["desc1"],
-      item["common"]["desc2"],
+      common["head_text"],
+      common["title"],
+      common["cover"],
+      common["desc1"],
+      common["desc2"],
     )
 
 
@@ -1025,10 +1041,10 @@ class Activity(Generic[TContent, TExtra]):
   def parse(item: ApiDynamic) -> "Activity[object, object]":
     modules = item["modules"]
     author_module = modules["module_author"]
-    top = "module_tag" in modules and modules["module_tag"]["text"] == "置顶"
+    tag = modules.get("module_tag")
+    top = bool(tag) and tag["text"] == "置顶"
     stat = None
-    if "module_stat" in modules:
-      stat_module = modules["module_stat"]
+    if stat_module := modules.get("module_stat"):
       stat = Stat(
         stat_module["forward"]["count"],
         stat_module["like"]["count"],
@@ -1050,7 +1066,7 @@ class Activity(Generic[TContent, TExtra]):
       extra = Extra(extra_type, extra_cls.parse(additional))
     topic = None
     if (raw_topic := dynamic_module["topic"]) is not None:
-      topic = Topic(raw_topic["id"], raw_topic["name"])
+      topic = Topic(int(raw_topic["id"]), raw_topic["name"])
     return Activity(
       author_module["mid"],
       author_module["name"],
@@ -1060,7 +1076,7 @@ class Activity(Generic[TContent, TExtra]):
       content_type,
       content_cls.parse(item),
       stat,
-      author_module["pub_ts"],
+      int(author_module["pub_ts"]),
       extra,
       topic,
     )
