@@ -146,13 +146,14 @@ async def get_free_games() -> list[Game]:
       start_date = datetime.fromisoformat(i["startDate"].replace("Z", "+00:00"))
       end_date = datetime.fromisoformat(i["endDate"].replace("Z", "+00:00"))
       if i["discountSetting"] == DISCOUNT_FREE and start_date < end_date and now_date < end_date:
+        slug = get_slug(game)
         result.append(
           Game(
             start_date=start_date,
             end_date=end_date,
             title=game["title"],
             image=get_image(game),
-            slug=get_slug(game),
+            slug="" if slug == "[]" else slug,
           ),
         )
         break
@@ -220,7 +221,9 @@ class EpicGamesModule(SimpleModule):
     message = UniMessage[Segment](Text("Epic Games 今天可以喜加一："))
     for game in games:
       end_str = game.end_date.astimezone().strftime("%Y-%m-%d %H:%M")
-      text = f"{game.title}，截止到 {end_str}\n{URL_BASE}{game.slug}"
+      text = f"{game.title}，截止到 {end_str}"
+      if game.slug:
+        text += f"\n{URL_BASE}{game.slug}"
       message.extend([Text.br(), Text(text), Text.br(), Image(url=game.image)])
     return [message]
 
@@ -264,11 +267,13 @@ async def handle_epicgames(*, no_cache: bool) -> None:
     else:
       start_str = game.start_date.astimezone().strftime("%Y-%m-%d %H:%M")
       text = f"{game.title} 将在 {start_str} 免费，截止到 {end_str}"
+    if game.slug:
+      text += f"\n{URL_BASE}{game.slug}"
     if message:
       message.append(Text.br())
     message.extend(
       [
-        Text(text + f"\n{URL_BASE}{game.slug}"),
+        Text(text),
         Text.br(),
         Image(url=game.image),
       ],
