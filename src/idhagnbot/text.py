@@ -83,19 +83,10 @@ HINT_STYLES: dict[CairoHintStyle, cairo.HintStyle] = {
 }
 
 
-class RichText:
-  _IMAGE_REPLACEMENT = "￼".encode()
-
+# 增加一个辅助类，防止 Pango.Context 和 RichText 循环引用导致内存泄漏
+class ImageHolder:
   def __init__(self) -> None:
-    self._context = Pango.Context()
-    self._context.set_font_map(PangoCairo.FontMap.get_default())
-    font_options(self._context)
-    PangoCairo.context_set_shape_renderer(self._context, self._render_images)
-    self._utf8 = bytearray()
-    self._attrs = Pango.AttrList()
-    self._images: dict[int, cairo.ImageSurface] = {}
-    self._layout = Layout.new(self._context)
-    self._frozen = False
+    self._images = dict[int, cairo.ImageSurface]()
 
   def _render_images(self, cr: "cairo.Context[Any]", attr: Pango.AttrShape, do_path: bool) -> None:
     if do_path:
@@ -106,6 +97,29 @@ class RichText:
     cr.set_source_surface(surface, x, y)
     cr.rectangle(x, y, surface.get_width(), surface.get_height())
     cr.fill()
+
+  def bind(self, context: Pango.Context) -> None:
+    PangoCairo.context_set_shape_renderer(context, self._render_images)
+
+  def __contains__(self, id: int) -> bool:
+    return id in self._images
+
+  def __setitem__(self, id: int, image: cairo.ImageSurface) -> None:
+    self._images[id] = image
+
+
+class RichText:
+  _IMAGE_REPLACEMENT = "￼".encode()
+
+  def __init__(self) -> None:
+    self._context = Pango.Context()
+    self._context.set_font_map(PangoCairo.FontMap.get_default())
+    self._images = ImageHolder()
+    font_options(self._context)
+    self._images.bind(self._context)
+    self._utf8 = bytearray()
+    self._attrs = Pango.AttrList()
+    self._layout = Layout.new(self._context)
 
   def append(self, text: str) -> Self:
     text = text.replace("\r", "").replace("\n", "\u2028")
