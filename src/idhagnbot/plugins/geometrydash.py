@@ -291,7 +291,7 @@ geometrydash_event = (
 @geometrydash_daily.handle()
 @geometrydash_weekly.handle()
 @geometrydash_event.handle()
-async def handle_epicgames_android(*, no_cache: bool, state: T_State) -> None:
+async def _(*, no_cache: bool, state: T_State) -> None:
   cache: GeometryDashCache = state["cache"]
   if no_cache:
     await cache.update()

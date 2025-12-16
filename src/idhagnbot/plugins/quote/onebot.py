@@ -1,45 +1,23 @@
-from datetime import datetime, timezone
-
 import nonebot
 from nonebot.adapters import Bot, Event
-from nonebot.adapters.onebot.v11 import Adapter, GroupMessageEvent, Message
+from nonebot.adapters.onebot.v11 import Adapter, GroupMessageEvent
 from nonebot.adapters.onebot.v11 import Bot as OBBot
-from nonebot.adapters.onebot.v11.event import Reply as OBReply
 from PIL import Image
 from yarl import URL
 
 from idhagnbot.image import open_url
-from idhagnbot.onebot import LAGRANGE, get_implementation, get_rkey_cached
+from idhagnbot.onebot import get_rkey_cached
 from idhagnbot.plugins.quote.common import (
   EMOJI_REGISTRY,
   MESSAGE_PROCESSOR_REGISTRY,
-  REPLY_EXTRACT_REGISTRY,
   USER_INFO_REGISTRY,
-  MessageInfo,
-  ReplyInfo,
   UserInfo,
 )
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("idhagnbot.plugins.chat_record")
 from nonebot_plugin_alconna import Image as ImageSeg
-from nonebot_plugin_alconna import Reply, Segment, UniMessage
-
-
-async def extract_from_reply(bot: Bot, event: Event, reply: Reply) -> ReplyInfo:
-  assert isinstance(bot, OBBot)
-  assert isinstance(reply.msg, Message)
-  assert isinstance(reply.origin, OBReply)
-  user_id = reply.origin.sender.user_id
-  assert user_id
-  time = datetime.fromtimestamp(reply.origin.time)
-  if await get_implementation(bot) == LAGRANGE:
-    time = datetime.fromtimestamp(time.replace(tzinfo=timezone.utc).timestamp())
-  return ReplyInfo(
-    reply.id,
-    time,
-    MessageInfo(str(user_id), UniMessage.of(reply.msg)),
-  )
+from nonebot_plugin_alconna import Segment, UniMessage
 
 
 async def get_user_info(bot: Bot, event: Event, user_id: str) -> UserInfo:
@@ -75,7 +53,6 @@ async def fetch_emoji(bot: Bot, id: str) -> Image.Image:
 
 def register() -> None:
   name = Adapter.get_name()
-  REPLY_EXTRACT_REGISTRY[name] = extract_from_reply
   USER_INFO_REGISTRY[name] = get_user_info
   MESSAGE_PROCESSOR_REGISTRY[name] = process_message
   EMOJI_REGISTRY[name] = fetch_emoji

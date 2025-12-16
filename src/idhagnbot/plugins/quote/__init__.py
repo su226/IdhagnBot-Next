@@ -26,11 +26,11 @@ from idhagnbot.image import (
   rounded_rectangle,
   to_segment,
 )
-from idhagnbot.message import OrigUniMsg, send_message
+from idhagnbot.message import send_message
+from idhagnbot.message.common import REPLY_INFO_REGISTRY, MaybeReplyInfo
 from idhagnbot.plugins.quote.common import (
   EMOJI_REGISTRY,
   MESSAGE_PROCESSOR_REGISTRY,
-  REPLY_EXTRACT_REGISTRY,
   USER_INFO_REGISTRY,
   MessageInfo,
   UserInfo,
@@ -46,7 +46,6 @@ from nonebot_plugin_alconna import (
   Args,
   CommandMeta,
   Emoji,
-  Reply,
   Segment,
   Text,
   UniMessage,
@@ -263,31 +262,27 @@ async def _(
   bot: Bot,
   event: Event,
   count: int,
-  message: OrigUniMsg,
+  reply_info: MaybeReplyInfo,
   scene_id: SceneId,
   sql: async_scoped_session,
 ) -> None:
-  adapter = bot.adapter.get_name()
-  if adapter not in REPLY_EXTRACT_REGISTRY:
+  if bot.adapter.get_name() not in REPLY_INFO_REGISTRY:
     await quote.finish("抱歉，暂不支持当前平台")
-  try:
-    reply = message[Reply, 0]
-  except IndexError:
+  if not reply_info:
     await quote.finish("请回复一条消息")
   if count < 1 or count > 10:
     await quote.finish("只能引用 1 至 10 条消息")
-  info = await REPLY_EXTRACT_REGISTRY[adapter](bot, event, reply)
-  messages = [info.message]
-  user_ids = {info.message.user_id}
+  messages = [MessageInfo(reply_info.user_id, reply_info.message)]
+  user_ids = {reply_info.user_id}
   if count > 1:
     records = await sql.scalars(
       select(Message)
-      .where(Message.scene_id == scene_id, Message.time >= info.time)
+      .where(Message.scene_id == scene_id, Message.time >= reply_info.time)
       # 如果平台时间戳为浮点型，几乎不会出现相同时间戳的情况
       # 但如果时间戳为整型，则可能出现相同时间戳，因此预留一定余量
       .limit(count + 10),
     )
-    records = list(islice(dropwhile(lambda x: x.message_id != info.id, records), 1, count))
+    records = list(islice(dropwhile(lambda x: x.message_id != reply_info.id, records), 1, count))
     messages.extend(MessageInfo(x.user_id, UniMessage.load(x.content)) for x in records)
     user_ids.update(x.user_id for x in records)
   messages, users = await gather(
@@ -337,20 +332,15 @@ delete_quote = (
 async def _(
   *,
   bot: Bot,
-  event: Event,
-  message: OrigUniMsg,
   scene_id: SceneId,
   sql: async_scoped_session,
+  reply_info: MaybeReplyInfo,
 ) -> None:
-  adapter = bot.adapter.get_name()
-  if adapter not in REPLY_EXTRACT_REGISTRY:
+  if bot.adapter.get_name() not in REPLY_INFO_REGISTRY:
     await quote.finish("抱歉，暂不支持当前平台")
-  try:
-    reply = message[Reply, 0]
-  except IndexError:
+  if not reply_info:
     await quote.finish("请回复一条引用图片")
-  info = await REPLY_EXTRACT_REGISTRY[adapter](bot, event, reply)
-  sent_quote = await sql.get(SentQuote, (scene_id, info.id))
+  sent_quote = await sql.get(SentQuote, (scene_id, reply_info.id))
   if not sent_quote:
     await quote.finish("请回复一条引用图片")
   dirname = get_data_dir("idhagnbot") / "quote" / scene_id.replace(":", "__")

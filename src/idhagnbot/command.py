@@ -1,6 +1,7 @@
 from typing import Any
 
 import nonebot
+from arclet.alconna import config
 from nonebot.typing import T_State
 from typing_extensions import Self
 
@@ -8,7 +9,9 @@ from idhagnbot.help import CategoryItem, CommandItem, CommonData
 from idhagnbot.permission import DEFAULT, permission
 
 nonebot.require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import Alconna, AlconnaMatcher, on_alconna
+from nonebot_plugin_alconna import Alconna, AlconnaMatcher, Extension, on_alconna
+
+config.command_max_count = 1000
 
 
 class CommandBuilder:
@@ -17,9 +20,10 @@ class CommandBuilder:
     self._category = ""
     self._default_grant_to = DEFAULT
     self._parser: Alconna[Any] | None = None
-    self._aliases: set[str] = set()
+    self._aliases = set[str]()
     self._state = None
     self._auto_reject = True
+    self._extensions = list[type[Extension] | Extension]()
 
   def node(self, node: str) -> Self:
     self._node = node
@@ -49,6 +53,10 @@ class CommandBuilder:
     self._auto_reject = auto_reject
     return self
 
+  def extension(self, *extensions: type[Extension] | Extension) -> Self:
+    self._extensions.extend(extensions)
+    return self
+
   def build(self) -> type[AlconnaMatcher]:
     if not self._node:
       raise ValueError("node is required")
@@ -68,6 +76,7 @@ class CommandBuilder:
     return on_alconna(
       self._parser,
       aliases=self._aliases,
+      extensions=self._extensions,
       permission=permission(self._node, self._default_grant_to),
       default_state=self._state,
       auto_send_output=self._auto_reject,

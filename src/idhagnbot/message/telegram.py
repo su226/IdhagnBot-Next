@@ -6,7 +6,14 @@ import anyio
 import nonebot
 from nonebot.adapters import Bot, Event
 from nonebot.adapters.telegram import Adapter, Message, MessageSegment
-from nonebot.adapters.telegram.event import EditedMessageEvent, MessageEvent
+from nonebot.adapters.telegram import Bot as TGBot
+from nonebot.adapters.telegram.event import (
+  ChannelPostEvent,
+  EditedMessageEvent,
+  GroupMessageEvent,
+  MessageEvent,
+  PrivateMessageEvent,
+)
 from nonebot.adapters.telegram.model import Message as RawMessage
 
 from idhagnbot.message.common import (
@@ -15,11 +22,13 @@ from idhagnbot.message.common import (
   MERGED_MSG_REGISTRY,
   MESSAGE_ID_REGISTRY,
   ORIG_MERGED_MSG_REGISTRY,
+  REPLY_INFO_REGISTRY,
   SENT_MESSAGE_ID_REGISTRY,
+  ReplyInfo,
 )
 
 nonebot.require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import Segment, UniMessage
+from nonebot_plugin_alconna import Reply, Segment, UniMessage
 from nonebot_plugin_alconna.uniseg import Receipt
 
 media_groups = dict[str, tuple[datetime, list[MessageEvent]]]()
@@ -83,6 +92,25 @@ async def event_time(bot: Bot, event: Event) -> datetime | None:
   return None
 
 
+async def reply_info(bot: Bot, event: Event, reply: Reply) -> ReplyInfo | None:
+  assert isinstance(reply.msg, Message)
+  assert isinstance(bot, TGBot)
+  if isinstance(reply.origin, PrivateMessageEvent):
+    sender = reply.origin.from_
+  elif isinstance(reply.origin, GroupMessageEvent):
+    sender = reply.origin.sender_chat or reply.origin.from_
+  elif isinstance(reply.origin, ChannelPostEvent):
+    sender = reply.origin.sender_chat or reply.origin.chat
+  else:
+    return None
+  return ReplyInfo(
+    reply.id,
+    datetime.fromtimestamp(reply.origin.date),
+    str(sender.id),
+    UniMessage.of(reply.msg, bot),
+  )
+
+
 async def sent_message_id(receipt: Receipt) -> list[str]:
   result = []
   for msg_id in receipt.msg_ids:
@@ -98,4 +126,5 @@ def register() -> None:
   ORIG_MERGED_MSG_REGISTRY[name] = orig_merged_msg
   MESSAGE_ID_REGISTRY[name] = message_id
   EVENT_TIME_REGISTRY[name] = event_time
+  REPLY_INFO_REGISTRY[name] = reply_info
   SENT_MESSAGE_ID_REGISTRY[name] = sent_message_id

@@ -1,30 +1,20 @@
-from datetime import datetime
 from pathlib import Path
 
 import nonebot
 from nonebot.adapters import Bot, Event
-from nonebot.adapters.telegram import Adapter, Message
+from nonebot.adapters.telegram import Adapter
 from nonebot.adapters.telegram import Bot as TGBot
-from nonebot.adapters.telegram.event import (
-  ChannelPostEvent,
-  GroupMessageEvent,
-  PrivateMessageEvent,
-)
 from nonebot.adapters.telegram.model import ChatFullInfo
 from PIL import Image
 
 from idhagnbot.image import open_url
 from idhagnbot.plugins.quote.common import (
   EMOJI_REGISTRY,
-  REPLY_EXTRACT_REGISTRY,
   USER_INFO_REGISTRY,
-  MessageInfo,
-  ReplyInfo,
   UserInfo,
 )
 
 nonebot.require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import Reply, UniMessage
 
 
 def extract_name(sender: ChatFullInfo) -> tuple[str, str]:
@@ -44,24 +34,6 @@ async def get_file_url(bot: TGBot, file_id: str) -> str | None:
   if (path := Path(file.file_path)).exists():
     return path.as_uri()
   return f"{bot.bot_config.api_server}file/bot{bot.bot_config.token}/{file.file_path}"
-
-
-async def extract_from_reply(bot: Bot, event: Event, reply: Reply) -> ReplyInfo:
-  assert isinstance(reply.msg, Message)
-  assert isinstance(bot, TGBot)
-  if isinstance(reply.origin, PrivateMessageEvent):
-    sender = reply.origin.from_
-  elif isinstance(reply.origin, GroupMessageEvent):
-    sender = reply.origin.sender_chat or reply.origin.from_
-  elif isinstance(reply.origin, ChannelPostEvent):
-    sender = reply.origin.sender_chat or reply.origin.chat
-  else:
-    raise TypeError("未知消息来源类型")
-  return ReplyInfo(
-    reply.id,
-    datetime.fromtimestamp(reply.origin.date),
-    MessageInfo(str(sender.id), UniMessage.of(reply.msg)),
-  )
 
 
 async def get_user_info(bot: Bot, event: Event, user_id: str) -> UserInfo:
@@ -93,6 +65,5 @@ async def fetch_emoji(bot: Bot, id: str) -> Image.Image:
 
 def register() -> None:
   name = Adapter.get_name()
-  REPLY_EXTRACT_REGISTRY[name] = extract_from_reply
   USER_INFO_REGISTRY[name] = get_user_info
   EMOJI_REGISTRY[name] = fetch_emoji

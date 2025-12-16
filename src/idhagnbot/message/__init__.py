@@ -3,11 +3,13 @@ from nonebot.matcher import current_bot, current_event
 
 from idhagnbot.message.common import (
   EventTime,
+  MaybeReplyInfo,
   MergedEvent,
   MergedMsg,
   MessageId,
   OrigMergedMsg,
   OrigUniMsg,
+  ReplyInfo,
   UniMsg,
   send_message,
 )
@@ -17,11 +19,13 @@ from nonebot_plugin_alconna import Image, UniMessage
 
 __all__ = [
   "EventTime",
+  "MaybeReplyInfo",
   "MergedEvent",
   "MergedMsg",
   "MessageId",
   "OrigMergedMsg",
   "OrigUniMsg",
+  "ReplyInfo",
   "UniMsg",
   "send_image_or_animation",
   "send_message",
@@ -50,7 +54,9 @@ else:
 async def send_image_or_animation(image: Image) -> str:
   uni = UniMessage(image)
   bot = current_bot.get()
-  if bot.adapter.get_name() == "Telegram" and image.name.endswith(".gif"):
+  if bot.adapter.get_name() == "Telegram" and (
+    image.name.endswith(".gif") or image.mimetype == "image/gif"
+  ):
     from nonebot.adapters.telegram import Bot, Event, Message
     from nonebot.adapters.telegram.message import File
 

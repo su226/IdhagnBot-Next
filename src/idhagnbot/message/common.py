@@ -1,4 +1,5 @@
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -7,8 +8,17 @@ from nonebot.adapters import Bot, Event
 from nonebot.params import Depends
 
 nonebot.require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import Segment, UniMessage, UniversalMessage
+from nonebot_plugin_alconna import Reply, Segment, UniMessage, UniversalMessage
 from nonebot_plugin_alconna.uniseg import Receipt
+
+
+@dataclass
+class ReplyInfo:
+  id: str
+  time: datetime
+  user_id: str
+  message: UniMessage[Segment]
+
 
 MERGED_EVENT_REGISTRY = dict[str, Callable[[Bot, Event], Awaitable[list[Event] | None]]]()
 MERGED_MSG_REGISTRY = dict[
@@ -21,6 +31,7 @@ ORIG_MERGED_MSG_REGISTRY = dict[
 ]()
 MESSAGE_ID_REGISTRY = dict[str, Callable[[Bot, Event], Awaitable[str | None]]]()
 EVENT_TIME_REGISTRY = dict[str, Callable[[Bot, Event], Awaitable[datetime | None]]]()
+REPLY_INFO_REGISTRY = dict[str, Callable[[Bot, Event, Reply], Awaitable[ReplyInfo | None]]]()
 SENT_MESSAGE_ID_REGISTRY = dict[str, Callable[[Receipt], Awaitable[list[str]]]]()
 UniMsg = Annotated[UniMessage[Segment], UniversalMessage()]
 OrigUniMsg = Annotated[UniMessage[Segment], UniversalMessage(origin=True)]
@@ -79,6 +90,19 @@ async def event_time(bot: Bot, event: Event) -> datetime:
 
 
 EventTime = Annotated[datetime, Depends(event_time)]
+
+
+async def reply_info(bot: Bot, event: Event, message: OrigUniMsg) -> ReplyInfo | None:
+  handler = REPLY_INFO_REGISTRY.get(bot.adapter.get_name())
+  if not handler:
+    return None
+  reply = message[Reply]
+  if not reply:
+    return None
+  return await handler(bot, event, reply[0])
+
+
+MaybeReplyInfo = Annotated[ReplyInfo | None, Depends(reply_info)]
 
 
 async def send_message(message: UniMessage[Any]) -> list[str]:

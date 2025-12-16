@@ -1,7 +1,6 @@
 from binascii import crc32
 from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass
-from datetime import datetime
 from functools import cached_property
 from typing import Any
 
@@ -11,7 +10,7 @@ from PIL import Image
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("idhagnbot.plugins.chat_record")
-from nonebot_plugin_alconna import Reply, Segment, UniMessage
+from nonebot_plugin_alconna import Segment, UniMessage
 
 
 @dataclass
@@ -56,14 +55,6 @@ class UserInfo:
     return COLORS[crc32(self.name.encode()) % len(COLORS)]
 
 
-@dataclass
-class ReplyInfo:
-  id: str
-  time: datetime
-  message: MessageInfo
-
-
-REPLY_EXTRACT_REGISTRY = dict[str, Callable[[Bot, Event, Reply], Awaitable[ReplyInfo]]]()
 USER_INFO_REGISTRY = dict[str, Callable[[Bot, Event, str], Awaitable[UserInfo]]]()
 MESSAGE_PROCESSOR_REGISTRY = dict[
   str,
