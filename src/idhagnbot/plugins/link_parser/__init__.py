@@ -128,7 +128,7 @@ url_parser = nonebot.on_message(check_links, permission("link_parser"))
 
 @url_parser.handle()
 async def _(*, state: T_State, sql: async_scoped_session, scene: SceneIdRaw) -> None:
-  result = await state["content"].format(**state["state"])
+  result = await state["content"].format_link(**state["state"])
   current = await sql.get(LastState, scene)
   if current:
     current.last_state = json.dumps(result.state)
