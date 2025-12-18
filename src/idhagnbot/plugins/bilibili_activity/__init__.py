@@ -4,7 +4,11 @@ from datetime import datetime, timedelta
 
 import nonebot
 from anyio import get_cancelled_exc_class
-from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_MISSED, JobEvent
+from apscheduler.events import (  # pyright: ignore[reportMissingTypeStubs]
+  EVENT_JOB_EXECUTED,
+  EVENT_JOB_MISSED,
+  JobEvent,
+)
 from loguru import logger
 from nonebot.exception import ActionFailed
 
@@ -75,8 +79,8 @@ async def new_activities(
     raw, next_offset = await fetch(user.uid, offset)
     activities = [Activity.parse(x) for x in raw]
     for activity in activities:
-      user._name = activity.name
-      if not user._offset or activity.id > user._offset:
+      user.name = activity.name
+      if not user.offset or activity.id > user.offset:
         yield activity
       elif not activity.top:
         return
@@ -93,13 +97,13 @@ async def try_check(user: common.User) -> int:
       await message.send(target.target)
     except ActionFailed as e:
       target_id = await get_target_id(target.target)
-      description = f"推送 {user._name}({user.uid}) 的动态 {activity.id} 到目标 {target_id} 失败！"
+      description = f"推送 {user.name}({user.uid}) 的动态 {activity.id} 到目标 {target_id} 失败！"
       logger.exception(f"{description}\n动态内容: {activity}")
       create_background_task(send_error("bilibili_activity", description, e))
       try:
         await UniMessage(
           Text(
-            f"{user._name} 更新了一条动态，但在推送时发送消息失败。"
+            f"{user.name} 更新了一条动态，但在推送时发送消息失败。"
             f"https://t.bilibili.com/{activity.id}",
           ),
         ).send(target.target)
@@ -107,37 +111,37 @@ async def try_check(user: common.User) -> int:
         pass
 
   async def try_send_all(activity: Activity[object, object]) -> None:
-    logger.info(f"推送 {user._name}({user.uid}) 的动态 {activity.id}")
+    logger.info(f"推送 {user.name}({user.uid}) 的动态 {activity.id}")
     try:
       message = await contents.format_activity(activity)
     except common.IgnoredException as e:
-      logger.info(f"已忽略 {user._name}({user.uid}) 的动态 {activity.id}: {e}")
+      logger.info(f"已忽略 {user.name}({user.uid}) 的动态 {activity.id}: {e}")
       return
     except Exception as e:
-      description = f"格式化 {user._name}({user.uid}) 的动态 {activity.id} 失败！"
+      description = f"格式化 {user.name}({user.uid}) 的动态 {activity.id} 失败！"
       logger.exception(f"{description}\n动态内容: {activity}")
       create_background_task(send_error("bilibili_activity", description, e))
       message = UniMessage[Segment](
         Text(
-          f"{user._name} 更新了一条动态，但在推送时格式化消息失败。"
+          f"{user.name} 更新了一条动态，但在推送时格式化消息失败。"
           f"https://t.bilibili.com/{activity.id}",
         ),
       )
     await gather_seq(try_send(activity, message, target) for target in user.targets)
 
-  if user._offset == -1:
+  if user.offset == -1:
     try:
       raw, _ = await fetch(user.uid)
       activities = [Activity.parse(x) for x in raw]
       if len(activities) > 1:
-        user._offset = max(activities[0].id, activities[1].id)
+        user.offset = max(activities[0].id, activities[1].id)
       elif activities:
-        user._offset = activities[0].id
+        user.offset = activities[0].id
       else:
-        user._offset = 0
+        user.offset = 0
       if activities:
-        user._name = activities[0].name
-      logger.success(f"初始化 {user._name}({user.uid}) 的动态推送完成 {user._offset}")
+        user.name = activities[0].name
+      logger.success(f"初始化 {user.name}({user.uid}) 的动态推送完成 {user.offset}")
     except Exception as e:
       description = f"初始化 {user.uid} 的动态推送失败"
       logger.exception(description)
@@ -150,12 +154,12 @@ async def try_check(user: common.User) -> int:
       activities.append(activity)
     activities.reverse()
     for activity in activities:
-      user._offset = activity.id
+      user.offset = activity.id
       await try_send_all(activity)
-    logger.debug(f"检查 {user._name}({user.uid}) 的动态更新完成")
+    logger.debug(f"检查 {user.name}({user.uid}) 的动态更新完成")
     return len(activities)
   except Exception as e:
-    description = f"检查 {user._name}({user.uid}) 的动态更新失败"
+    description = f"检查 {user.name}({user.uid}) 的动态更新失败"
     logger.exception(description)
     create_background_task(send_error("bilibili_activity", description, e))
     return 0

@@ -15,10 +15,11 @@ from idhagnbot.message.common import (
   REPLY_INFO_REGISTRY,
   SENT_MESSAGE_ID_REGISTRY,
   ReplyInfo,
+  unimsg_of,
 )
 
 nonebot.require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import Reply, UniMessage
+from nonebot_plugin_alconna import Reply
 from nonebot_plugin_alconna.uniseg import Receipt
 
 
@@ -41,12 +42,12 @@ async def reply_info(bot: Bot, event: Event, reply: Reply) -> ReplyInfo | None:
   message = await bot.message_get(channel_id=event.channel.id, message_id=message_id)
   assert message.created_at
   assert message.user
-  content = UniMessage.of(Message.from_satori_element(parse(message.content)), bot)
+  content = unimsg_of(Message.from_satori_element(parse(message.content)), bot)
   return ReplyInfo(message.id, message.created_at, message.user.id, content)
 
 
 async def sent_message_id(receipt: Receipt) -> list[str]:
-  result = []
+  result = list[str]()
   for msg_id in receipt.msg_ids:
     assert isinstance(msg_id, MessageReceipt)
     result.append(msg_id.id)

@@ -1,6 +1,6 @@
 import random
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Any, ClassVar, Literal
 
 import nonebot
 from arclet.alconna import AllParam
@@ -53,7 +53,7 @@ def extract_nickname(session: Uninfo) -> str:
 
 
 class History(Model):
-  __tablename__ = "idhagnbot_openai_history"
+  __tablename__: ClassVar[Any] = "idhagnbot_openai_history"
   id: Mapped[int] = mapped_column(primary_key=True)
   scene: Mapped[str]
   role: Mapped[Literal["user", "assistant"]]
@@ -65,7 +65,7 @@ class History(Model):
 
 
 class Ignore(Model):
-  __tablename__ = "idhagnbot_openai_ignore"
+  __tablename__: ClassVar[Any] = "idhagnbot_openai_ignore"
   scene: Mapped[str] = mapped_column(primary_key=True)
   time: Mapped[datetime]
 

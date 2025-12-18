@@ -7,8 +7,8 @@ from PIL import Image
 from idhagnbot import image
 from idhagnbot.asyncio import gather
 from idhagnbot.image.card import Card, CardAuthor, CardCover, CardText
-from idhagnbot.plugins.bilibili_activity import extras
 from idhagnbot.plugins.bilibili_activity.common import fetch_image
+from idhagnbot.plugins.bilibili_activity.extras import format_extra
 from idhagnbot.third_party.bilibili_activity import ActivityAudio
 from idhagnbot.third_party.bilibili_activity.card import CardTopic
 
@@ -20,7 +20,7 @@ async def get_appender(activity: ActivityAudio[object]) -> Callable[[Card], None
   avatar, cover, append_extra = await gather(
     fetch_image(activity.avatar),
     fetch_image(activity.content.cover),
-    extras.format_extra(activity.extra),
+    format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:

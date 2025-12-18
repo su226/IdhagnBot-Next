@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 import nonebot
 from pydantic import BaseModel, TypeAdapter
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict, override
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig
@@ -106,6 +106,7 @@ class SteamPointsCache(DailyCache):
       update_time=time(12, tzinfo=ZoneInfo("America/Los_Angeles")),
     )
 
+  @override
   async def do_update(self) -> None:
     items = await get_free_items()
     cache = Cache(items=items)
@@ -138,6 +139,7 @@ CACHE = SteamPointsCache()
 class SteamPointsModule(SimpleModule):
   force: bool = False
 
+  @override
   async def format(self) -> list[UniMessage[Segment]]:
     await CACHE.ensure()
     _, items = CACHE.get()

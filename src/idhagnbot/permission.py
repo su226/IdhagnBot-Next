@@ -6,7 +6,8 @@ import nonebot
 from nonebot.params import Depends
 from nonebot.permission import Permission
 from pydantic import BaseModel, Field, PrivateAttr
-from pygtrie import StringTrie
+from pygtrie import StringTrie  # pyright: ignore[reportMissingTypeStubs]
+from typing_extensions import override
 
 from idhagnbot.config import SharedConfig
 
@@ -25,6 +26,7 @@ class NodeTrie(StringTrie):
   def __init__(self, *args: Any, **kw: Any) -> None:
     super().__init__(*args, separator=".", **kw)
 
+  @override
   def _path_from_key(self, key: str | Node) -> Iterable[str]:
     if isinstance(key, str):
       return parse_node(key)
@@ -55,6 +57,10 @@ class Rule(BaseModel):
     self._tree = NodeTrie()
     for entry in self.entries:
       self._tree[entry.node] = entry
+
+  @property
+  def tree(self) -> NodeTrie:
+    return self._tree
 
 
 class Config(BaseModel):
@@ -112,7 +118,7 @@ def check(node: Node, roles: set[str], default_grant_to: set[str]) -> bool:
   for priority, rule in enumerate(config.rules):
     if rule.selectors_match(roles):
       last = None
-      for specificity, step in enumerate(rule._tree.walk_most(node)):
+      for specificity, step in enumerate(rule.tree.walk_most(node)):
         if step.is_set:
           last = (priority, specificity, cast(Entry, step.value).value)
       if last:

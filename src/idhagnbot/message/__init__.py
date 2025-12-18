@@ -12,6 +12,8 @@ from idhagnbot.message.common import (
   ReplyInfo,
   UniMsg,
   send_message,
+  unimsg_load,
+  unimsg_of,
 )
 
 nonebot.require("nonebot_plugin_alconna")
@@ -40,6 +42,8 @@ __all__ = [
   "UniMsg",
   "send_image_or_animation",
   "send_message",
+  "unimsg_load",
+  "unimsg_of",
 ]
 
 try:
@@ -65,11 +69,11 @@ else:
 async def send_image_or_animation(image: Image) -> str:
   uni = UniMessage(image)
   bot = current_bot.get()
-  if bot.adapter.get_name() == "Telegram" and (
-    image.name.endswith(".gif") or image.mimetype == "image/gif"
+  if (
+    TGBot
+    and isinstance(bot, TGBot)
+    and (image.name.endswith(".gif") or image.mimetype == "image/gif")
   ):  # TODO: 为这个设计合适的注册表机制
-    assert TGBot
-    assert isinstance(bot, TGBot)
     message = await uni.export(bot)
     assert TGMessage
     assert isinstance(message, TGMessage)

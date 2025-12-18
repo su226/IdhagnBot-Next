@@ -14,6 +14,7 @@ from idhagnbot.hook.common import (
   call_message_sending_hook,
   call_message_sent_hook,
 )
+from idhagnbot.message import unimsg_of
 
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Segment, SupportScope, Target, UniMessage
@@ -106,7 +107,7 @@ async def on_called_api(
       bot,
     )
     chained = Message(chain.from_iterable(Message(message.content) for message in result))
-    message = UniMessage.of(chained, bot)
+    message = unimsg_of(chained, bot)
     ids = [message.id for message in result]
     await call_message_sent_hook(bot, message, target, ids)
   elif parsed := await _parse_from_data(bot, api, data):

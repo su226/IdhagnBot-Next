@@ -2,6 +2,7 @@ from datetime import date, timedelta
 
 import nonebot
 from sqlalchemy import desc, func, select
+from typing_extensions import override
 
 from idhagnbot.asyncio import gather_seq
 from idhagnbot.context import get_target_id
@@ -21,6 +22,7 @@ EMOJIS = ["🥇", "🥈", "🥉"]
 
 
 class RankModule(TargetAwareModule):
+  @override
   async def format(self, target: Target) -> list[UniMessage[Segment]]:
     if target.private:
       return []

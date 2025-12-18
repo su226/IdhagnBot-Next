@@ -6,7 +6,6 @@ import anyio
 import nonebot
 from nonebot.adapters import Bot, Event
 from nonebot.adapters.telegram import Adapter, Message, MessageSegment
-from nonebot.adapters.telegram import Bot as TGBot
 from nonebot.adapters.telegram.event import (
   ChannelPostEvent,
   EditedMessageEvent,
@@ -25,6 +24,7 @@ from idhagnbot.message.common import (
   REPLY_INFO_REGISTRY,
   SENT_MESSAGE_ID_REGISTRY,
   ReplyInfo,
+  unimsg_of,
 )
 
 nonebot.require("nonebot_plugin_alconna")
@@ -93,8 +93,6 @@ async def event_time(bot: Bot, event: Event) -> datetime | None:
 
 
 async def reply_info(bot: Bot, event: Event, reply: Reply) -> ReplyInfo | None:
-  assert isinstance(reply.msg, Message)
-  assert isinstance(bot, TGBot)
   if isinstance(reply.origin, PrivateMessageEvent):
     sender = reply.origin.from_
   elif isinstance(reply.origin, GroupMessageEvent):
@@ -107,15 +105,15 @@ async def reply_info(bot: Bot, event: Event, reply: Reply) -> ReplyInfo | None:
     reply.id,
     datetime.fromtimestamp(reply.origin.date),
     str(sender.id),
-    UniMessage.of(reply.msg, bot),
+    unimsg_of(cast(Message[MessageSegment], reply.msg), bot),
   )
 
 
 async def sent_message_id(receipt: Receipt) -> list[str]:
-  result = []
+  result = list[str]()
   for msg_id in receipt.msg_ids:
     assert isinstance(msg_id, RawMessage)
-    result.append(msg_id.message_id)
+    result.append(str(msg_id.message_id))
   return result
 
 

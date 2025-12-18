@@ -1,7 +1,7 @@
 import json
 from collections.abc import Generator
 from itertools import chain
-from typing import Any
+from typing import Any, ClassVar
 
 import cv2
 import nonebot
@@ -42,7 +42,7 @@ CONTENTS: list[Content] = [bilibili_activity, bilibili_b23, bilibili_video, gith
 
 
 class LastState(Model):
-  __tablename__ = "idhagnbot_link_parser_last_state"
+  __tablename__: ClassVar[Any] = "idhagnbot_link_parser_last_state"
   scene: Mapped[str] = mapped_column(primary_key=True)
   last_state: Mapped[str]
 

@@ -3,7 +3,7 @@ from datetime import datetime
 
 import nonebot
 from pydantic import BaseModel, TypeAdapter
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, override
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.http import get_session
@@ -73,6 +73,7 @@ class GogCache(DailyCache):
   def __init__(self) -> None:
     super().__init__("gog.json", enable_prev=True)
 
+  @override
   async def do_update(self) -> None:
     games = await get_free_games()
     cache = Cache(items=games)
@@ -105,6 +106,7 @@ CACHE = GogCache()
 class GogModule(SimpleModule):
   force: bool = False
 
+  @override
   async def format(self) -> list[UniMessage[Segment]]:
     await CACHE.ensure()
     _, items = CACHE.get()

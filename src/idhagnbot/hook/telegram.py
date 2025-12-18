@@ -1,5 +1,5 @@
 from itertools import chain
-from typing import Any, cast
+from typing import Any
 
 import nonebot
 from nonebot.adapters import Bot
@@ -15,6 +15,7 @@ from idhagnbot.hook.common import (
   call_message_sending_hook,
   call_message_sent_hook,
 )
+from idhagnbot.message import unimsg_of
 from idhagnbot.url import path_from_url
 
 nonebot.require("nonebot_plugin_alconna")
@@ -168,6 +169,10 @@ async def on_calling_api(bot: Bot, api: str, data: dict[str, Any]) -> None:
     await call_message_sending_hook(bot, message, target)
 
 
+def _message_validate(obj: dict[str, Any]) -> Message[MessageSegment]:
+  return Message.model_validate(obj)
+
+
 async def on_called_api(
   bot: Bot,
   e: Exception | None,
@@ -197,24 +202,19 @@ async def on_called_api(
       "send_invoice",  # not implemented in _parse_from_data
       "send_game",  # not implemented in _parse_from_data
     ):
-      message = UniMessage.of(Message.model_validate(result), bot)
+      message = _message_validate(result)
       chat_id = result["chat"]["id"]
       message_thread_id = result.get("message_thread_id")
       message_ids = [str(result["message_id"])]
     elif api == "send_media_group":
-      message = UniMessage.of(
-        Message(
-          chain.from_iterable(
-            cast(Message[MessageSegment], Message.model_validate(message)) for message in result
-          ),
-        ),
-        bot,
+      message = Message(
+        chain.from_iterable(_message_validate(message) for message in result),
       )
       chat_id = result[0]["chat"]["id"]
       message_thread_id = result[0].get("message_thread_id")
       message_ids = [str(message["message_id"]) for message in result]
     elif api == "send_chat_action":
-      message = UniMessage.of(Message(MessageSegment.chat_action(data["action"])), bot)
+      message = Message(MessageSegment.chat_action(data["action"]))
       chat_id = data["chat_id"]
       message_thread_id = data.get("message_thread_id")
       message_ids = []
@@ -228,7 +228,7 @@ async def on_called_api(
       scope=SupportScope.telegram,
       extra={"message_thread_id": message_thread_id},
     )
-    await call_message_sent_hook(bot, message, target, message_ids)
+    await call_message_sent_hook(bot, unimsg_of(message, bot), target, message_ids)
   elif parsed := _parse_from_data(bot, api, data):
     message, target = parsed
     await call_message_send_failed_hook(bot, message, target, e)

@@ -8,13 +8,13 @@ from PIL import Image, ImageOps
 from idhagnbot import image
 from idhagnbot.asyncio import gather
 from idhagnbot.image.card import Card, CardAuthor, CardCover
-from idhagnbot.plugins.bilibili_activity import extras
 from idhagnbot.plugins.bilibili_activity.common import (
   IMAGE_GAP,
   check_ignore,
   fetch_image,
   fetch_images,
 )
+from idhagnbot.plugins.bilibili_activity.extras import format_extra
 from idhagnbot.third_party.bilibili_activity import ActivityImage
 from idhagnbot.third_party.bilibili_activity.card import CardRichText, CardTopic, fetch_emotions
 
@@ -30,7 +30,7 @@ async def get_appender(activity: ActivityImage[object]) -> Callable[[Card], None
     fetch_image(activity.avatar),
     fetch_images(*[image.src for image in image_infos]),
     fetch_emotions(activity.content.richtext),
-    extras.format_extra(activity.extra),
+    format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:

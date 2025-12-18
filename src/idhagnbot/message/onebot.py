@@ -14,11 +14,12 @@ from idhagnbot.message.common import (
   REPLY_INFO_REGISTRY,
   SENT_MESSAGE_ID_REGISTRY,
   ReplyInfo,
+  unimsg_of,
 )
 from idhagnbot.onebot import LAGRANGE, get_implementation
 
 nonebot.require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import Reply, UniMessage
+from nonebot_plugin_alconna import Reply
 from nonebot_plugin_alconna.uniseg import Receipt
 
 
@@ -45,7 +46,7 @@ async def reply_info(bot: Bot, event: Event, reply: Reply) -> ReplyInfo | None:
     str(reply.origin.message_id),
     time,
     str(reply.origin.sender.user_id),
-    UniMessage.of(reply.origin.message, bot),
+    unimsg_of(reply.origin.message, bot),
   )
 
 
@@ -54,10 +55,10 @@ class SendMessageResult(BaseModel):
 
 
 async def sent_message_id(receipt: Receipt) -> list[str]:
-  result = []
+  result = list[str]()
   for msg_id in receipt.msg_ids:
     send_result = SendMessageResult.model_validate(msg_id)
-    result.append(send_result.message_id)
+    result.append(str(send_result.message_id))
   return result
 
 

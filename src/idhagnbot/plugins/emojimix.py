@@ -222,7 +222,7 @@ async def _(*, emojis: Match[UniMessage[Text]], bot_id: BotId, bot_nick: BotAnyN
 
     if cache.single_regex.fullmatch(emoji1):
       emoji1 = cache.emojis[clear_emoji(emoji1)]
-      available = []
+      available = list[str]()
       for pair in cache.combinations:
         if pair.endswith(emoji1):
           available.append(pair[: -len(emoji1) - 1])

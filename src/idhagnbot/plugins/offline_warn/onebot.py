@@ -9,14 +9,14 @@ from idhagnbot.plugins.offline_warn.common import queue_message
 
 
 class NapCatOfflineEvent(NoticeEvent):
-  notice_type: Literal["bot_offline"]
+  notice_type: Literal["bot_offline"]  # pyright: ignore[reportIncompatibleVariableOverride]
   user_id: int
   tag: str
   message: str
 
 
 class LagrangeOfflineEvent(NoticeEvent):
-  notice_type: Literal["notify"]
+  notice_type: Literal["notify"]  # pyright: ignore[reportIncompatibleVariableOverride]
   sub_type: Literal["bot_offline"]
   tag: str
   message: str

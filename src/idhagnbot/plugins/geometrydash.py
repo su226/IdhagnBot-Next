@@ -1,11 +1,13 @@
 from collections.abc import Iterable
 from datetime import datetime, time
+from pathlib import Path
 from typing import Literal, cast
 from zoneinfo import ZoneInfo
 
 import nonebot
 from nonebot.typing import T_State
 from pydantic import BaseModel
+from typing_extensions import override
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.http import get_session
@@ -144,6 +146,9 @@ class Cache(BaseModel):
 
 
 class GeometryDashCache(DailyCache):
+  image_path: Path
+  level_id: int
+
   def __init__(self, name: str, level_id: int) -> None:
     super().__init__(
       f"geometrydash_{name}.json",
@@ -154,6 +159,7 @@ class GeometryDashCache(DailyCache):
     self.image_path = self.path.with_suffix(".webp")
     self.level_id = level_id
 
+  @override
   async def do_update(self) -> None:
     http = get_session()
     async with http.post(
@@ -204,6 +210,7 @@ class GeometryDashModule(SimpleModule):
   subtype: Literal["daily", "weekly", "event"] = "daily"
   force: bool = False
 
+  @override
   async def format(self) -> list[UniMessage[Segment]]:
     if self.subtype == "daily":
       cache = DAILY_CACHE

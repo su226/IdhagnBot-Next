@@ -1,6 +1,4 @@
 import pkgutil
-from types import ModuleType
-from typing import cast
 
 import nonebot
 from nonebot.plugin import PluginMetadata
@@ -22,7 +20,7 @@ def load_plugins() -> None:
   nonebot.load_all_plugins(
     module_path=(
       f"idhagnbot.plugins.{module.name}"
-      for module in pkgutil.iter_modules(cast(ModuleType, idhagnbot.plugins).__path__)
+      for module in pkgutil.iter_modules(idhagnbot.plugins.__path__)
     ),
     plugin_dir=(),
   )

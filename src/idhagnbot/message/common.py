@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated, Any
 
 import nonebot
-from nonebot.adapters import Bot, Event
+from nonebot.adapters import Bot, Event, Message
 from nonebot.params import Depends
 
 nonebot.require("nonebot_plugin_alconna")
@@ -110,3 +110,11 @@ async def send_message(message: UniMessage[Any]) -> list[str]:
   if handler := SENT_MESSAGE_ID_REGISTRY.get(receipt.bot.adapter.get_name()):
     return await handler(receipt)
   return []
+
+
+def unimsg_load(data: str | list[dict[str, Any]]) -> UniMessage[Segment]:
+  return UniMessage.load(data)
+
+
+def unimsg_of(message: Message[Any], bot: Bot) -> UniMessage[Segment]:
+  return UniMessage.of(message, bot)

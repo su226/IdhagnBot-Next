@@ -23,7 +23,7 @@ shutting_down = False
 
 
 @driver.on_startup
-async def _() -> None:
+async def on_startup() -> None:
   if FILENAME.exists():
     with FILENAME.open() as f:
       crash_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(float(f.read())))
@@ -44,7 +44,7 @@ def write_timestamp() -> None:
 
 
 @driver.on_shutdown
-async def _() -> None:
+async def on_shutdown() -> None:
   global shutting_down
   shutting_down = True
   FILENAME.unlink()
@@ -54,7 +54,7 @@ driver.on_bot_connect(send_queued_messages)
 
 
 @driver.on_bot_disconnect
-async def _(bot: Bot) -> None:
+async def on_bot_disconnect(bot: Bot) -> None:
   if shutting_down:
     return
   now_str = time.strftime("%Y-%m-%d %H:%M:%S")

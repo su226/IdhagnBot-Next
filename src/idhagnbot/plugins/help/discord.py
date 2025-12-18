@@ -11,6 +11,7 @@ from nonebot.adapters.discord.api import (
   InteractionCallbackMessage,
   InteractionCallbackType,
   InteractionResponse,
+  Snowflake,
 )
 from nonebot.exception import ActionFailed
 from nonebot.typing import T_State
@@ -44,6 +45,7 @@ async def interaction_edit_message(
       ),
     )
   except ActionFailed:
+    assert isinstance(event.channel_id, Snowflake)
     await bot.edit_message(
       channel_id=event.channel_id,
       message_id=event.message.id,

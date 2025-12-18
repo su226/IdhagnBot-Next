@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import cast
 
 import anyio
 import nonebot
@@ -77,6 +78,8 @@ async def fuzzy_get_member(
 
 
 class FetchError(ValueError):
+  message: str
+
   def __init__(self, message: str) -> None:
     super().__init__(message)
     self.message = message
@@ -215,6 +218,6 @@ async def handle_params(
 def walk_exc_group(excgroup: BaseExceptionGroup) -> SimpleGenerator[BaseException]:
   for exc in excgroup.exceptions:
     if isinstance(exc, BaseExceptionGroup):
-      yield from walk_exc_group(exc)
+      yield from walk_exc_group(cast(BaseExceptionGroup[BaseException], exc))
     else:
       yield exc

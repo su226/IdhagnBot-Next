@@ -1,7 +1,6 @@
 import nonebot
 from nonebot.adapters import Bot, Event
 from nonebot.adapters.telegram import Adapter
-from nonebot.adapters.telegram import Bot as TGBot
 from nonebot.adapters.telegram.event import (
   ChannelPostEvent,
   GroupMessageEvent,
@@ -16,7 +15,6 @@ from nonebot_plugin_alconna import At, Reply
 
 
 async def extract_from_reply(bot: Bot, event: Event, reply: Reply) -> str:
-  assert isinstance(bot, TGBot)
   if isinstance(reply.origin, PrivateMessageEvent):
     sender = reply.origin.from_
   elif isinstance(reply.origin, GroupMessageEvent):

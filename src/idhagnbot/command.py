@@ -15,15 +15,25 @@ config.command_max_count = 1000
 
 
 class CommandBuilder:
+  _node: str
+  _category: str
+  _default_grant_to: set[str]
+  _parser: Alconna[Any] | None
+  _aliases: set[str]
+  _state: dict[str, Any] | None
+  _auto_reject: bool
+  _extensions: list[type[Extension] | Extension]
+
   def __init__(self) -> None:
+    super().__init__()
     self._node = ""
     self._category = ""
     self._default_grant_to = DEFAULT
-    self._parser: Alconna[Any] | None = None
-    self._aliases = set[str]()
+    self._parser = None
+    self._aliases = set()
     self._state = None
     self._auto_reject = True
-    self._extensions = list[type[Extension] | Extension]()
+    self._extensions = []
 
   def node(self, node: str) -> Self:
     self._node = node
@@ -62,11 +72,12 @@ class CommandBuilder:
       raise ValueError("node is required")
     if not self._parser:
       raise ValueError("parser is required")
+    parser = self._parser
     CategoryItem.find(self._category, create=True).add(
       CommandItem(
-        [self._parser.name, *self._aliases],
-        self._parser.meta.description,
-        self._parser.formatter.format_node,
+        [parser.name, *self._aliases],
+        parser.meta.description,
+        lambda: parser.formatter.format_node(),
         CommonData(
           node=self._node,
           default_grant_to=self._default_grant_to,
@@ -74,7 +85,7 @@ class CommandBuilder:
       ),
     )
     return on_alconna(
-      self._parser,
+      parser,
       aliases=self._aliases,
       extensions=self._extensions,
       permission=permission(self._node, self._default_grant_to),

@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig
-from idhagnbot.plugins.fortune.strfile import read_header, read_offsets, read_raw_text
+from idhagnbot.plugins.fortune.strfile import StrFile, read_header, read_offsets, read_raw_text
 
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import (
@@ -37,7 +37,12 @@ RE_033 = re.compile(r"\033\[(\d+;)*\d+m")
 
 
 class StrFileChoice:
+  path: Path
+  header: StrFile
+  offsets: list[int]
+
   def __init__(self, path: Path, length: int, long_or_short: bool | None) -> None:
+    super().__init__()
     self.path = path
     with path.open("rb") as f:
       self.header = read_header(f)

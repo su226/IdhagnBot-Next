@@ -4,7 +4,7 @@ import time
 from collections.abc import Awaitable, Callable, Generator, Iterable, Mapping, Sequence
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal, TypeVar, cast
 
 import anyio
 import nonebot
@@ -12,7 +12,7 @@ import psutil
 from anyio.to_thread import run_sync
 from nonebot.adapters import Bot
 from PIL import Image
-from psutil._common import sdiskpart
+from psutil._common import sbattery, sdiskpart
 from pydantic import BaseModel, Field
 
 from idhagnbot.asyncio import gather, gather_seq
@@ -138,7 +138,7 @@ def format_timedelta(seconds: float | timedelta) -> str:
   minutes, seconds = divmod(seconds, 60)
   hours, minutes = divmod(minutes, 60)
   days, hours = divmod(hours, 24)
-  segments = []
+  segments = list[str]()
   if days:
     segments.append(f"{days} 天")
   if hours:
@@ -150,30 +150,48 @@ def format_timedelta(seconds: float | timedelta) -> str:
   return " ".join(segments)
 
 
+def _get_system(uname: platform.uname_result) -> str:
+  system = f"{uname.system} {uname.release}"
+  if uname.system == "Linux":
+    try:
+      system += f" ({platform.freedesktop_os_release()['PRETTY_NAME']})"
+    except (OSError, KeyError):
+      pass
+  return system
+
+
+def _get_cpu_model(uname: platform.uname_result) -> str:
+  cpu_model = uname.processor or uname.machine
+  if uname.system in ("Linux", "Darwin"):
+    with Path("/proc/cpuinfo").open() as f:
+      for i in f:
+        if i.startswith("model name"):
+          cpu_model = i.split(": ", 1)[1][:-1]
+          break
+  return cpu_model
+
+
+def _get_idhagnbot_ver() -> str:
+  idhagnbot_ver = "0.0.1-IDontKnow"
+  if nonebot.get_driver().env == "prod":
+    idhagnbot_ver += " (生产环境)"
+  else:
+    idhagnbot_ver += " (开发环境)"
+  return idhagnbot_ver
+
+
 CONFIG = SharedConfig("idhagnfetch", Config)
 _uname = platform.uname()
-SYSTEM = f"{_uname.system} {_uname.release}"
-CPU_MODEL = _uname.processor or _uname.machine
-if _uname.system == "Linux":
-  try:
-    SYSTEM += f" ({platform.freedesktop_os_release()['PRETTY_NAME']})"
-  except (OSError, KeyError):
-    pass
-if _uname.system in ("Linux", "Darwin"):
-  with Path("/proc/cpuinfo").open() as f:
-    for i in f:
-      if i.startswith("model name"):
-        CPU_MODEL = i.split(": ", 1)[1][:-1]
-        break
+SYSTEM = _get_system(_uname)
+CPU_MODEL = _get_cpu_model(_uname)
 del _uname
+del _get_system
+del _get_cpu_model
 PYTHON_VER = (
   f"{platform.python_version()} {platform.python_implementation()}[{platform.python_compiler()}]"
 )
-IDHAGNBOT_VER = "0.0.1-IDontKnow"
-if nonebot.get_driver().env == "prod":
-  IDHAGNBOT_VER += " (生产环境)"
-else:
-  IDHAGNBOT_VER += " (开发环境)"
+IDHAGNBOT_VER = _get_idhagnbot_ver()
+del _get_idhagnbot_ver
 BOT_START_TIME = time.time()
 T = TypeVar("T")
 
@@ -205,7 +223,7 @@ async def get_cpu_usage(bot: Bot) -> list[Item]:
 
 
 async def get_gpus(bot: Bot) -> list[Item]:
-  segments = []
+  segments = list[Item]()
   infos = get_gpu_info()
   for i, info in enumerate(infos, 1):
     gpuid = "GPU" if len(infos) == 1 else f"GPU{i}"
@@ -214,7 +232,7 @@ async def get_gpus(bot: Bot) -> list[Item]:
 
 
 async def get_gpus_and_usage(bot: Bot) -> list[Item]:
-  segments = []
+  segments = list[Item]()
   infos = get_gpu_info()
   for i, info in enumerate(infos, 1):
     gpuid = "GPU" if len(infos) == 1 else f"GPU{i}"
@@ -306,7 +324,7 @@ async def get_disks_aggregate_bar(bot: Bot) -> list[BarItem]:
 
 
 async def get_battery(bot: Bot) -> list[Item]:
-  battery_info = psutil.sensors_battery()
+  battery_info = cast(sbattery | None, psutil.sensors_battery())
   if not battery_info:
     return []
   percent = round(battery_info.percent, 1)
@@ -318,7 +336,7 @@ async def get_battery(bot: Bot) -> list[Item]:
 
 
 async def get_battery_bar(bot: Bot) -> list[BarItem]:
-  battery_info = psutil.sensors_battery()
+  battery_info = cast(sbattery | None, psutil.sensors_battery())
   if not battery_info:
     return []
   percent = round(battery_info.percent, 1)

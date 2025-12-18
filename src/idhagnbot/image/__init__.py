@@ -435,7 +435,12 @@ def quantize(im: AnyImage) -> Image.Image:
 
 
 class RemapTransform:
+  old_size: Size
+  new_size: Size
+  data: PerspectiveData
+
   def __init__(self, old_size: Size, new_plane: Plane, old_plane: Plane | None = None) -> None:
+    super().__init__()
     widths = [point[0] for point in new_plane]
     heights = [point[1] for point in new_plane]
     self.old_size = old_size
@@ -469,7 +474,7 @@ class PixelAccess(Protocol[T]):
 
 
 def load(im: Image.Image, _type: type[T]) -> PixelAccess[T]:
-  return cast(PixelAccess[T], im.load())
+  return cast(Any, im.load())
 
 
 def normalize_url(url: str, bot: Bot) -> str:
@@ -491,9 +496,9 @@ async def open_url(url: str) -> Image.Image:
 
 def colorize(
   image: AnyImage,
-  black: str | int | tuple[int, ...],
-  white: str | int | tuple[int, ...],
-  mid: str | int | tuple[int, ...] | None = None,
+  black: str | tuple[int, ...],
+  white: str | tuple[int, ...],
+  mid: str | tuple[int, ...] | None = None,
   blackpoint: int = 0,
   whitepoint: int = 255,
   midpoint: int = 127,

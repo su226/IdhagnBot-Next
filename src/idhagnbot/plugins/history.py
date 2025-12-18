@@ -4,7 +4,7 @@ from io import StringIO
 
 import nonebot
 from pydantic import BaseModel, TypeAdapter
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, override
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.http import get_session
@@ -28,22 +28,22 @@ HISTORY_API = "https://baike.baidu.com/cms/home/eventsOnHistory/{month}.json"
 
 
 class HTMLStripper(HTMLParser):
+  f: StringIO
+
   def __init__(self) -> None:
     super().__init__()
     self.f = StringIO()
 
+  @override
   def handle_data(self, data: str) -> None:
     self.f.write(data)
-
-  def getvalue(self) -> str:
-    return self.f.getvalue()
 
   @staticmethod
   def strip(text: str) -> str:
     stripper = HTMLStripper()
     stripper.feed(text)
     stripper.close()
-    return stripper.getvalue()
+    return stripper.f.getvalue()
 
 
 class ApiItem(TypedDict):
@@ -63,6 +63,7 @@ class HistoryCache(DailyCache):
   def __init__(self) -> None:
     super().__init__("history.json")
 
+  @override
   async def do_update(self) -> None:
     today = date.today()
     month = f"{today.month:02}"
@@ -95,6 +96,7 @@ CACHE = HistoryCache()
 
 @register("history")
 class HistoryModule(SimpleModule):
+  @override
   async def format(self) -> list[UniMessage[Segment]]:
     await CACHE.ensure()
     return [UniMessage(Text(CACHE.format()))]

@@ -1,8 +1,8 @@
 from pathlib import Path
-from typing import Any, overload
+from typing import Any, Protocol, overload
 
 from PIL import Image, ImageOps
-from typing_extensions import Self
+from typing_extensions import Self, override
 
 from idhagnbot import image as imutil
 from idhagnbot import text as textutil
@@ -25,18 +25,20 @@ def normalize_10k(count: int) -> str:
   return str(count)
 
 
-class Render:
-  def get_width(self) -> int:
-    raise NotImplementedError
-
-  def get_height(self) -> int:
-    raise NotImplementedError
-
-  def render(self, dst: Image.Image, x: int, y: int) -> None:
-    pass
+class Render(Protocol):
+  def get_width(self) -> int: ...
+  def get_height(self) -> int: ...
+  def render(self, dst: Image.Image, x: int, y: int) -> None: ...
 
 
 class CardText(Render):
+  layout: textutil.Layout
+  width: int
+  height: int
+  color: imutil.Color
+  stroke: float
+  stroke_color: imutil.Color
+
   @overload
   def __init__(
     self,
@@ -77,6 +79,7 @@ class CardText(Render):
     stroke_color: imutil.Color = (255, 255, 255),
     **kw: Any,
   ) -> None:
+    super().__init__()
     self.layout = (
       content
       if isinstance(content, textutil.Layout)
@@ -95,12 +98,15 @@ class CardText(Render):
     self.stroke = stroke
     self.stroke_color = stroke_color
 
+  @override
   def get_width(self) -> int:
     return WIDTH
 
+  @override
   def get_height(self) -> int:
     return self.height
 
+  @override
   def render(self, dst: Image.Image, x: int, y: int) -> None:
     textutil.paste(
       dst,
@@ -113,38 +119,50 @@ class CardText(Render):
 
 
 class CardLine(Render):
-  def __init__(self) -> None:
-    pass
-
+  @override
   def get_width(self) -> int:
     return WIDTH
 
+  @override
   def get_height(self) -> int:
     return 2
 
+  @override
   def render(self, dst: Image.Image, x: int, y: int) -> None:
     dst.paste(DIM_COLOR, (x, y, x + WIDTH, y + 2))
 
 
 class CardCover(Render):
+  im: Image.Image
+
   def __init__(self, im: Image.Image, crop: bool = True) -> None:
+    super().__init__()
     if crop:
       self.im = ImageOps.fit(im, (WIDTH, WIDTH * 10 // 16), imutil.get_scale_resample())
     else:
       self.im = imutil.resize_width(im, WIDTH)
 
+  @override
   def get_width(self) -> int:
     return WIDTH
 
+  @override
   def get_height(self) -> int:
     return self.im.height
 
+  @override
   def render(self, dst: Image.Image, x: int, y: int) -> None:
     dst.paste(self.im, (x, y))
 
 
 class CardAuthor(Render):
+  avatar: Image.Image
+  height: int
+  fans_layout: textutil.Layout | None
+  name_layout: textutil.Layout
+
   def __init__(self, avatar: Image.Image, name: str, fans: int = -1) -> None:
+    super().__init__()
     self.avatar = avatar.convert("RGB").resize((40, 40), imutil.get_scale_resample())
     imutil.circle(self.avatar)
     name_max = CONTENT_WIDTH - self.avatar.width - AVATAR_MARGIN
@@ -160,12 +178,15 @@ class CardAuthor(Render):
     name_height = self.name_layout.get_pixel_size()[1]
     self.height = max(self.height, name_height)
 
+  @override
   def get_width(self) -> int:
     return WIDTH
 
+  @override
   def get_height(self) -> int:
     return self.height
 
+  @override
   def render(self, dst: Image.Image, x: int, y: int) -> None:
     dst.paste(self.avatar, (x + PADDING, y + (self.height - self.avatar.height) // 2), self.avatar)
     y += self.height // 2
@@ -176,34 +197,51 @@ class CardAuthor(Render):
 
 
 class InfoText(Render):
+  layout: textutil.Layout
+  width: int
+  height: int
+
   def __init__(self, content: str, size: int = 32) -> None:
+    super().__init__()
     self.layout = textutil.layout(content, "sans", size)
     self.width, self.height = self.layout.get_pixel_size()
 
+  @override
   def get_width(self) -> int:
     return self.width
 
+  @override
   def get_height(self) -> int:
     return self.height
 
+  @override
   def render(self, dst: Image.Image, x: int, y: int) -> None:
     textutil.paste(dst, (x, y), self.layout)
 
 
 class InfoCount(Render):
+  icon: str
+  layout: textutil.Layout
+  width: int
+  height: int
+
   def __init__(self, icon: str, count: int) -> None:
+    super().__init__()
     self.icon = icon
     self.layout = textutil.layout(normalize_10k(count), "sans", 32)
     text_width, text_height = self.layout.get_pixel_size()
     self.width = INFO_ICON_SIZE + INFO_ICON_MARGIN + text_width
     self.height = max(INFO_ICON_SIZE, text_height)
 
+  @override
   def get_width(self) -> int:
     return self.width
 
+  @override
   def get_height(self) -> int:
     return self.height
 
+  @override
   def render(self, dst: Image.Image, x: int, y: int) -> None:
     icon_im = Image.open(PLUGIN_DIR / (self.icon + ".png"))
     dst.paste(icon_im, (x, y), icon_im)
@@ -216,10 +254,19 @@ class InfoCount(Render):
 
 
 class CardInfo(Render):
+  lines: list[tuple[list[Render], int]]
+  height: int
+  last_line: list[Render]
+  last_line_width: int
+  last_line_height: int
+  gap_x: int
+  gap_y: int
+
   def __init__(self, gap_x: int = INFO_MARGIN, gap_y: int = 0) -> None:
-    self.lines: list[tuple[list[Render], int]] = []
+    super().__init__()
+    self.lines = []
     self.height = 0
-    self.last_line: list[Render] = []
+    self.last_line = []
     self.last_line_width = 0
     self.last_line_height = 0
     self.gap_x = gap_x
@@ -245,15 +292,18 @@ class CardInfo(Render):
     self.last_line_width = 0
     self.last_line_height = 0
 
+  @override
   def get_width(self) -> int:
     return WIDTH
 
+  @override
   def get_height(self) -> int:
     height = self.height + self.last_line_height
     if self.lines and self.last_line:
       height += self.gap_y
     return height
 
+  @override
   def render(self, dst: Image.Image, x: int, y: int) -> None:
     for items, height in self.lines:
       x1 = x + PADDING
@@ -268,26 +318,37 @@ class CardInfo(Render):
 
 
 class CardMargin(Render):
+  margin: int
+
   def __init__(self, margin: int = PADDING) -> None:
+    super().__init__()
     self.margin = margin
 
+  @override
   def get_width(self) -> int:
     return WIDTH
 
+  @override
   def get_height(self) -> int:
     return self.margin
 
+  @override
   def render(self, dst: Image.Image, x: int, y: int) -> None:
     pass
 
 
 class CardTab(Render):
+  icon: Image.Image | None
+  title_im: Image.Image | None
+  content_im: Image.Image | None
+
   def __init__(
     self,
     content: str = "",
     title: str = "",
     icon: Image.Image | None = None,
   ) -> None:
+    super().__init__()
     self.icon = icon
     box = CONTENT_WIDTH - 8
     self.title_im = textutil.render(title, "sans", 32, box=box) if title else None
@@ -297,9 +358,11 @@ class CardTab(Render):
       textutil.render(content, "sans", 32, box=box, markup=True) if content else None
     )
 
+  @override
   def get_width(self) -> int:
     return WIDTH
 
+  @override
   def get_height(self) -> int:
     title_h = self.title_im.height if self.title_im else 0
     content_h = self.content_im.height if self.content_im else 0
@@ -307,6 +370,7 @@ class CardTab(Render):
       content_h = max(content_h, self.icon.height)
     return title_h + content_h + 16
 
+  @override
   def render(self, dst: Image.Image, x: int, y: int) -> None:
     x += PADDING
     if self.title_im:
@@ -327,15 +391,23 @@ class CardTab(Render):
 
 
 class Card(Render):
+  items: list[Render]
+  padding: int
+  gap: int
+  height: int
+
   def __init__(self, padding: int = PADDING, gap: int = 0) -> None:
-    self.items: list[Render] = []
+    super().__init__()
+    self.items = []
     self.padding = padding
     self.gap = gap
     self.height = padding * 2
 
+  @override
   def get_width(self) -> int:
     return WIDTH
 
+  @override
   def get_height(self) -> int:
     return self.height
 
@@ -346,6 +418,7 @@ class Card(Render):
     self.height += item.get_height()
     return self
 
+  @override
   def render(self, dst: Image.Image, x: int, y: int) -> None:
     y += self.padding
     for item in self.items:

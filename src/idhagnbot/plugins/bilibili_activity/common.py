@@ -17,6 +17,22 @@ class User(BaseModel):
   _name: str = PrivateAttr("未知用户")
   _offset: int = PrivateAttr(-1)
 
+  @property
+  def name(self) -> str:
+    return self._name
+
+  @name.setter
+  def name(self, value: str) -> None:
+    self._name = value
+
+  @property
+  def offset(self) -> int:
+    return self._offset
+
+  @offset.setter
+  def offset(self, value: int) -> None:
+    self._offset = value
+
 
 class Config(BaseModel):
   interval: int = 10

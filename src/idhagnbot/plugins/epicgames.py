@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 import nonebot
 from pydantic import BaseModel, TypeAdapter
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, override
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.http import get_session
@@ -172,6 +172,7 @@ class EpicGamesCache(DailyCache):
       update_time=time(11, tzinfo=ZoneInfo("America/New_York")),
     )
 
+  @override
   async def do_update(self) -> None:
     games = await get_free_games()
     games.sort(key=lambda x: (x.end_date, x.slug))
@@ -205,6 +206,7 @@ CACHE = EpicGamesCache()
 class EpicGamesModule(SimpleModule):
   force: bool = False
 
+  @override
   async def format(self) -> list[UniMessage[Segment]]:
     await CACHE.ensure()
     now_date = datetime.now(timezone.utc)

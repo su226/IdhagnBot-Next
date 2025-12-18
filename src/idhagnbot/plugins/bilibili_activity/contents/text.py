@@ -7,8 +7,8 @@ from PIL import Image
 from idhagnbot import image
 from idhagnbot.asyncio import gather
 from idhagnbot.image.card import Card, CardAuthor
-from idhagnbot.plugins.bilibili_activity import extras
 from idhagnbot.plugins.bilibili_activity.common import check_ignore, fetch_image
+from idhagnbot.plugins.bilibili_activity.extras import format_extra
 from idhagnbot.third_party.bilibili_activity import ActivityText
 from idhagnbot.third_party.bilibili_activity.card import CardRichText, CardTopic, fetch_emotions
 
@@ -20,7 +20,7 @@ async def get_appender(activity: ActivityText[object]) -> Callable[[Card], None]
   avatar, emotions, append_extra = await gather(
     fetch_image(activity.avatar),
     fetch_emotions(activity.content.richtext),
-    extras.format_extra(activity.extra),
+    format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:

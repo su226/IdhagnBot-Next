@@ -2,6 +2,7 @@ from datetime import date
 
 import nonebot
 from pydantic import BaseModel
+from typing_extensions import override
 
 from idhagnbot.plugins.daily_push.module import SimpleModule
 
@@ -19,6 +20,7 @@ class Countdown(BaseModel):
 class CountdownModule(SimpleModule):
   countdowns: list[Countdown]
 
+  @override
   async def format(self) -> list[UniMessage[Segment]]:
     lines = ["今天是："]
     today = date.today()

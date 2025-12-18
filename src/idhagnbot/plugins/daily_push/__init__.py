@@ -2,7 +2,7 @@ from datetime import datetime, time, timedelta
 from itertools import chain
 
 import nonebot
-from apscheduler.job import Job
+from apscheduler.job import Job  # pyright: ignore[reportMissingTypeStubs]
 from nonebot import logger
 from nonebot.adapters import Bot
 from nonebot.exception import ActionFailed

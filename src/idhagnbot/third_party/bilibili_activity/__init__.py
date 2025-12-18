@@ -8,7 +8,7 @@ from typing import (
 )
 
 from pydantic import TypeAdapter
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict, override
 
 from idhagnbot.http import BROWSER_UA, get_session
 from idhagnbot.third_party.bilibili_auth import get_cookie, validate_result
@@ -399,6 +399,7 @@ class ContentText(ContentParser["ContentText"]):
   text: str
   richtext: RichText
 
+  @override
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentText":
     module = item["modules"]["module_dynamic"]
@@ -421,6 +422,7 @@ class ContentImage(ContentParser["ContentImage"]):
   richtext: RichText
   images: list[Image]
 
+  @override
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentImage":
     module = item["modules"]["module_dynamic"]
@@ -455,6 +457,7 @@ class ContentOpus(ContentParser["ContentOpus"]):
   richtext: RichText
   images: list[Image]
 
+  @override
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentOpus":
     major = item["modules"]["module_dynamic"]["major"]
@@ -491,6 +494,7 @@ class ContentVideo(ContentParser["ContentVideo"]):
   formatted_view: str
   formatted_danmaku: str
 
+  @override
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentVideo":
     module = item["modules"]["module_dynamic"]
@@ -542,6 +546,7 @@ class ContentArticle(ContentParser["ContentArticle"]):
   covers: list[str]
   formatted_view: str
 
+  @override
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentArticle":
     major = item["modules"]["module_dynamic"]["major"]
@@ -570,6 +575,7 @@ class ContentAudio(ContentParser["ContentAudio"]):
   cover: str
   label: str
 
+  @override
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentAudio":
     module = item["modules"]["module_dynamic"]
@@ -609,6 +615,7 @@ class ContentPGC(ContentParser["ContentPGC"]):
   formatted_view: str
   formatted_danmaku: str
 
+  @override
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentPGC":
     modules = item["modules"]
@@ -642,6 +649,7 @@ class ContentCommon(ContentParser["ContentCommon"]):
   badge: str
   vertical: bool
 
+  @override
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentCommon":
     module = item["modules"]["module_dynamic"]
@@ -675,6 +683,7 @@ class ContentLive(ContentParser["ContentLive"]):
   cover: str
   streaming: bool
 
+  @override
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentLive":
     major = item["modules"]["module_dynamic"]["major"]
@@ -710,6 +719,7 @@ class ContentLiveRcmd(ContentParser["ContentLiveRcmd"]):
   start_time: int
   watching: int
 
+  @override
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentLiveRcmd":
     major = item["modules"]["module_dynamic"]["major"]
@@ -745,6 +755,7 @@ class ContentCourse(ContentParser["ContentCourse"]):
   stat: str
   cover: str
 
+  @override
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentCourse":
     major = item["modules"]["module_dynamic"]["major"]
@@ -773,6 +784,7 @@ class ContentPlaylist(ContentParser["ContentPlaylist"]):
   cover: str
 
   # JSON API 获取不到转发合集，所以只有 grpc_parse
+  @override
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentPlaylist":
     raise NotImplementedError
@@ -785,6 +797,7 @@ class ContentForward(ContentParser["ContentForward"]):
   activity: Optional["Activity[object, object]"]
   error_text: str
 
+  @override
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentForward":
     desc = item["modules"]["module_dynamic"]["desc"]
@@ -817,6 +830,7 @@ class ContentBlocked(ContentParser["ContentBlocked"]):
 
   message: str
 
+  @override
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentBlocked":
     major = item["modules"]["module_dynamic"]["major"]
@@ -827,6 +841,7 @@ class ContentBlocked(ContentParser["ContentBlocked"]):
 
 
 class ContentUnknown(ContentParser["ContentUnknown"]):
+  @override
   @staticmethod
   def parse(item: ApiDynamic) -> "ContentUnknown":
     return ContentUnknown()
@@ -863,6 +878,7 @@ class ExtraVote(ExtraParser["ExtraVote"]):
   count: int
   end: int
 
+  @override
   @staticmethod
   def parse(item: ApiAdditional) -> "ExtraVote":
     vote = item.get("vote")
@@ -884,6 +900,7 @@ class ExtraVideo(ExtraParser["ExtraVideo"]):
   duration: str
   cover: str
 
+  @override
   @staticmethod
   def parse(item: ApiAdditional) -> "ExtraVideo":
     video = item.get("ugc")
@@ -911,6 +928,7 @@ class ExtraReserve(ExtraParser["ExtraReserve"]):
   status: Literal["reserving", "streaming", "expired"]
   content_url: str
 
+  @override
   @staticmethod
   def parse(item: ApiAdditional) -> "ExtraReserve":
     reserve = item.get("reserve")
@@ -955,6 +973,7 @@ class ExtraGoods(ExtraParser["ExtraGoods"]):
   title: str
   goods: list[Goods]
 
+  @override
   @staticmethod
   def parse(item: ApiAdditional) -> "ExtraGoods":
     goods = item.get("goods")
@@ -976,6 +995,7 @@ class ExtraCommon(ExtraParser["ExtraCommon"]):
   desc1: str
   desc2: str
 
+  @override
   @staticmethod
   def parse(item: ApiAdditional) -> "ExtraCommon":
     common = item.get("common")
@@ -990,6 +1010,7 @@ class ExtraCommon(ExtraParser["ExtraCommon"]):
 
 
 class ExtraUnknown(ExtraParser["ExtraUnknown"]):
+  @override
   @staticmethod
   def parse(item: ApiAdditional) -> "ExtraUnknown":
     return ExtraUnknown()

@@ -5,7 +5,7 @@ from html.parser import HTMLParser
 
 import nonebot
 from pydantic import BaseModel, TypeAdapter
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, override
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig
@@ -57,11 +57,16 @@ class ParserMode(enum.Enum):
 
 
 class Parser(HTMLParser):
+  games: list[Game]
+  game: Game
+  mode: ParserMode
+
   def __init__(self) -> None:
     super().__init__()
-    self.games: list[Game] = []
+    self.games = []
     self.mode = ParserMode.NONE
 
+  @override
   def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
     if tag == "a":
       self.game = Game(0, "", "")
@@ -86,11 +91,13 @@ class Parser(HTMLParser):
       if "title" in classes:
         self.mode = ParserMode.NAME
 
+  @override
   def handle_endtag(self, tag: str) -> None:
     self.mode = ParserMode.NONE
     if tag == "a":
       self.games.append(self.game)
 
+  @override
   def handle_data(self, data: str) -> None:
     if self.mode == ParserMode.NAME:
       self.game.name = data
@@ -117,6 +124,7 @@ class SteamCache(DailyCache):
   def __init__(self) -> None:
     super().__init__("steam.json", enable_prev=True)
 
+  @override
   async def do_update(self) -> None:
     items = await get_free_games()
     cache = Cache(items=items)
@@ -149,6 +157,7 @@ CACHE = SteamCache()
 class SteamModule(SimpleModule):
   force: bool = False
 
+  @override
   async def format(self) -> list[UniMessage[Segment]]:
     await CACHE.ensure()
     _, items = CACHE.get()

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any, ClassVar
 
 import nonebot
 from nonebot.message import event_preprocessor
@@ -12,7 +13,7 @@ from nonebot_plugin_orm import Model, get_session
 
 
 class Message(Model):
-  __tablename__ = "idhagnbot_chat_record_message"
+  __tablename__: ClassVar[Any] = "idhagnbot_chat_record_message"
   record_id: Mapped[int] = mapped_column(primary_key=True)
   time: Mapped[datetime]
   scene_id: Mapped[str]

@@ -6,6 +6,7 @@ from typing import ClassVar
 
 import nonebot
 from pydantic import BaseModel, Field
+from typing_extensions import override
 
 from idhagnbot.config import SharedConfig
 from idhagnbot.context import in_scene
@@ -132,7 +133,10 @@ def onload(prev: Config | None, curr: Config) -> None:
 
 
 class Item:
+  data: CommonData
+
   def __init__(self, data: CommonData | None) -> None:
+    super().__init__()
     self.data = CommonData() if data is None else data
 
   def __call__(self) -> str:
@@ -175,25 +179,34 @@ class Item:
 
 
 class StringItem(Item):
+  string: str
+
   def __init__(self, string: str, data: CommonData | None = None) -> None:
     super().__init__(data)
     self.string = string
 
+  @override
   def __call__(self) -> str:
     return self.string
 
+  @override
   def html(self) -> str:
     summary = html.escape(self.string)
     if details := super().html():
       return f"<details><summary>{summary}</summary>{details}</details>"
     return summary
 
+  @override
   def get_order(self) -> int:
     return -1
 
 
 class CommandItem(Item):
   commands: ClassVar[dict[str, "CommandItem"]] = {}
+
+  names: list[str]
+  raw_usage: str | Callable[[], str]
+  brief: str
 
   def __init__(
     self,
@@ -211,6 +224,7 @@ class CommandItem(Item):
         raise ValueError(f"重复的命令名: {i}")
       self.commands[i] = self
 
+  @override
   def html(self) -> str:
     if info := super().html():
       info = f"\n{info}"
@@ -219,6 +233,7 @@ class CommandItem(Item):
       f"<pre>{html.escape(self.format(brief=False))}{info}</pre></details>"
     )
 
+  @override
   def get_order(self) -> int:
     return self.data.level
 
@@ -226,6 +241,7 @@ class CommandItem(Item):
   def find(name: str) -> "CommandItem":
     return CommandItem.commands[name]
 
+  @override
   def __call__(self) -> str:
     brief = f" - {self.brief}" if self.brief else ""
     return f"{self.data.level_prefix}{COMMAND_PREFIX}{self.names[0]}{brief}"
@@ -259,19 +275,26 @@ class CommandItem(Item):
 
 
 class CategoryItem(Item):
-  ROOT: "CategoryItem"
+  ROOT: ClassVar["CategoryItem"]
+
+  name: str
+  brief: str
+  items: list[Item]
+  subcategories: dict[str, "CategoryItem"]
 
   def __init__(self, name: str, brief: str = "", data: CommonData | None = None) -> None:
     super().__init__(data)
     self.name = name
     self.brief = brief
-    self.items: list[Item] = []
-    self.subcategories: dict[str, CategoryItem] = {}
+    self.items = []
+    self.subcategories = {}
 
+  @override
   def __call__(self) -> str:
     brief = f" - {self.brief}" if self.brief else ""
     return f"📁{self.name}{brief}"
 
+  @override
   def html(self, details: bool = True) -> str:
     content = "".join(
       f"<li>{x.html()}</li>"
@@ -285,6 +308,7 @@ class CategoryItem(Item):
       return f"<details><summary>{html.escape(self())}</summary>{content}</details>"
     return f"{content}"
 
+  @override
   def get_order(self) -> int:
     return -2
 
@@ -417,20 +441,19 @@ class CategoryItem(Item):
 CategoryItem.ROOT = CategoryItem("root")
 
 
-class UserItem(Item):
+class UserStringItem(StringItem):
   pass
 
 
-class UserStringItem(StringItem, UserItem):
+class UserCommandItem(CommandItem):
   pass
 
 
-class UserCommandItem(CommandItem, UserItem):
+class UserCategoryItem(CategoryItem):
   pass
 
 
-class UserCategoryItem(CategoryItem, UserItem):
-  pass
+UserItem = UserStringItem | UserCommandItem | UserCategoryItem
 
 
 def export_index_html() -> str:

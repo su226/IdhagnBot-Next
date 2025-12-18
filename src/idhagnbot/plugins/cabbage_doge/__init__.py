@@ -5,7 +5,7 @@ import nonebot
 from anyio.to_thread import run_sync
 from PIL import Image
 
-from idhagnbot.color import blend, parse, split_rgb
+from idhagnbot.color import RGB, blend, parse, split_rgb
 from idhagnbot.command import CommandBuilder
 from idhagnbot.help import COMMAND_PREFIX
 from idhagnbot.image import to_segment
@@ -45,7 +45,7 @@ cabbage_doge = (
 
 @cabbage_doge.handle()
 async def _(*, colors: tuple[str, ...]) -> None:
-  color_values = []
+  color_values = list[RGB]()
   for i in colors:
     value = parse(i)
     if value is None:

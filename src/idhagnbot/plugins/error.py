@@ -4,7 +4,10 @@ from traceback import format_exception_only, format_tb
 from typing import cast
 
 import nonebot
-from apscheduler.events import EVENT_JOB_ERROR, JobExecutionEvent
+from apscheduler.events import (  # pyright: ignore[reportMissingTypeStubs]
+  EVENT_JOB_ERROR,
+  JobExecutionEvent,
+)
 from nonebot import logger
 from nonebot.exception import ActionFailed
 from nonebot.matcher import Matcher

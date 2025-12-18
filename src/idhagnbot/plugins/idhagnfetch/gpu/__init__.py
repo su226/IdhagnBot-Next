@@ -17,7 +17,7 @@ def get_gpu_info() -> list[Info]:
   if sys.platform != "linux":
     return []
   gpus = [i for i in Path("/sys/class/drm").iterdir() if re.match(r"^card\d+$", i.name)]
-  result = []
+  result = list[Info]()
   for i in gpus:
     with (i / "device" / "vendor").open() as f:
       vendor = int(f.read()[2:-1], 16)

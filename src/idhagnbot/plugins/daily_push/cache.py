@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 
 import anyio
 import nonebot
+from typing_extensions import override
 
 nonebot.require("nonebot_plugin_localstore")
 from nonebot_plugin_localstore import get_cache_dir
@@ -13,12 +14,19 @@ DEFAULT_UPDATE_TIME = time(tzinfo=ZoneInfo("Asia/Shanghai"))
 
 
 class BaseCache:
+  lock: anyio.Lock
+  path: Path
+  date_path: Path
+  enable_prev: bool
+  extra_files: list[str]
+
   def __init__(
     self,
     filename: str,
     enable_prev: bool = False,
     extra_files: list[str] | None = None,
   ) -> None:
+    super().__init__()
     self.lock = anyio.Lock()
     self.path = BASE_DIR / filename
     self.date_path = self.path.with_suffix(".date")
@@ -68,6 +76,8 @@ class BaseCache:
 
 
 class DailyCache(BaseCache):
+  update_time: time
+
   def __init__(
     self,
     filename: str,
@@ -78,6 +88,7 @@ class DailyCache(BaseCache):
     super().__init__(filename, enable_prev, extra_files)
     self.update_time = update_time
 
+  @override
   def get_update_date(self) -> tuple[datetime, datetime]:
     now = datetime.now(self.update_time.tzinfo)
     update = datetime.combine(now, self.update_time)
@@ -87,6 +98,9 @@ class DailyCache(BaseCache):
 
 
 class WeeklyCache(BaseCache):
+  update_weekday: int
+  update_time: time
+
   def __init__(
     self,
     filename: str,
@@ -99,6 +113,7 @@ class WeeklyCache(BaseCache):
     self.update_weekday = update_weekday
     self.update_time = update_time
 
+  @override
   def get_update_date(self) -> tuple[datetime, datetime]:
     now = datetime.now(self.update_time.tzinfo)
     update = datetime.combine(now, self.update_time)

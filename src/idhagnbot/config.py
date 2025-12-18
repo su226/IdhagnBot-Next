@@ -9,7 +9,7 @@ import nonebot
 import yaml
 from nonebot import logger
 from pydantic import BaseModel
-from typing_extensions import TypeVarTuple, Unpack
+from typing_extensions import TypeVarTuple, Unpack, override
 
 try:
   from yaml import CSafeDumper as SafeDumper
@@ -41,14 +41,21 @@ class CacheItem(Generic[TModel]):
 
 
 class BaseConfig(Generic[TModel, Unpack[TParam]]):
-  category: ClassVar = "配置"
+  category: ClassVar[str] = "配置"
   all: ClassVar[list["BaseConfig[Any, Unpack[tuple[Any, ...]]]"]] = []
 
+  model: type[TModel]
+  cache: dict[tuple[Unpack[TParam]], CacheItem[TModel]]
+  reloadable: Reloadable
+  handlers: list[LoadHandler[TModel, Unpack[TParam]]]
+  lock: Lock
+
   def __init__(self, model: type[TModel], reloadable: Reloadable = "lazy") -> None:
+    super().__init__()
     self.model = model
-    self.cache: dict[tuple[Unpack[TParam]], CacheItem[TModel]] = {}
-    self.reloadable: Reloadable = reloadable
-    self.handlers: list[LoadHandler[TModel, Unpack[TParam]]] = []
+    self.cache = {}
+    self.reloadable = reloadable
+    self.handlers = []
     self.lock = Lock()
     self.all.append(self)
 
@@ -116,31 +123,37 @@ class BaseConfig(Generic[TModel, Unpack[TParam]]):
 class SharedConfig(BaseConfig[TModel]):
   base_dir: ClassVar[Path] = CONFIG_DIR
 
+  name: str
+
   def __init__(self, name: str, model: type[TModel], reloadable: Reloadable = "lazy") -> None:
     super().__init__(model, reloadable)
     self.name = name
 
+  @override
   def get_file(self) -> Path:
     return self.base_dir / f"{self.name}.yaml"
 
 
 class SharedData(SharedConfig[TModel]):
-  category = "数据"
-  base_dir = DATA_DIR
+  category: ClassVar[str] = "数据"
+  base_dir: ClassVar[Path] = DATA_DIR
 
 
 class SharedCache(SharedConfig[TModel]):
-  category = "缓存"
-  base_dir = CACHE_DIR
+  category: ClassVar[str] = "缓存"
+  base_dir: ClassVar[Path] = CACHE_DIR
 
 
 class SessionConfig(BaseConfig[TModel, str]):
-  base_dir: ClassVar = CONFIG_DIR
+  base_dir: ClassVar[Path] = CONFIG_DIR
+
+  name: str
 
   def __init__(self, name: str, model: type[TModel], reloadable: Reloadable = "lazy") -> None:
     super().__init__(model, reloadable)
     self.name = name
 
+  @override
   def get_file(self, session: str) -> Path:
     file = self.base_dir / self.name / f"{session}.yaml"
     if not file.exists():
@@ -167,10 +180,10 @@ class SessionConfig(BaseConfig[TModel, str]):
 
 
 class SessionData(SessionConfig[TModel]):
-  category = "数据"
-  base_dir = DATA_DIR
+  category: ClassVar[str] = "数据"
+  base_dir: ClassVar[Path] = DATA_DIR
 
 
 class SessionCache(SessionConfig[TModel]):
-  category = "缓存"
-  base_dir = CACHE_DIR
+  category: ClassVar[str] = "缓存"
+  base_dir: ClassVar[Path] = CACHE_DIR

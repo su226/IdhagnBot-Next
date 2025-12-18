@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 import nonebot
 from pydantic import BaseModel, TypeAdapter
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, override
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.http import BROWSER_UA, get_session
@@ -83,6 +83,7 @@ class FabCache(DailyCache):
       update_time=time(10, tzinfo=ZoneInfo("America/New_York")),
     )
 
+  @override
   async def do_update(self) -> None:
     items = await get_free_assets()
     items.sort(key=lambda x: x.uid)
@@ -116,6 +117,7 @@ CACHE = FabCache()
 class FabModule(SimpleModule):
   force: bool = False
 
+  @override
   async def format(self) -> list[UniMessage[Segment]]:
     await CACHE.ensure()
     _, items = CACHE.get()

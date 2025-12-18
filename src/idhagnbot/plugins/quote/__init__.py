@@ -2,6 +2,7 @@ import random
 from collections.abc import Awaitable, Sequence
 from io import BytesIO
 from itertools import dropwhile, islice
+from typing import Any, ClassVar
 from uuid import UUID, uuid4
 
 import nonebot
@@ -26,7 +27,7 @@ from idhagnbot.image import (
   rounded_rectangle,
   to_segment,
 )
-from idhagnbot.message import send_message
+from idhagnbot.message import send_message, unimsg_load
 from idhagnbot.message.common import REPLY_INFO_REGISTRY, MaybeReplyInfo
 from idhagnbot.plugins.quote.common import (
   EMOJI_REGISTRY,
@@ -78,7 +79,7 @@ else:
 
 
 class SentQuote(Model):
-  __tablename__ = "idhagnbot_quote_sent_quote"
+  __tablename__: ClassVar[Any] = "idhagnbot_quote_sent_quote"
   scene_id: Mapped[str] = mapped_column(primary_key=True)
   message_id: Mapped[str] = mapped_column(primary_key=True)
   quote_id: Mapped[UUID]
@@ -285,7 +286,7 @@ async def _(
       .limit(count + 10),
     )
     records = list(islice(dropwhile(lambda x: x.message_id != reply_info.id, records), 1, count))
-    messages.extend(MessageInfo(x.user_id, UniMessage.load(x.content)) for x in records)
+    messages.extend(MessageInfo(x.user_id, unimsg_load(x.content)) for x in records)
     user_ids.update(x.user_id for x in records)
   messages, users = await gather(
     gather_seq(process_message(bot, event, message) for message in messages),

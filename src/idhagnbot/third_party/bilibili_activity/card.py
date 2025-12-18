@@ -2,6 +2,7 @@ from io import BytesIO
 
 from anyio.to_thread import run_sync
 from PIL import Image
+from typing_extensions import override
 
 from idhagnbot.asyncio import gather_map
 from idhagnbot.http import get_session
@@ -30,23 +31,31 @@ async def fetch_emotions(richtext: RichText) -> dict[str, Image.Image]:
 
 
 class CardTopic(Render):
+  _im: Image.Image | None
+
   def __init__(self, topic: Topic | None) -> None:
+    super().__init__()
     self._im = None
     if topic:
       self._im = render("#" + topic.name, "sans", 32, color=0x008AC5, box=CONTENT_WIDTH)
 
+  @override
   def get_width(self) -> int:
     return WIDTH
 
+  @override
   def get_height(self) -> int:
     return self._im.height if self._im else 0
 
+  @override
   def render(self, dst: Image.Image, x: int, y: int) -> None:
     if self._im:
       dst.paste(self._im, (x + PADDING, y), self._im)
 
 
 class CardRichText(Render):
+  _im: Image.Image
+
   def __init__(
     self,
     richtext: RichText,
@@ -54,6 +63,7 @@ class CardRichText(Render):
     size: int,
     lines: int,
   ) -> None:
+    super().__init__()
     render = RichTextRender().set_font("sans", size)
     render.set_width(CONTENT_WIDTH).set_height(-lines).set_ellipsize("end")
     for node in richtext:
@@ -65,11 +75,14 @@ class CardRichText(Render):
         render.append_markup(f"<span color='#008ac5'>{escape(node.text)}</span>")
     self._im = render.render()
 
+  @override
   def get_width(self) -> int:
     return WIDTH
 
+  @override
   def get_height(self) -> int:
     return self._im.height
 
+  @override
   def render(self, dst: Image.Image, x: int, y: int) -> None:
     dst.paste(self._im, (x + PADDING, y), self._im)

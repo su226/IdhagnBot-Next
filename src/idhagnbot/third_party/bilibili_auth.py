@@ -1,9 +1,9 @@
 from pathlib import Path
 from typing import Any, Generic, Literal, TypeVar
 
-import jsonc
+import jsonc  # pyright: ignore[reportMissingTypeStubs]
 from pydantic import BaseModel, SecretStr, TypeAdapter
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict, override
 
 from idhagnbot.config import SharedConfig
 
@@ -36,11 +36,15 @@ class ApiResult(TypedDict, Generic[TData]):
 
 
 class ApiError(Exception):
+  code: int
+  message: str
+
   def __init__(self, code: int, message: str) -> None:
     super().__init__(f"{code}: {message}")
     self.code = code
     self.message = message
 
+  @override
   def __repr__(self) -> str:
     return f"ApiError(code={self.code!r}, message={self.message!r})"
 

@@ -286,7 +286,7 @@ async def handle_meme(
   reply_info: MaybeReplyInfo,
   session: Uninfo,
   interface: QryItrface,
-  arp: Arparma,
+  arp: Arparma[Any],
 ) -> None:
   key = state["key"]
   info = memes[key]

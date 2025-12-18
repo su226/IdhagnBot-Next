@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 import nonebot
 from nonebot.typing import T_State
 from pydantic import BaseModel, TypeAdapter
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict, override
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.http import BROWSER_UA, get_session
@@ -120,14 +120,17 @@ class Cache(BaseModel):
 
 
 class EpicGamesMobileCache(DailyCache):
+  platform: Literal["android", "ios"]
+
   def __init__(self, platform: Literal["android", "ios"]) -> None:
     super().__init__(
       f"epicgames_{platform}.json",
       enable_prev=True,
       update_time=time(11, tzinfo=ZoneInfo("America/New_York")),
     )
-    self.platform: Literal["android", "ios"] = platform
+    self.platform = platform
 
+  @override
   async def do_update(self) -> None:
     games = await get_free_games(self.platform)
     games.sort(key=lambda x: (x.end_date, x.name))
@@ -163,6 +166,7 @@ class EpicGamesMobileModule(SimpleModule):
   platform: Literal["android", "ios"]
   force: bool = False
 
+  @override
   async def format(self) -> list[UniMessage[Segment]]:
     cache = ANDROID_CACHE if self.platform == "android" else IOS_CACHE
     await cache.ensure()

@@ -1,5 +1,5 @@
 import math
-from typing import Any, Literal, TypeAlias, Union, cast, overload
+from typing import Any, ClassVar, Literal, TypeAlias, Union, cast, overload
 
 import cairo
 import gi
@@ -14,7 +14,7 @@ from idhagnbot.config import SharedConfig
 gi.require_version("GLib", "2.0")
 gi.require_version("Pango", "1.0")
 gi.require_version("PangoCairo", "1.0")
-from gi.repository import GLib, Pango, PangoCairo
+from gi.repository import GLib, Pango, PangoCairo  # pyright: ignore[reportMissingModuleSource]
 
 CairoAntialias = Literal["default", "none", "fast", "good", "best", "gray", "subpixel"]
 CairoSubpixel = Literal["default", "rgb", "bgr", "vrgb", "vbgr"]
@@ -85,8 +85,11 @@ HINT_STYLES: dict[CairoHintStyle, cairo.HintStyle] = {
 
 # 增加一个辅助类，防止 Pango.Context 和 RichText 循环引用导致内存泄漏
 class ImageHolder:
+  _images: dict[int, cairo.ImageSurface]
+
   def __init__(self) -> None:
-    self._images = dict[int, cairo.ImageSurface]()
+    super().__init__()
+    self._images = {}
 
   def _render_images(self, cr: "cairo.Context[Any]", attr: Pango.AttrShape, do_path: bool) -> None:
     if do_path:
@@ -109,9 +112,16 @@ class ImageHolder:
 
 
 class RichText:
-  _IMAGE_REPLACEMENT = "￼".encode()
+  _IMAGE_REPLACEMENT: ClassVar[bytes] = "￼".encode()
+
+  _context: Pango.Context
+  _images: ImageHolder
+  _utf8: bytearray
+  _attrs: Pango.AttrList
+  _layout: Layout
 
   def __init__(self) -> None:
+    super().__init__()
     self._context = Pango.Context()
     self._context.set_font_map(PangoCairo.FontMap.get_default())
     self._images = ImageHolder()

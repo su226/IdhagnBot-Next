@@ -9,22 +9,22 @@ from PIL import Image
 from idhagnbot import image as images
 from idhagnbot.asyncio import gather
 from idhagnbot.image.card import Card, CardAuthor, CardCover, CardLine, CardText
-from idhagnbot.plugins.bilibili_activity import extras
 from idhagnbot.plugins.bilibili_activity.common import (
   CONFIG,
   IgnoredException,
   check_ignore,
   fetch_image,
 )
-from idhagnbot.plugins.bilibili_activity.contents import (
-  article,
-  audio,
-  common,
-  image,
-  opus,
-  text,
-  video,
+from idhagnbot.plugins.bilibili_activity.contents.article import (
+  get_appender as get_article_appender,
 )
+from idhagnbot.plugins.bilibili_activity.contents.audio import get_appender as get_audio_appender
+from idhagnbot.plugins.bilibili_activity.contents.common import get_appender as get_common_appender
+from idhagnbot.plugins.bilibili_activity.contents.image import get_appender as get_image_appender
+from idhagnbot.plugins.bilibili_activity.contents.opus import get_appender as get_opus_appender
+from idhagnbot.plugins.bilibili_activity.contents.text import get_appender as get_text_appender
+from idhagnbot.plugins.bilibili_activity.contents.video import get_appender as get_video_appender
+from idhagnbot.plugins.bilibili_activity.extras import format_extra
 from idhagnbot.third_party.bilibili_activity import (
   Activity,
   ActivityCourse,
@@ -97,7 +97,7 @@ async def get_pgc_appender(activity: ActivityPGC[object]) -> Callable[[Card], No
   season_cover, episode_cover, append_extra = await gather(
     fetch_season_cover(),
     fetch_image(activity.content.episode_cover),
-    extras.format_extra(activity.extra),
+    format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:
@@ -119,7 +119,7 @@ async def get_live_appender(activity: ActivityLive[object]) -> Callable[[Card], 
   avatar, cover, append_extra = await gather(
     fetch_image(activity.avatar),
     fetch_image(activity.content.cover),
-    extras.format_extra(activity.extra),
+    format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:
@@ -140,7 +140,7 @@ async def get_live_rcmd_appender(activity: ActivityLiveRcmd[object]) -> Callable
   avatar, cover, append_extra = await gather(
     fetch_image(activity.avatar),
     fetch_image(activity.content.cover),
-    extras.format_extra(activity.extra),
+    format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:
@@ -176,7 +176,7 @@ async def get_course_appender(activity: ActivityCourse[object]) -> Callable[[Car
   avatar, cover, append_extra = await gather(
     fetch_avatar(),
     fetch_image(activity.content.cover),
-    extras.format_extra(activity.extra),
+    format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:
@@ -202,7 +202,7 @@ async def get_playlist_appender(activity: ActivityPlaylist[object]) -> Callable[
   avatar, cover, append_extra = await gather(
     fetch_image(activity.avatar),
     fetch_image(activity.content.cover),
-    extras.format_extra(activity.extra),
+    format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:
@@ -256,13 +256,13 @@ TITLE_FORMATTERS: list[TitleFormatter[Any]] = [
   (ContentPlaylist, make_title_formatter("合集")),
 ]
 CARD_APPENDERS: list[AppenderGetter[Any]] = [
-  (ContentText, text.get_appender),
-  (ContentImage, image.get_appender),
-  (ContentOpus, opus.get_appender),
-  (ContentVideo, video.get_appender),
-  (ContentAudio, audio.get_appender),
-  (ContentArticle, article.get_appender),
-  (ContentCommon, common.get_appender),
+  (ContentText, get_text_appender),
+  (ContentImage, get_image_appender),
+  (ContentOpus, get_opus_appender),
+  (ContentVideo, get_video_appender),
+  (ContentAudio, get_audio_appender),
+  (ContentArticle, get_article_appender),
+  (ContentCommon, get_common_appender),
   (ContentPGC, get_pgc_appender),
   (ContentLive, get_live_appender),
   (ContentLiveRcmd, get_live_rcmd_appender),
@@ -308,7 +308,7 @@ async def format_activity(
     fetch_image(activity.avatar),
     appender_coro,
     fetch_emotions(activity.content.richtext),
-    extras.format_extra(activity.extra),
+    format_extra(activity.extra),
   )
 
   def make() -> UniMessage[Segment]:
