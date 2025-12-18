@@ -21,7 +21,7 @@ async def get_appender(activity: ActivityVideo[object]) -> Callable[[Card], None
     fetch_image(activity.avatar),
     fetch_image(activity.content.cover),
     fetch_emotions(activity.content.richtext),
-    extras.format(activity.extra),
+    extras.format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:
@@ -37,15 +37,18 @@ async def get_appender(activity: ActivityVideo[object]) -> Callable[[Card], None
     if activity.content.desc and activity.content.desc != "-":
       block = Card()
       block.add(CardText(activity.content.desc, size=32, lines=3))
-      append_extra(block, False)
+      append_extra(block, block=False)
       card.add(block)
     else:
-      append_extra(card, True)
+      append_extra(card, block=True)
 
   return appender
 
 
-async def format(activity: ActivityVideo[object], can_ignore: bool) -> UniMessage[Segment]:
+async def format_activity(
+  activity: ActivityVideo[object],
+  can_ignore: bool,
+) -> UniMessage[Segment]:
   appender = await get_appender(activity)
 
   def make() -> UniMessage[Segment]:

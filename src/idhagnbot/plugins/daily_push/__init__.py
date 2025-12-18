@@ -81,7 +81,7 @@ else:
 
 
 @CONFIG.onload()
-def _(prev: Config | None, curr: Config) -> None:  # noqa: ARG001
+def _(prev: Config | None, curr: Config) -> None:
   for job in jobs:
     job.remove()
   jobs.clear()

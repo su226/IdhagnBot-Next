@@ -102,7 +102,7 @@ class SteamPointsCache(DailyCache):
   def __init__(self) -> None:
     super().__init__(
       "steam_points.json",
-      True,
+      enable_prev=True,
       update_time=time(12, tzinfo=ZoneInfo("America/Los_Angeles")),
     )
 

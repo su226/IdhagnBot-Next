@@ -38,7 +38,7 @@ RE2 = re.compile(
 INFO_API = "https://api.bilibili.com/x/web-interface/view/detail"
 
 
-def match_link(link: str) -> str | None:
+def re_match(link: str) -> str | None:
   if match := RE1.match(link):
     return match[1]
   if match := RE2.match(link):
@@ -120,18 +120,18 @@ def format_duration(seconds: int) -> str:
   return f"{minutes:02}:{seconds:02}"
 
 
-async def match(link: str, last_state: dict[str, Any]) -> MatchState:
-  video = match_link(link)
+async def match_link(link: str, last_state: dict[str, Any]) -> MatchState:
+  video = re_match(link)
   if not video:
-    return MatchState(False, {})
+    return MatchState(matched=False, state={})
   if video[:2] == "av":
     aid = video[2:]
     if is_aid_same(int(aid), last_state):
-      return MatchState(False, {})
+      return MatchState(matched=False, state={})
     params = {"aid": aid}
   else:
     if is_bvid_same(video, last_state):
-      return MatchState(False, {})
+      return MatchState(matched=False, state={})
     params = {"bvid": video}
   async with get_session().get(
     INFO_API,
@@ -140,12 +140,12 @@ async def match(link: str, last_state: dict[str, Any]) -> MatchState:
   ) as response:
     data = await response.json()
   if data["code"] in (-404, 62002, 62004, 62012):  # 不存在、不可见、审核中、仅UP主自己可见
-    return MatchState(False, {})
+    return MatchState(matched=False, state={})
   result = validate_result(data, ApiResult)
-  return MatchState(True, {"data": result})
+  return MatchState(matched=True, state={"data": result})
 
 
-async def format(
+async def format_link(
   data: ApiResult,
   **kw: Any,
 ) -> FormatState:

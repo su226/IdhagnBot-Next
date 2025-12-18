@@ -25,4 +25,4 @@ def read(root: Path) -> Info:
   proc = sp.run(["lspci", "-s", pci], check=True, capture_output=True, text=True)
   model = proc.stdout
   model = model[model.find(": ") + 2 : -10]
-  return Info(True, model, 0, 0, 0, 0)
+  return Info(unknown=True, model=model, percent=0, mem_percent=0, clk=0, temp=0)

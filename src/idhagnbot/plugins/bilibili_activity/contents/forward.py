@@ -97,7 +97,7 @@ async def get_pgc_appender(activity: ActivityPGC[object]) -> Callable[[Card], No
   season_cover, episode_cover, append_extra = await gather(
     fetch_season_cover(),
     fetch_image(activity.content.episode_cover),
-    extras.format(activity.extra),
+    extras.format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:
@@ -110,7 +110,7 @@ async def get_pgc_appender(activity: ActivityPGC[object]) -> Callable[[Card], No
     block.add(CardText(activity.content.episode_name, size=40, lines=2))
     card.add(block)
     card.add(CardCover(episode_cover))
-    append_extra(card, True)
+    append_extra(card, block=True)
 
   return appender
 
@@ -119,7 +119,7 @@ async def get_live_appender(activity: ActivityLive[object]) -> Callable[[Card], 
   avatar, cover, append_extra = await gather(
     fetch_image(activity.avatar),
     fetch_image(activity.content.cover),
-    extras.format(activity.extra),
+    extras.format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:
@@ -131,7 +131,7 @@ async def get_live_appender(activity: ActivityLive[object]) -> Callable[[Card], 
     block.add(CardText(f"{activity.content.category} {streaming}", size=32, lines=0))
     card.add(block)
     card.add(CardCover(cover))
-    append_extra(card, True)
+    append_extra(card, block=True)
 
   return appender
 
@@ -140,7 +140,7 @@ async def get_live_rcmd_appender(activity: ActivityLiveRcmd[object]) -> Callable
   avatar, cover, append_extra = await gather(
     fetch_image(activity.avatar),
     fetch_image(activity.content.cover),
-    extras.format(activity.extra),
+    extras.format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:
@@ -162,7 +162,7 @@ async def get_live_rcmd_appender(activity: ActivityLiveRcmd[object]) -> Callable
     )
     card.add(block)
     card.add(CardCover(cover))
-    append_extra(card, True)
+    append_extra(card, block=True)
 
   return appender
 
@@ -176,7 +176,7 @@ async def get_course_appender(activity: ActivityCourse[object]) -> Callable[[Car
   avatar, cover, append_extra = await gather(
     fetch_avatar(),
     fetch_image(activity.content.cover),
-    extras.format(activity.extra),
+    extras.format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:
@@ -192,7 +192,7 @@ async def get_course_appender(activity: ActivityCourse[object]) -> Callable[[Car
     card.add(CardCover(cover))
     block = Card()
     block.add(CardText(activity.content.desc, size=32, lines=3))
-    append_extra(block, False)
+    append_extra(block, block=False)
     card.add(block)
 
   return appender
@@ -202,7 +202,7 @@ async def get_playlist_appender(activity: ActivityPlaylist[object]) -> Callable[
   avatar, cover, append_extra = await gather(
     fetch_image(activity.avatar),
     fetch_image(activity.content.cover),
-    extras.format(activity.extra),
+    extras.format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:
@@ -213,7 +213,7 @@ async def get_playlist_appender(activity: ActivityPlaylist[object]) -> Callable[
     block.add(CardText(activity.content.stat, size=32, lines=0))
     card.add(block)
     card.add(CardCover(cover))
-    append_extra(card, True)
+    append_extra(card, block=True)
 
   return appender
 
@@ -271,7 +271,10 @@ CARD_APPENDERS: list[AppenderGetter[Any]] = [
 ]
 
 
-async def format(activity: ActivityForward[object], can_ignore: bool) -> UniMessage[Segment]:
+async def format_activity(
+  activity: ActivityForward[object],
+  can_ignore: bool,
+) -> UniMessage[Segment]:
   if can_ignore:
     check_ignore(activity.content.text)
 
@@ -279,13 +282,13 @@ async def format(activity: ActivityForward[object], can_ignore: bool) -> UniMess
     title_label = "失效动态"
   else:
     if can_ignore:
-      for type, checker in CHECKERS:
-        if isinstance(activity.content.activity.content, type):
+      for activity_type, checker in CHECKERS:
+        if isinstance(activity.content.activity.content, activity_type):
           checker(activity.content.activity)
           break
 
-    for type, formatter in TITLE_FORMATTERS:
-      if isinstance(activity.content.activity.content, type):
+    for activity_type, formatter in TITLE_FORMATTERS:
+      if isinstance(activity.content.activity.content, activity_type):
         title_label = formatter(activity.content.activity)
         break
     else:
@@ -294,8 +297,8 @@ async def format(activity: ActivityForward[object], can_ignore: bool) -> UniMess
   if activity.content.activity is None:
     appender_coro = get_deleted_appender(activity.content.error_text)
   else:
-    for type, getter in CARD_APPENDERS:
-      if isinstance(activity.content.activity.content, type):
+    for activity_type, getter in CARD_APPENDERS:
+      if isinstance(activity.content.activity.content, activity_type):
         appender_coro = getter(activity.content.activity)
         break
     else:
@@ -305,7 +308,7 @@ async def format(activity: ActivityForward[object], can_ignore: bool) -> UniMess
     fetch_image(activity.avatar),
     appender_coro,
     fetch_emotions(activity.content.richtext),
-    extras.format(activity.extra),
+    extras.format_extra(activity.extra),
   )
 
   def make() -> UniMessage[Segment]:
@@ -314,7 +317,7 @@ async def format(activity: ActivityForward[object], can_ignore: bool) -> UniMess
     block.add(CardAuthor(avatar, activity.name))
     block.add(CardTopic(activity.topic))
     block.add(CardRichText(activity.content.richtext, emotions, 32, 3))
-    append_extras(block, False)
+    append_extras(block, block=False)
     card.add(block)
     card.add(CardLine())
     appender(card)

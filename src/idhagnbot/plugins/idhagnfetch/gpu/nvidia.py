@@ -32,10 +32,10 @@ def read(root: Path) -> Info:
     raise RuntimeError(f"无法获取状态：{root.name}")
   name, clk, temp, percent, mem_percent = info
   return Info(
-    False,
-    name,
-    int(percent[:-2]),
-    int(mem_percent[:-2]),
-    int(clk[:-4]) * 1000000,
-    int(temp),
+    unknown=False,
+    model=name,
+    percent=int(percent[:-2]),
+    mem_percent=int(mem_percent[:-2]),
+    clk=int(clk[:-4]) * 1000000,
+    temp=int(temp),
   )

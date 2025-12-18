@@ -20,7 +20,7 @@ async def get_appender(activity: ActivityText[object]) -> Callable[[Card], None]
   avatar, emotions, append_extra = await gather(
     fetch_image(activity.avatar),
     fetch_emotions(activity.content.richtext),
-    extras.format(activity.extra),
+    extras.format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:
@@ -29,13 +29,13 @@ async def get_appender(activity: ActivityText[object]) -> Callable[[Card], None]
     lines = 3 if activity.extra else 6
     block.add(CardTopic(activity.topic))
     block.add(CardRichText(activity.content.richtext, emotions, 32, lines))
-    append_extra(block, False)
+    append_extra(block, block=False)
     card.add(block)
 
   return appender
 
 
-async def format(activity: ActivityText[object], can_ignore: bool) -> UniMessage[Segment]:
+async def format_activity(activity: ActivityText[object], can_ignore: bool) -> UniMessage[Segment]:
   if can_ignore:
     check_ignore(activity.content.text)
   appender = await get_appender(activity)

@@ -101,11 +101,11 @@ class ImageHolder:
   def bind(self, context: Pango.Context) -> None:
     PangoCairo.context_set_shape_renderer(context, self._render_images)
 
-  def __contains__(self, id: int) -> bool:
-    return id in self._images
+  def __contains__(self, image_id: int) -> bool:
+    return image_id in self._images
 
-  def __setitem__(self, id: int, image: cairo.ImageSurface) -> None:
-    self._images[id] = image
+  def __setitem__(self, image_id: int, image: cairo.ImageSurface) -> None:
+    self._images[image_id] = image
 
 
 class RichText:

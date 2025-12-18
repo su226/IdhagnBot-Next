@@ -13,8 +13,8 @@ from typing_extensions import NotRequired, TypedDict
 from idhagnbot.http import BROWSER_UA, get_session
 from idhagnbot.third_party.bilibili_auth import get_cookie, validate_result
 
-TContent = TypeVar("TContent", covariant=True)
-TExtra = TypeVar("TExtra", covariant=True)
+TContent_co = TypeVar("TContent_co", covariant=True)
+TExtra_co = TypeVar("TExtra_co", covariant=True)
 
 LIST_API = (
   "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space"
@@ -333,14 +333,14 @@ async def fetch(uid: int, offset: str = "") -> tuple[list[ApiDynamic], str | Non
   return data["items"], next_offset
 
 
-async def get(id: int) -> ApiDynamic:
+async def get(activity_id: int) -> ApiDynamic:
   http = get_session()
   headers = {
-    "Referer": f"https://t.bilibili.com/{id}",
+    "Referer": f"https://t.bilibili.com/{activity_id}",
     "Cookie": get_cookie(),
     "User-Agent": BROWSER_UA,
   }
-  async with http.get(DETAIL_API.format(id=id), headers=headers) as response:
+  async with http.get(DETAIL_API.format(id=activity_id), headers=headers) as response:
     data = validate_result(await response.json(), ApiDetailResult)
   return data["item"]
 
@@ -389,9 +389,9 @@ def parse_richtext(text: list[ApiRichTextNode]) -> RichText:
   return nodes
 
 
-class ContentParser(Protocol[TContent]):
+class ContentParser(Protocol[TContent_co]):
   @staticmethod
-  def parse(item: ApiDynamic) -> TContent: ...
+  def parse(item: ApiDynamic) -> TContent_co: ...
 
 
 @dataclass
@@ -849,9 +849,9 @@ CONTENT_TYPES: dict[str, type[ContentParser[object]]] = {
 }
 
 
-class ExtraParser(Protocol[TExtra]):
+class ExtraParser(Protocol[TExtra_co]):
   @staticmethod
-  def parse(item: ApiAdditional) -> TExtra:
+  def parse(item: ApiAdditional) -> TExtra_co:
     raise NotImplementedError
 
 
@@ -1012,9 +1012,9 @@ class Stat:
 
 
 @dataclass
-class Extra(Generic[TExtra]):
+class Extra(Generic[TExtra_co]):
   type: str
-  value: TExtra
+  value: TExtra_co
 
 
 @dataclass
@@ -1024,17 +1024,17 @@ class Topic:
 
 
 @dataclass
-class Activity(Generic[TContent, TExtra]):
+class Activity(Generic[TContent_co, TExtra_co]):
   uid: int
   name: str
   avatar: str
   id: int
   top: bool
   type: str
-  content: TContent
+  content: TContent_co
   stat: Stat | None
   time: int
-  extra: Extra[TExtra] | None
+  extra: Extra[TExtra_co] | None
   topic: Topic | None
 
   @staticmethod
@@ -1082,17 +1082,17 @@ class Activity(Generic[TContent, TExtra]):
     )
 
 
-ActivityText = Activity[ContentText, TExtra]
-ActivityImage = Activity[ContentImage, TExtra]
-ActivityOpus = Activity[ContentOpus, TExtra]
-ActivityArticle = Activity[ContentArticle, TExtra]
-ActivityVideo = Activity[ContentVideo, TExtra]
-ActivityAudio = Activity[ContentAudio, TExtra]
-ActivityPGC = Activity[ContentPGC, TExtra]
-ActivityCommon = Activity[ContentCommon, TExtra]
-ActivityForward = Activity[ContentForward, TExtra]
-ActivityLive = Activity[ContentLive, TExtra]
-ActivityLiveRcmd = Activity[ContentLiveRcmd, TExtra]
-ActivityCourse = Activity[ContentCourse, TExtra]
-ActivityPlaylist = Activity[ContentPlaylist, TExtra]
-ActivityBlocked = Activity[ContentBlocked, TExtra]
+ActivityText = Activity[ContentText, TExtra_co]
+ActivityImage = Activity[ContentImage, TExtra_co]
+ActivityOpus = Activity[ContentOpus, TExtra_co]
+ActivityArticle = Activity[ContentArticle, TExtra_co]
+ActivityVideo = Activity[ContentVideo, TExtra_co]
+ActivityAudio = Activity[ContentAudio, TExtra_co]
+ActivityPGC = Activity[ContentPGC, TExtra_co]
+ActivityCommon = Activity[ContentCommon, TExtra_co]
+ActivityForward = Activity[ContentForward, TExtra_co]
+ActivityLive = Activity[ContentLive, TExtra_co]
+ActivityLiveRcmd = Activity[ContentLiveRcmd, TExtra_co]
+ActivityCourse = Activity[ContentCourse, TExtra_co]
+ActivityPlaylist = Activity[ContentPlaylist, TExtra_co]
+ActivityBlocked = Activity[ContentBlocked, TExtra_co]

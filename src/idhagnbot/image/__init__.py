@@ -7,6 +7,7 @@ import cairo
 import nonebot
 from anyio.to_thread import run_sync
 from nonebot import logger
+from nonebot.adapters import Bot
 from PIL import Image, ImageChops, ImageDraw, ImageOps, ImageSequence, features
 from pydantic import BaseModel
 
@@ -17,6 +18,11 @@ from idhagnbot.url import path_from_url
 
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna.uniseg import Image as ImageSeg
+
+try:
+  from nonebot.adapters.satori import Bot as SatoriBot
+except ImportError:
+  SatoriBot = None
 
 __all__ = [
   "Anchor",
@@ -464,6 +470,14 @@ class PixelAccess(Protocol[T]):
 
 def load(im: Image.Image, _type: type[T]) -> PixelAccess[T]:
   return cast(PixelAccess[T], im.load())
+
+
+def normalize_url(url: str, bot: Bot) -> str:
+  return (
+    str(bot.info.api_base / "proxy" / url)
+    if url.startswith("internal:") and SatoriBot and isinstance(bot, SatoriBot)
+    else url
+  )
 
 
 async def open_url(url: str) -> Image.Image:

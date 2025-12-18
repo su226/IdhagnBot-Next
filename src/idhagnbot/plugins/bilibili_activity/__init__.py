@@ -109,7 +109,7 @@ async def try_check(user: common.User) -> int:
   async def try_send_all(activity: Activity[object, object]) -> None:
     logger.info(f"推送 {user._name}({user.uid}) 的动态 {activity.id}")
     try:
-      message = await contents.format(activity)
+      message = await contents.format_activity(activity)
     except common.IgnoredException as e:
       logger.info(f"已忽略 {user._name}({user.uid}) 的动态 {activity.id}: {e}")
       return
@@ -183,7 +183,7 @@ force_push = (
   .parser(
     Alconna(
       "推送动态",
-      Args["id", int],
+      Args["activity_id", int],
       meta=CommandMeta(
         "强制推送B站动态",
         usage="""\
@@ -199,13 +199,18 @@ force_push = (
 
 
 @force_push.handle()
-async def handle_force_push(*, id: int, scene_id: SceneId, scene_id_raw: SceneIdRaw) -> None:
+async def handle_force_push(
+  *,
+  activity_id: int,
+  scene_id: SceneId,
+  scene_id_raw: SceneIdRaw,
+) -> None:
   try:
-    src = await get(id)
+    src = await get(activity_id)
   except Exception:
     await force_push.finish("无法获取这条动态")
   activity = Activity.parse(src)
-  message = await contents.format(activity, False)
+  message = await contents.format_activity(activity, can_ignore=False)
   if scene_id != scene_id_raw:
     target = get_target(scene_id)
     await message.send(target)

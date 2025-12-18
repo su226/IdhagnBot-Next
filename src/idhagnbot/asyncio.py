@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Iterable, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from typing import Any, Literal, TypeVar, cast, overload
 
 import anyio
@@ -14,24 +14,35 @@ _T4 = TypeVar("_T4")
 _T5 = TypeVar("_T5")
 _T6 = TypeVar("_T6")
 _driver = nonebot.get_driver()
+BackgroundExceptionHandler = Callable[[Exception], Awaitable[None]]
+TBackgroundExceptionHandler = TypeVar(
+  "TBackgroundExceptionHandler",
+  bound=BackgroundExceptionHandler,
+)
+_background_exception_handlers = list[BackgroundExceptionHandler]()
 
 
 async def _background_task_wrapper(coro: Awaitable[_T]) -> None:
   try:
     await coro
   except Exception as e:
-    nonebot.require("idhagnbot.plugins.error")
-    from idhagnbot.plugins.error import send_error
-
-    description = "后台任务出错"
-    logger.exception(description)
-    await send_error("background_task", description, e)
+    try:
+      async with anyio.create_task_group() as tg:
+        for handler in _background_exception_handlers:
+          tg.start_soon(handler, e)
+    except BaseException:
+      logger.exception("运行后台任务错误回调时出错")
 
 
 # 不要直接使用 asyncio.create_task
 # 参见 https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
 def create_background_task(coro: Awaitable[_T]) -> None:
   _driver.task_group.start_soon(_background_task_wrapper, coro)
+
+
+def background_exception_handler(func: TBackgroundExceptionHandler) -> TBackgroundExceptionHandler:
+  _background_exception_handlers.append(func)
+  return func
 
 
 @overload

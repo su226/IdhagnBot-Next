@@ -62,7 +62,7 @@ class CommandBuilder:
       raise ValueError("node is required")
     if not self._parser:
       raise ValueError("parser is required")
-    CategoryItem.find(self._category, True).add(
+    CategoryItem.find(self._category, create=True).add(
       CommandItem(
         [self._parser.name, *self._aliases],
         self._parser.meta.description,

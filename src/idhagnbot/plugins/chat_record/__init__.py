@@ -36,7 +36,7 @@ async def _(
         scene_id=scene_id,
         user_id=user_id,
         message_id=message_id,
-        content=message.dump(False, True),
+        content=message.dump(media_save_dir=False, json=True),
       ),
     )
     await sql.commit()

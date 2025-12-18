@@ -5,7 +5,7 @@ from idhagnbot.image.card import Card, CardTab
 from idhagnbot.third_party.bilibili_activity import ExtraReserve
 
 
-async def format(extra: ExtraReserve) -> Callable[[Card], None]:
+async def format_extra(extra: ExtraReserve) -> Callable[[Card], None]:
   def appender(card: Card) -> None:
     title = "预约"
     if extra.status != "reserving":
@@ -20,4 +20,5 @@ async def format(extra: ExtraReserve) -> Callable[[Card], None]:
     if extra.link_text:
       content += f"\n<span color='#00aeec'>{text.escape(extra.link_text)}</span>"
     card.add(CardTab(content, title))
+
   return appender

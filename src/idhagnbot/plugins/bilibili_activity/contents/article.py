@@ -20,7 +20,7 @@ async def get_appender(activity: ActivityArticle[object]) -> Callable[[Card], No
   avatar, covers, append_extra = await gather(
     fetch_image(activity.avatar),
     fetch_images(*activity.content.covers),
-    extras.format(activity.extra),
+    extras.format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:
@@ -39,16 +39,19 @@ async def get_appender(activity: ActivityArticle[object]) -> Callable[[Card], No
     block.add(CardTopic(activity.topic))
     block.add(CardText(activity.content.title, size=40, lines=2))
     card.add(block)
-    card.add(CardCover(cover, False))
+    card.add(CardCover(cover, crop=False))
     block = Card()
     block.add(CardText(activity.content.desc, size=32, lines=3))
-    append_extra(block, False)
+    append_extra(block, block=False)
     card.add(block)
 
   return appender
 
 
-async def format(activity: ActivityArticle[object], can_ignore: bool) -> UniMessage[Segment]:
+async def format_activity(
+  activity: ActivityArticle[object],
+  can_ignore: bool,
+) -> UniMessage[Segment]:
   appender = await get_appender(activity)
 
   def make() -> UniMessage[Segment]:

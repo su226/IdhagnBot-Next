@@ -205,7 +205,9 @@ async def render_chat(
 
   def make() -> Image.Image:
     nonlocal emojis
-    emojis = {id: emoji.resize((40, 40), get_scale_resample()) for id, emoji in emojis.items()}
+    emojis = {
+      emoji_id: emoji.resize((40, 40), get_scale_resample()) for emoji_id, emoji in emojis.items()
+    }
     contents = [
       render_content(
         message.message,
@@ -345,5 +347,5 @@ async def _(
     await quote.finish("请回复一条引用图片")
   dirname = get_data_dir("idhagnbot") / "quote" / scene_id.replace(":", "__")
   filename = dirname / f"{sent_quote.quote_id}.png"
-  filename.unlink(True)
+  filename.unlink(missing_ok=True)
   await quote.finish("已删除当前引用")

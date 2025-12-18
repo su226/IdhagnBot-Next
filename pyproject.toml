@@ -25,6 +25,7 @@ license = {text = "MIT"}
 
 [project.optional-dependencies]
 adapters = [
+    "nonebot-adapter-discord>=0.1.8",
     "nonebot-adapter-onebot>=2.4.6",
     "nonebot-adapter-satori>=0.13.8",
     "nonebot-adapter-telegram>=0.1.0b20",
@@ -49,9 +50,48 @@ indent-width = 2
 [tool.ruff.lint]
 extend-select = ["ALL"]
 ignore = [
-    "ANN401", "C901", "D", "E402", "EM", "FA100", "FIX", "INP", "PERF203", "PLR0911", "PLR0912",
-    "PLR0913", "PLW0603", "RUF001", "RUF002", "RUF003", "SIM105", "SLF001", "TC006", "TD002",
-    "TD003", "TRY003",
+    "ANN401", # any-type
+    "ARG", # flake8-unused-arguments (让 Pyright 来吧)
+    "B008", # function-call-in-default-argument (干扰 NoneBot 依赖注入)
+    "B010", # set-attr-with-constant
+    "BLE001", # blind-except (自动忽略 logging.exception 但不忽略 loguru.exception)
+    "C901", # complex-structure
+    "D", # pydocstyle
+    "DTZ", # flake8-datetimez
+    "E402", # module-import-not-at-top-of-file
+    "E741", # ambiguous-variable-name
+    "EM", # flake8-errmsg
+    "F401", # unused-import (让 Pyright 来吧)
+    "FA100", # future-rewritable-type-annotation
+    "FBT001", # boolean-type-hint-positional-argument
+    "FBT002", # boolean-default-value-positional-argument
+    "FIX", # flake8-fixme
+    "INP001", # implicit-namespace-package
+    "N818", # error-suffix-on-exception-name
+    "PERF203", # try-except-in-loop
+    "PLR0904", # too-many-public-methods
+    "PLR0911", # too-many-return-statements
+    "PLR0912", # too-many-branches
+    "PLR0913", # too-many-arguments
+    "PLR0914", # too-many-locals
+    "PLR0915", # too-many-statements
+    "PLR0916", # too-many-boolean-expressions
+    "PLR0917", # too-many-positional-arguments
+    "PLR2004", # magic-value-comparison
+    "PLW0603", # global-statement
+    "RUF001", # ambiguous-unicode-character-string
+    "RUF002", # ambiguous-unicode-character-docstring
+    "RUF003", # ambiguous-unicode-character-comment
+    "S101", # assert
+    "S311", # suspicious-non-cryptographic-random-usage
+    "S603", # subprocess-without-shell-equals-true (容易误报)
+    "S607", # start-process-with-partial-path
+    "SIM105", # suppressible-exception
+    "SLF001", # private-member-access
+    "TC006", # runtime-cast-value
+    "TD002", # missing-todo-author
+    "TD003", # missing-todo-link
+    "TRY003", # raise-vanilla-args
 ]
 
 [tool.nonebot]

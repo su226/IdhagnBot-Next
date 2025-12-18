@@ -128,7 +128,7 @@ fortune = (
 async def _(
   *,
   file_or_prob: tuple[str, ...],
-  all: bool,
+  all: bool,  # noqa: A002
   source: bool,
   equal: bool,
   files: bool,

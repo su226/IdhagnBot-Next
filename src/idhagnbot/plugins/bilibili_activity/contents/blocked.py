@@ -24,7 +24,7 @@ CONTENT_TYPES = {
 async def get_appender(activity: ActivityBlocked[object]) -> Callable[[Card], None]:
   avatar, append_extra = await gather(
     fetch_image(activity.avatar),
-    extras.format(activity.extra),
+    extras.format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:
@@ -32,13 +32,16 @@ async def get_appender(activity: ActivityBlocked[object]) -> Callable[[Card], No
     block.add(CardAuthor(avatar, activity.name))
     block.add(CardTopic(activity.topic))
     block.add(CardText(activity.content.message))
-    append_extra(block, False)
+    append_extra(block, block=False)
     card.add(block)
 
   return appender
 
 
-async def format(activity: ActivityBlocked[object], can_ignore: bool) -> UniMessage[Segment]:
+async def format_activity(
+  activity: ActivityBlocked[object],
+  can_ignore: bool,
+) -> UniMessage[Segment]:
   appender = await get_appender(activity)
 
   def make() -> UniMessage[Segment]:

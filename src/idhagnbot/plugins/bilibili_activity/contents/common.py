@@ -21,7 +21,7 @@ async def get_appender(activity: ActivityCommon[object]) -> Callable[[Card], Non
     fetch_image(activity.avatar),
     fetch_image(activity.content.cover),
     fetch_emotions(activity.content.richtext),
-    extras.format(activity.extra),
+    extras.format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:
@@ -37,13 +37,16 @@ async def get_appender(activity: ActivityCommon[object]) -> Callable[[Card], Non
     nonlocal cover
     cover = ImageOps.fit(cover, (100, 100), image.get_scale_resample())
     block.add(CardTab(content, activity.content.badge, cover))
-    append_extra(block, False)
+    append_extra(block, block=False)
     card.add(block)
 
   return appender
 
 
-async def format(activity: ActivityCommon[object], can_ignore: bool) -> UniMessage[Segment]:
+async def format_activity(
+  activity: ActivityCommon[object],
+  can_ignore: bool,
+) -> UniMessage[Segment]:
   if can_ignore:
     check_ignore(activity.content.text)
   appender = await get_appender(activity)

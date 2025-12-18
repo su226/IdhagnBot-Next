@@ -47,8 +47,8 @@ async def process_message(
   return message
 
 
-async def fetch_emoji(bot: Bot, id: str) -> Image.Image:
-  return await open_url(f"https://koishi.js.org/QFace/static/s{id}.png")
+async def fetch_emoji(bot: Bot, emoji_id: str) -> Image.Image:
+  return await open_url(f"https://koishi.js.org/QFace/static/s{emoji_id}.png")
 
 
 def register() -> None:

@@ -9,7 +9,7 @@ from idhagnbot.plugins.bilibili_activity.common import fetch_images
 from idhagnbot.third_party.bilibili_activity import ExtraGoods
 
 
-async def format(extra: ExtraGoods) -> Callable[[Card], None]:
+async def format_extra(extra: ExtraGoods) -> Callable[[Card], None]:
   images = await fetch_images(*(i.image for i in islice(extra.goods, 5)))
 
   def appender(card: Card) -> None:

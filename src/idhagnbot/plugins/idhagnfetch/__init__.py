@@ -343,9 +343,9 @@ async def get_diskio(bot: Bot) -> list[Item]:
 
 
 async def get_network(bot: Bot) -> list[Item]:
-  before = psutil.net_io_counters(True)
+  before = psutil.net_io_counters(pernic=True)
   await anyio.sleep(1)
-  after = psutil.net_io_counters(True)
+  after = psutil.net_io_counters(pernic=True)
   after.pop("lo", None)
   counters = [(counter, before[name]) for name, counter in after.items()]
   recv = sum(x.bytes_recv - y.bytes_recv for x, y in counters)

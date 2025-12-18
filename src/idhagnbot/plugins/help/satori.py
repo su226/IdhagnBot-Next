@@ -1,5 +1,3 @@
-import re
-
 import nonebot
 from nonebot.adapters.satori import Bot
 from nonebot.adapters.satori.event import InteractionButtonEvent
@@ -9,13 +7,11 @@ from nonebot.typing import T_State
 from idhagnbot.context import SceneId
 from idhagnbot.help import CategoryItem
 from idhagnbot.permission import Roles
-from idhagnbot.plugins.help.common import get_show_data, join_path, normalize_path
+from idhagnbot.plugins.help.common import HELP_PAGE_RE, get_show_data, join_path, normalize_path
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_uninfo")
 from nonebot_plugin_uninfo import QryItrface, Uninfo
-
-HELP_PAGE_RE = re.compile(r"help_(?P<path>.+)_(?P<page>\d+)")
 
 
 def check_help_page(event: InteractionButtonEvent, state: T_State) -> bool:
@@ -54,7 +50,7 @@ async def handle_help_page(
       content="无此条目或分类、权限不足或在当前上下文不可用",
     )
     return
-  content, page, total_pages = category.format_page(show_data, [], page)
+  content, page, total_pages = category.format_page(show_data, path, page)
   message = Message(MessageSegment.text(content))
   if page - 1 >= 0:
     message.append(MessageSegment.action_button(f"help_{join_path(path)}_{page - 1}", "<"))

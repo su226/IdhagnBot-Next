@@ -1,3 +1,4 @@
+import re
 from enum import Enum
 
 import nonebot
@@ -8,6 +9,8 @@ from idhagnbot.help import ShowData
 
 nonebot.require("nonebot_plugin_uninfo")
 from nonebot_plugin_uninfo import Interface, SceneType, Session
+
+HELP_PAGE_RE = re.compile(r"help_(?P<path>.+)_(?P<page>\d+)")
 
 
 async def get_available_groups(session: Session, interface: Interface, user_id: str) -> list[str]:

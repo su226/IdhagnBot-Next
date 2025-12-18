@@ -118,15 +118,15 @@ def onload(prev: Config | None, curr: Config) -> None:
     if isinstance(item, str):
       CategoryItem.ROOT.add(UserStringItem(item))
     elif isinstance(item, UserCategory):
-      category = CategoryItem.find(item.category, True)
+      category = CategoryItem.find(item.category, create=True)
       if not isinstance(category, UserCategoryItem):
         continue
       category.brief = item.brief
       category.data = item
     elif isinstance(item, UserString):
-      CategoryItem.find(item.category, True).add(UserStringItem(item.string, item))
+      CategoryItem.find(item.category, create=True).add(UserStringItem(item.string, item))
     else:
-      CategoryItem.find(item.category, True).add(
+      CategoryItem.find(item.category, create=True).add(
         UserCommandItem(item.command, item.brief, item.usage, item),
       )
 
@@ -216,7 +216,7 @@ class CommandItem(Item):
       info = f"\n{info}"
     return (
       f'<details id="{html.escape(self.names[0])}"><summary>{html.escape(self())}</summary>'
-      f"<pre>{html.escape(self.format(False))}{info}</pre></details>"
+      f"<pre>{html.escape(self.format(brief=False))}{info}</pre></details>"
     )
 
   def get_order(self) -> int:

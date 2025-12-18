@@ -34,23 +34,23 @@ def is_same(slug: str, last_state: dict[str, Any]) -> bool:
     return False
 
 
-async def match(link: str, last_state: dict[str, Any]) -> MatchState:
+async def match_link(link: str, last_state: dict[str, Any]) -> MatchState:
   match = RE.match(link)
   if not match:
-    return MatchState(False, {})
+    return MatchState(matched=False, state={})
   slug = match[1]
   if EXCLUDE_RE.match(slug) or is_same(slug, last_state):
-    return MatchState(False, {})
+    return MatchState(matched=False, state={})
   async with get_session().get(f"https://b23.tv/{slug}", allow_redirects=False) as response:
     location = response.headers.get("Location")
   if not location:
-    return MatchState(False, {})
-  results = await gather_seq(content.match(location, {}) for content in CONTENTS)
+    return MatchState(matched=False, state={})
+  results = await gather_seq(content.match_link(location, {}) for content in CONTENTS)
   for content, result in zip(CONTENTS, results, strict=True):
     if result.matched:
       return MatchState(
-        True,
-        {
+        matched=True,
+        state={
           "slug": slug,
           "link": location,
           "content": content,
@@ -58,8 +58,8 @@ async def match(link: str, last_state: dict[str, Any]) -> MatchState:
         },
       )
   return MatchState(
-    True,
-    {
+    matched=True,
+    state={
       "slug": slug,
       "link": location,
       "content": None,
@@ -68,7 +68,7 @@ async def match(link: str, last_state: dict[str, Any]) -> MatchState:
   )
 
 
-async def format(
+async def format_link(
   slug: str,
   link: str,
   content: Content | None,
@@ -79,6 +79,6 @@ async def format(
     link_cleared = clear_url(link)
     text = "短链解析结果（已清除跟踪参数）: " if link_cleared != link else "短链解析结果: "
     return FormatState(UniMessage(Text(text + link_cleared)), {"b23_slug": slug})
-  result = await content.format(**state)
+  result = await content.format_link(**state)
   result.state.update({"b23_slug": slug})
   return result

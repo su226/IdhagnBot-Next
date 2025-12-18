@@ -42,17 +42,17 @@ def is_same(pathname: str, last_state: dict[str, Any]) -> bool:
     return False
 
 
-async def match(link: str, last_state: dict[str, Any]) -> MatchState:
+async def match_link(link: str, last_state: dict[str, Any]) -> MatchState:
   for regex in REGEXS:
     if match := regex.match(link):
       pathname = match[1]
       if is_same(pathname, last_state):
-        return MatchState(False, {})
-      return MatchState(True, {"pathname": pathname})
-  return MatchState(False, {})
+        return MatchState(matched=False, state={})
+      return MatchState(matched=True, state={"pathname": pathname})
+  return MatchState(matched=False, state={})
 
 
-async def format(pathname: str, **kw: Any) -> FormatState:
+async def format_link(pathname: str, **kw: Any) -> FormatState:
   return FormatState(
     UniMessage(Image(url=f"https://opengraph.githubassets.com/0/{pathname}")),
     {"type": "github", "pathname": pathname.lower()},

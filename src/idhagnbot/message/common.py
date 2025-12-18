@@ -85,7 +85,7 @@ async def event_time(bot: Bot, event: Event) -> datetime:
   if time := getattr(event, "__idhagnbot_time__", None):
     return time
   time = datetime.now()
-  setattr(event, "__idhagnbot_time__", time)  # noqa: B010
+  setattr(event, "__idhagnbot_time__", time)
   return time
 
 

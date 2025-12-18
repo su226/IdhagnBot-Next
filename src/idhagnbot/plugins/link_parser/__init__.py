@@ -109,7 +109,7 @@ async def check_links(
   last = json.loads(last.last_state) if last else dict[str, Any]()
   matched = False
   for link in links:
-    results = await gather_seq(content.match(link, last) for content in CONTENTS)
+    results = await gather_seq(content.match_link(link, last) for content in CONTENTS)
     for content, result in zip(CONTENTS, results, strict=True):
       if result.matched:
         if matched:

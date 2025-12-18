@@ -50,9 +50,9 @@ async def get_user_info(bot: Bot, event: Event, user_id: str) -> UserInfo:
   return UserInfo(name, avatar)
 
 
-async def fetch_emoji(bot: Bot, id: str) -> Image.Image:
+async def fetch_emoji(bot: Bot, emoji_id: str) -> Image.Image:
   assert isinstance(bot, TGBot)
-  stickers = await bot.get_custom_emoji_stickers([id])
+  stickers = await bot.get_custom_emoji_stickers([emoji_id])
   assert stickers[0].thumbnail
   file = await bot.get_file(stickers[0].thumbnail.file_id)
   assert file.file_path

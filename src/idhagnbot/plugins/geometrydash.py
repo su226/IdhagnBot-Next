@@ -144,22 +144,22 @@ class Cache(BaseModel):
 
 
 class GeometryDashCache(DailyCache):
-  def __init__(self, name: str, id: int) -> None:
+  def __init__(self, name: str, level_id: int) -> None:
     super().__init__(
       f"geometrydash_{name}.json",
-      True,
-      [f"geometrydash_{name}.webp"],
-      time(tzinfo=ZoneInfo("Europe/Berlin")),
+      enable_prev=True,
+      extra_files=[f"geometrydash_{name}.webp"],
+      update_time=time(tzinfo=ZoneInfo("Europe/Berlin")),
     )
     self.image_path = self.path.with_suffix(".webp")
-    self.id = id
+    self.level_id = level_id
 
   async def do_update(self) -> None:
     http = get_session()
     async with http.post(
       f"{SERVER}/downloadGJLevel22.php",
       skip_auto_headers=["User-Agent"],
-      data={"secret": "Wmfd2893gb7", "levelID": self.id},
+      data={"secret": "Wmfd2893gb7", "levelID": self.level_id},
     ) as response:
       level = Level.parse(await response.text())
     async with http.get(f"https://levelthumbs.prevter.me/thumbnail/{level.id}") as response:

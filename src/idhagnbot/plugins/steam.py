@@ -115,7 +115,7 @@ class Cache(BaseModel):
 
 class SteamCache(DailyCache):
   def __init__(self) -> None:
-    super().__init__("steam.json", True)
+    super().__init__("steam.json", enable_prev=True)
 
   async def do_update(self) -> None:
     items = await get_free_games()

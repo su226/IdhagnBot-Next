@@ -50,4 +50,11 @@ def read(root: Path) -> Info:
     clk = int(f.read())
   with (hwmon / TEMP_FILE).open() as f:
     temp = int(f.read()) // 1000
-  return Info(False, "AMD/ATI " + model, percent, mem_percent, clk, temp)
+  return Info(
+    unknown=False,
+    model="AMD/ATI " + model,
+    percent=percent,
+    mem_percent=mem_percent,
+    clk=clk,
+    temp=temp,
+  )

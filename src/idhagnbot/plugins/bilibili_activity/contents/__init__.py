@@ -81,24 +81,24 @@ Formatter = tuple[
   Callable[[Activity[TContent, object], bool], Awaitable[UniMessage[Segment]]],
 ]
 FORMATTERS: list[Formatter[Any]] = [
-  (ContentText, text.format),
-  (ContentImage, image.format),
-  (ContentOpus, opus.format),
-  (ContentVideo, video.format),
-  (ContentArticle, article.format),
-  (ContentAudio, audio.format),
-  (ContentCommon, common.format),
-  (ContentForward, forward.format),
+  (ContentText, text.format_activity),
+  (ContentImage, image.format_activity),
+  (ContentOpus, opus.format_activity),
+  (ContentVideo, video.format_activity),
+  (ContentArticle, article.format_activity),
+  (ContentAudio, audio.format_activity),
+  (ContentCommon, common.format_activity),
+  (ContentForward, forward.format_activity),
   (ContentLiveRcmd, ignore),
-  (ContentBlocked, blocked.format),
+  (ContentBlocked, blocked.format_activity),
 ]
 
 
-async def format(
+async def format_activity(
   activity: Activity[object, object],
   can_ignore: bool = True,
 ) -> UniMessage[Segment]:
-  for type, formatter in FORMATTERS:
-    if isinstance(activity.content, type):
+  for activity_type, formatter in FORMATTERS:
+    if isinstance(activity.content, activity_type):
       return await formatter(activity, can_ignore)
   return await format_unknown(activity)

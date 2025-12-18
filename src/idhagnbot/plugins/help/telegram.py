@@ -1,5 +1,3 @@
-import re
-
 import nonebot
 from nonebot.adapters.telegram import Bot
 from nonebot.adapters.telegram.event import CallbackQueryEvent
@@ -9,13 +7,11 @@ from nonebot.typing import T_State
 from idhagnbot.context import SceneId
 from idhagnbot.help import CategoryItem
 from idhagnbot.permission import Roles
-from idhagnbot.plugins.help.common import get_show_data, join_path, normalize_path
+from idhagnbot.plugins.help.common import HELP_PAGE_RE, get_show_data, join_path, normalize_path
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_uninfo")
 from nonebot_plugin_uninfo import QryItrface, Uninfo
-
-HELP_PAGE_RE = re.compile(r"help_(?P<path>.+)_(?P<page>\d+)")
 
 
 def check_help_page(event: CallbackQueryEvent, state: T_State) -> bool:
@@ -30,7 +26,8 @@ help_page = nonebot.on("inline", check_help_page)
 
 
 @help_page.handle()
-async def handle_help_page(*,
+async def handle_help_page(
+  *,
   bot: Bot,
   event: CallbackQueryEvent,
   session: Uninfo,
@@ -54,7 +51,7 @@ async def handle_help_page(*,
     )
     await bot.answer_callback_query(event.id)
     return
-  content, page, total_pages = category.format_page(show_data, [], page)
+  content, page, total_pages = category.format_page(show_data, path, page)
   buttons = InlineKeyboardMarkup(inline_keyboard=[[]])
   if page - 1 >= 0:
     buttons.inline_keyboard[0].append(

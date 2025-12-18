@@ -202,7 +202,7 @@ async def _(*, emojis: Match[UniMessage[Text]], bot_id: BotId, bot_nick: BotAnyN
   if not emojis.available:
     choices = list(cache.combinations)
     emoji1, emoji2 = random.choice(choices).split("|")
-    await handle_emojimix_common(emoji1, emoji2, False, True)
+    await handle_emojimix_common(emoji1, emoji2, swap=False, show=True)
     return
 
   text = emojis.result.extract_plain_text()
@@ -251,7 +251,7 @@ async def _(*, emojis: Match[UniMessage[Text]], bot_id: BotId, bot_nick: BotAnyN
       if emoji2 + "|" + emoji1 in cache.combinations:
         swap = True
         break
-    await handle_emojimix_common(emoji1, emoji2, swap, True)
+    await handle_emojimix_common(emoji1, emoji2, swap, show=True)
     return
 
   if match := cache.double_regex.fullmatch(emojis.result.extract_plain_text()):
@@ -264,7 +264,7 @@ async def _(*, emojis: Match[UniMessage[Text]], bot_id: BotId, bot_nick: BotAnyN
     else:
       await UniMessage(Text("组合不存在")).send()
       return
-    await handle_emojimix_common(emoji1, emoji2, swap, False)
+    await handle_emojimix_common(emoji1, emoji2, swap, show=False)
     return
 
   await UniMessage(Text("用法错误或不支持当前 Emoji")).send()
@@ -298,4 +298,4 @@ async def _(*, state: T_State) -> None:
   emoji1 = state["emoji1"]
   emoji2 = state["emoji2"]
   swap = state["swap"]
-  await handle_emojimix_common(emoji1, emoji2, swap, False)
+  await handle_emojimix_common(emoji1, emoji2, swap, show=False)

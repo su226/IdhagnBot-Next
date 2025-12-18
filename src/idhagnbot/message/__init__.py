@@ -17,6 +17,17 @@ from idhagnbot.message.common import (
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Image, UniMessage
 
+try:
+  from nonebot.adapters.telegram import Bot as TGBot
+  from nonebot.adapters.telegram import Event as TGEvent
+  from nonebot.adapters.telegram import Message as TGMessage
+  from nonebot.adapters.telegram.message import File as TGFile
+except ImportError:
+  TGBot = None
+  TGEvent = None
+  TGMessage = None
+  TGFile = None
+
 __all__ = [
   "EventTime",
   "MaybeReplyInfo",
@@ -56,18 +67,19 @@ async def send_image_or_animation(image: Image) -> str:
   bot = current_bot.get()
   if bot.adapter.get_name() == "Telegram" and (
     image.name.endswith(".gif") or image.mimetype == "image/gif"
-  ):
-    from nonebot.adapters.telegram import Bot, Event, Message
-    from nonebot.adapters.telegram.message import File
-
-    assert isinstance(bot, Bot)
+  ):  # TODO: 为这个设计合适的注册表机制
+    assert TGBot
+    assert isinstance(bot, TGBot)
     message = await uni.export(bot)
-    assert isinstance(message, Message)
+    assert TGMessage
+    assert isinstance(message, TGMessage)
     segment = message[0]
-    assert isinstance(segment, File)
+    assert TGFile
+    assert isinstance(segment, TGFile)
     segment.type = "animation"
     event = current_event.get()
-    assert isinstance(event, Event)
+    assert TGEvent
+    assert isinstance(event, TGEvent)
     receipt = await bot.send(event, message)
     return receipt.message_id
   receipt = await send_message(uni)

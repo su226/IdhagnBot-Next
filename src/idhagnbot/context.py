@@ -10,12 +10,16 @@ from nonebot.params import Depends
 from pydantic import BaseModel, Field
 
 from idhagnbot.config import SharedData
-from idhagnbot.permission import CHANNEL_TYPES
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_uninfo")
 from nonebot_plugin_alconna import Target, get_bot
 from nonebot_plugin_uninfo import Member, QryItrface, Scene, SceneType, Uninfo, User, get_interface
+
+try:
+  from nonebot.adapters.satori import Bot as SatoriBot
+except ImportError:
+  SatoriBot = None
 
 
 class Context(BaseModel):
@@ -43,9 +47,14 @@ def get_scene_id_raw(session: Uninfo) -> str:
     return f"{scope}:private:{session.scene.id}"
   if session.scene.type == SceneType.GROUP:
     return f"{scope}:group:{session.scene.id}"
-  if session.scene.type in CHANNEL_TYPES and session.scene.parent:
-    return f"{scope}:guild:{session.scene.parent.id}:channel:{session.scene.id}"
-  raise ValueError("无法获取场景")
+  if session.scene.type == SceneType.GUILD:
+    return f"{scope}:guild:{session.scene.id}"
+  toplevel_scene = session.scene
+  while toplevel_scene.parent:
+    toplevel_scene = toplevel_scene.parent
+  if toplevel_scene.type == SceneType.GUILD:
+    return f"{scope}:guild:{toplevel_scene.id}:channel:{session.scene.id}"
+  return f"{scope}:channel:{session.scene.id}"
 
 
 def get_scene_id(session: Uninfo) -> str:
@@ -145,13 +154,8 @@ def in_scene(scene_id: str, scene_ids: set[str]) -> bool:
 
 
 async def get_bot_id(bot: Bot) -> str:
-  try:
-    from nonebot.adapters.satori import Bot as SatoriBot
-
-    if isinstance(bot, SatoriBot):
-      return bot.get_self_id()
-  except ImportError:
-    pass
+  if SatoriBot and isinstance(bot, SatoriBot):
+    return bot.get_self_id()
   return bot.self_id
 
 
@@ -163,7 +167,16 @@ async def get_bot_member_or_user(
   self_id: BotId,
   session: Uninfo,
 ) -> Member | User | None:
-  if member := await interface.get_member(session.scene.type, session.scene.id, self_id):
+  toplevel_scene = session.scene
+  while toplevel_scene.parent:
+    toplevel_scene = toplevel_scene.parent
+  if session.scene is not toplevel_scene and (
+    member := await interface.get_member(toplevel_scene.type, toplevel_scene.id, self_id)
+  ):
+    return member
+  if session.scene.type != SceneType.PRIVATE and (
+    member := await interface.get_member(session.scene.type, session.scene.id, self_id)
+  ):
     return member
   if user := await interface.get_user(self_id):
     return user

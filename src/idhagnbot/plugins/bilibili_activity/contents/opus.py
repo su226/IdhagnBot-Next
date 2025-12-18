@@ -30,7 +30,7 @@ async def get_appender(activity: ActivityOpus[object]) -> Callable[[Card], None]
     fetch_image(activity.avatar),
     fetch_images(*[image.src for image in image_infos]),
     fetch_emotions(activity.content.richtext),
-    extras.format(activity.extra),
+    extras.format_extra(activity.extra),
   )
 
   def appender(card: Card) -> None:
@@ -45,7 +45,7 @@ async def get_appender(activity: ActivityOpus[object]) -> Callable[[Card], None]
     card.add(block)
     if len(images) == 1:
       cover = ImageOps.fit(images[0], (640, 400), image.get_resample())
-      card.add(CardCover(cover, False))
+      card.add(CardCover(cover, crop=False))
     elif len(images) != 0:
       columns = 2 if len(images) in {2, 4} else 3
       rows = math.ceil(len(images) / columns)
@@ -58,13 +58,13 @@ async def get_appender(activity: ActivityOpus[object]) -> Callable[[Card], None]
         x = int(x / (columns - 1) * (640 - size))
         y = y * (size + IMAGE_GAP)
         cover.paste(v, (x, y))
-      card.add(CardCover(cover, False))
-    append_extra(card, True)
+      card.add(CardCover(cover, crop=False))
+    append_extra(card, block=True)
 
   return appender
 
 
-async def format(activity: ActivityOpus[object], can_ignore: bool) -> UniMessage[Segment]:
+async def format_activity(activity: ActivityOpus[object], can_ignore: bool) -> UniMessage[Segment]:
   if can_ignore:
     check_ignore(activity.content.text)
   appender = await get_appender(activity)
@@ -74,10 +74,10 @@ async def format(activity: ActivityOpus[object], can_ignore: bool) -> UniMessage
     appender(card)
     im = Image.new("RGB", (card.get_width(), card.get_height()), (255, 255, 255))
     card.render(im, 0, 0)
-    type = "专栏" if activity.type == "ARTICLE" else "动态"
+    activity_type = "专栏" if activity.type == "ARTICLE" else "动态"
     return UniMessage(
       [
-        Text(f"{activity.name} 发布了{type}"),
+        Text(f"{activity.name} 发布了{activity_type}"),
         Text.br(),
         image.to_segment(im),
         Text.br(),

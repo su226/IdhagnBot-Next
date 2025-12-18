@@ -71,7 +71,7 @@ class Cache(BaseModel):
 
 class GogCache(DailyCache):
   def __init__(self) -> None:
-    super().__init__("gog.json", True)
+    super().__init__("gog.json", enable_prev=True)
 
   async def do_update(self) -> None:
     games = await get_free_games()

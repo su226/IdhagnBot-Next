@@ -11,6 +11,7 @@ from nonebot.typing import T_State
 
 from idhagnbot.context import get_bot_id
 from idhagnbot.http import get_session
+from idhagnbot.image import normalize_url
 from idhagnbot.itertools import SimpleGenerator
 from idhagnbot.message.common import ReplyInfo
 from idhagnbot.url import path_from_url
@@ -106,16 +107,11 @@ async def user_fetch(
     raise FetchError(f"找不到成员 {user_id} 或平台不支持")
   if not avatar:
     raise FetchError(f"成员 {nick} 没有头像")
-  if avatar.startswith("internal:"):
-    from nonebot.adapters.satori import Bot
-
-    assert isinstance(interface.bot, Bot)
-    avatar = str(interface.bot.info.api_base / "proxy" / avatar)
   if avatar.startswith("file://"):
     async with await anyio.Path(path_from_url(avatar)).open("rb") as f:
       data = await f.read()
   else:
-    async with get_session().get(avatar) as response:
+    async with get_session().get(normalize_url(avatar, interface.bot)) as response:
       data = await response.read()
   if gender not in ("male", "female"):
     gender = "unknown"

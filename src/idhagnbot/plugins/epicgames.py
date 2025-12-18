@@ -168,7 +168,7 @@ class EpicGamesCache(DailyCache):
   def __init__(self) -> None:
     super().__init__(
       "epicgames.json",
-      True,
+      enable_prev=True,
       update_time=time(11, tzinfo=ZoneInfo("America/New_York")),
     )
 
