@@ -10,7 +10,7 @@ from apscheduler.events import (  # pyright: ignore[reportMissingTypeStubs]
   JobEvent,
 )
 from loguru import logger
-from nonebot.exception import ActionFailed
+from nonebot.exception import ActionFailed, NetworkError
 
 from idhagnbot.asyncio import create_background_task, gather_seq
 from idhagnbot.command import CommandBuilder
@@ -95,7 +95,7 @@ async def try_check(user: common.User) -> int:
   ) -> None:
     try:
       await message.send(target.target)
-    except ActionFailed as e:
+    except (ActionFailed, NetworkError) as e:
       target_id = await get_target_id(target.target)
       description = f"推送 {user.name}({user.uid}) 的动态 {activity.id} 到目标 {target_id} 失败！"
       logger.exception(f"{description}\n动态内容: {activity}")
@@ -107,7 +107,7 @@ async def try_check(user: common.User) -> int:
             f"https://t.bilibili.com/{activity.id}",
           ),
         ).send(target.target)
-      except ActionFailed:
+      except (ActionFailed, NetworkError):
         pass
 
   async def try_send_all(activity: Activity[object, object]) -> None:

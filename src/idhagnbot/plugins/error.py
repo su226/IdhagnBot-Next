@@ -9,7 +9,7 @@ from apscheduler.events import (  # pyright: ignore[reportMissingTypeStubs]
   JobExecutionEvent,
 )
 from nonebot import logger
-from nonebot.exception import ActionFailed
+from nonebot.exception import ActionFailed, NetworkError
 from nonebot.matcher import Matcher
 from nonebot.message import run_postprocessor
 from pydantic import BaseModel, Field
@@ -52,7 +52,7 @@ queue = dict[str, QueueInfo]()
 async def try_send(message: UniMessage[Text], target: Target) -> None:
   try:
     await message.send(target)
-  except (ActionFailed, SerializeFailed):
+  except (ActionFailed, NetworkError, SerializeFailed):
     logger.exception(f"发送异常消息 {message!r} 到 {target} 出错")
 
 
@@ -127,5 +127,5 @@ async def _(matcher: Matcher, e: Exception) -> None:
 @background_exception_handler
 async def _(e: Exception) -> None:
   description = "后台任务出错"
-  logger.exception(description)
+  logger.opt(exception=e).error(description)
   await send_error("background_task", description, e)

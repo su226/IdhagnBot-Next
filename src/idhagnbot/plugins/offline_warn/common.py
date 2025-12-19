@@ -4,7 +4,7 @@ import anyio
 import nonebot
 from nonebot import logger
 from nonebot.adapters import Bot
-from nonebot.exception import ActionFailed
+from nonebot.exception import ActionFailed, NetworkError
 from pydantic import BaseModel, Field
 
 from idhagnbot.config import SharedConfig
@@ -62,7 +62,7 @@ async def send_queued_messages() -> None:
         hit_targets.append(target)
         try:
           await UniMessage(message.message).send(target.target, bot)
-        except ActionFailed:
+        except (ActionFailed, NetworkError):
           logger.exception(f"消息发送失败：{bot} {message.message}")
       for target in hit_targets:
         message.targets.remove(target)

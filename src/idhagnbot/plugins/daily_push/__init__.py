@@ -5,7 +5,7 @@ import nonebot
 from apscheduler.job import Job  # pyright: ignore[reportMissingTypeStubs]
 from nonebot import logger
 from nonebot.adapters import Bot
-from nonebot.exception import ActionFailed
+from nonebot.exception import ActionFailed, NetworkError
 from pydantic import BaseModel, Field
 
 from idhagnbot.asyncio import create_background_task, gather_map, gather_seq
@@ -224,7 +224,7 @@ async def send_one(target: Target, messages: list[UniMessage[Segment]]) -> None:
   for message in messages:
     try:
       await message.send(target)
-    except ActionFailed as e:
+    except (ActionFailed, NetworkError) as e:
       target_id = await get_target_id(target)
       description = f"推送到目标 {target_id} 失败"
       logger.exception(f"{description}: {message}")
@@ -233,7 +233,7 @@ async def send_one(target: Target, messages: list[UniMessage[Segment]]) -> None:
   if failed:
     try:
       await UniMessage(Text("发送部分每日推送失败，可运行 /今天 重新查看")).send(target)
-    except ActionFailed:
+    except (ActionFailed, NetworkError):
       pass
 
 
