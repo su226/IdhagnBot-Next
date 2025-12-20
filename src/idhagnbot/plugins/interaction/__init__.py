@@ -59,6 +59,8 @@ async def check_interaction(bot: Bot, event: Event, message: OrigUniMsg, state: 
     passive = True
   else:
     return False
+  if not action:
+    return False
   if len(action) > config.max_length:
     return False
   if command_manager.test(text):
