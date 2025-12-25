@@ -1,5 +1,7 @@
 from collections.abc import Awaitable, Callable
 from copy import copy
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, TypeGuard, cast
 
 import anyio
@@ -12,8 +14,16 @@ nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Segment, Target, UniMessage
 from nonebot_plugin_alconna.uniseg.segment import Media
 
+
+@dataclass
+class SentMessage:
+  time: datetime
+  id: str | None
+  content: UniMessage[Segment]
+
+
 MessageSendingHook = Callable[[Bot, UniMessage[Segment], Target], Awaitable[None]]
-MessageSentHook = Callable[[Bot, UniMessage[Segment], Target, list[str]], Awaitable[None]]
+MessageSentHook = Callable[[Bot, UniMessage[Segment], list[SentMessage], Target], Awaitable[None]]
 MessageSendFailedHook = Callable[[Bot, UniMessage[Segment], Target, Exception], Awaitable[None]]
 CALLING_API_REGISTRY = dict[str, T_CallingAPIHook]()
 CALLED_API_REGISTRY = dict[str, T_CalledAPIHook]()
@@ -54,18 +64,19 @@ async def call_message_sending_hook(
 
 async def call_message_sent_hook(
   bot: Bot,
-  message: UniMessage[Segment],
+  original_message: UniMessage[Segment],
+  messages: list[SentMessage],
   target: Target,
-  ids: list[str],
 ) -> None:
-  logger.opt(colors=True).debug(
-    "已发送消息: <y>{!r}</y> <g>{}</g>",
-    clean_message_for_logging(message),
-    target,
-  )
+  for message in messages:
+    logger.opt(colors=True).debug(
+      "已发送消息: <y>{!r}</y> <g>{}</g>",
+      clean_message_for_logging(message.content),
+      target,
+    )
   async with anyio.create_task_group() as tg:
     for hook in MESSAGE_SENT_HOOKS:
-      tg.start_soon(hook, bot, message, target, ids)
+      tg.start_soon(hook, bot, original_message, messages, target)
 
 
 async def call_message_send_failed_hook(

@@ -1,18 +1,21 @@
 import base64
+from datetime import datetime
 from typing import Any
 
 import nonebot
-from nonebot.adapters import Bot
-from nonebot.adapters.onebot.v11 import Adapter, Message, MessageSegment
+from nonebot.adapters import Bot as BaseBot
+from nonebot.adapters.onebot.v11 import Adapter, Bot, Message, MessageSegment
 from pydantic import TypeAdapter
 
 from idhagnbot.hook.common import (
   CALLED_API_REGISTRY,
   CALLING_API_REGISTRY,
+  SentMessage,
   call_message_send_failed_hook,
   call_message_sending_hook,
   call_message_sent_hook,
 )
+from idhagnbot.message import unimsg_of
 from idhagnbot.url import path_from_url
 
 nonebot.require("nonebot_plugin_alconna")
@@ -34,7 +37,7 @@ def _normalize_message(raw: Any) -> Message:
 
 
 def _parse_from_data(
-  bot: Bot,
+  bot: BaseBot,
   api: str,
   data: dict[str, Any],
 ) -> tuple[UniMessage[Segment], Target] | None:
@@ -60,7 +63,7 @@ def _parse_from_data(
       self_id=bot.self_id,
       scope=SupportScope.qq_client,
     )
-  message = UniMessage.of(message, bot)
+  message = unimsg_of(message, bot)
   for i in message[Media]:
     if i.id:
       if i.id.startswith("base64://"):
@@ -74,14 +77,14 @@ def _parse_from_data(
   return message, target
 
 
-async def on_calling_api(bot: Bot, api: str, data: dict[str, Any]) -> None:
+async def on_calling_api(bot: BaseBot, api: str, data: dict[str, Any]) -> None:
   if parsed := _parse_from_data(bot, api, data):
     message, target = parsed
     await call_message_sending_hook(bot, message, target)
 
 
 async def on_called_api(
-  bot: Bot,
+  bot: BaseBot,
   e: Exception | None,
   api: str,
   data: dict[str, Any],
@@ -92,7 +95,17 @@ async def on_called_api(
     if e:
       await call_message_send_failed_hook(bot, message, target, e)
     else:
-      await call_message_sent_hook(bot, message, target, [str(result["message_id"])])
+      assert isinstance(bot, Bot)
+      message_id = result["message_id"]
+      fetched = await bot.get_msg(message_id=message_id)
+      messages = [
+        SentMessage(
+          datetime.now(),
+          str(message_id),
+          unimsg_of(_normalize_message(fetched["message"]), bot),
+        ),
+      ]
+      await call_message_sent_hook(bot, message, messages, target)
 
 
 def register() -> None:

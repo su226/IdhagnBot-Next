@@ -1,4 +1,4 @@
-from itertools import chain
+from datetime import datetime
 from typing import Any
 
 import nonebot
@@ -7,9 +7,11 @@ from nonebot.adapters.satori import Adapter, Bot, Message
 from nonebot.adapters.satori.models import ChannelType, MessageReceipt
 from nonebot.exception import ActionFailed
 
+from idhagnbot.asyncio import gather_seq
 from idhagnbot.hook.common import (
   CALLED_API_REGISTRY,
   CALLING_API_REGISTRY,
+  SentMessage,
   call_message_send_failed_hook,
   call_message_sending_hook,
   call_message_sent_hook,
@@ -85,6 +87,23 @@ async def _parse_from_data(
   return message, await _parse_target_from_id(data["channel_id"], bot)
 
 
+async def _parse_sent_message(
+  message: MessageReceipt,
+  channel_id: str,
+  date: datetime,
+  bot: Bot,
+) -> SentMessage:
+  content = message.content
+  created_at = message.created_at
+  if not content or not created_at:
+    fetched = await bot.message_get(channel_id=channel_id, message_id=message.id)
+    content = content or fetched.content
+    created_at = created_at or fetched.created_at
+  if not created_at:
+    created_at = date
+  return SentMessage(created_at, message.id, unimsg_of(Message(content), bot))
+
+
 async def on_calling_api(bot: BaseBot, api: str, data: dict[str, Any]) -> None:
   if parsed := await _parse_from_data(bot, api, data):
     message, target = parsed
@@ -101,15 +120,17 @@ async def on_called_api(
   if not e:
     if api != "message_create" or not result:
       return
+    date = datetime.now()
     assert isinstance(bot, Bot)
-    target = await _parse_target_from_receipt(result[0], bot) or await _parse_target_from_id(
-      data["channel_id"],
-      bot,
+    channel_id = data["channel_id"]
+    target = await _parse_target_from_receipt(result[0], bot)
+    if not target:
+      target = await _parse_target_from_id(channel_id, bot)
+    message = unimsg_of(Message(data["content"]), bot)
+    messages = await gather_seq(
+      _parse_sent_message(message, channel_id, date, bot) for message in result
     )
-    chained = Message(chain.from_iterable(Message(message.content) for message in result))
-    message = unimsg_of(chained, bot)
-    ids = [message.id for message in result]
-    await call_message_sent_hook(bot, message, target, ids)
+    await call_message_sent_hook(bot, message, list(messages), target)
   elif parsed := await _parse_from_data(bot, api, data):
     message, target = parsed
     await call_message_send_failed_hook(bot, message, target, e)

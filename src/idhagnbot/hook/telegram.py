@@ -1,4 +1,4 @@
-from itertools import chain
+from datetime import datetime
 from typing import Any
 
 import nonebot
@@ -11,6 +11,7 @@ from pydantic_core import to_jsonable_python
 from idhagnbot.hook.common import (
   CALLED_API_REGISTRY,
   CALLING_API_REGISTRY,
+  SentMessage,
   call_message_send_failed_hook,
   call_message_sending_hook,
   call_message_sent_hook,
@@ -30,11 +31,11 @@ def _normalize_entities(entities: list[MessageEntity | dict[str, Any]]) -> list[
   ]
 
 
-def _parse_from_data(
+def _parse_message_from_data(
   bot: Bot,
   api: str,
   data: dict[str, Any],
-) -> tuple[UniMessage[Segment], Target] | None:
+) -> UniMessage[Segment] | None:
   if api == "send_message":
     if data.get("parse_mode") is not None:
       return None
@@ -138,12 +139,6 @@ def _parse_from_data(
     message = Message(MessageSegment.chat_action(data["action"]))
   else:
     return None
-  chat_id = data["chat_id"]
-  try:
-    private = int(chat_id) > 0
-  except ValueError:
-    private = False
-  # nonebot-plugin-alconna 的 bug？并未处理 Telegram 的文件内容是 tuple[str, bytes] 的情况
   message = UniMessage.of(message, bot)
   for segment in message[Media]:
     if isinstance(segment.id, tuple):
@@ -152,7 +147,16 @@ def _parse_from_data(
     elif segment.id and segment.id.startswith("file://"):
       segment.path = path_from_url(segment.id)
       segment.id = None
-  target = Target(
+  return message
+
+
+def _parse_target_from_data(bot: Bot, data: dict[str, Any]) -> Target:
+  chat_id = data["chat_id"]
+  try:
+    private = int(chat_id) > 0
+  except ValueError:
+    private = False
+  return Target(
     chat_id,
     private=private,
     adapter=type(bot.adapter),
@@ -160,12 +164,22 @@ def _parse_from_data(
     scope=SupportScope.telegram,
     extra={"message_thread_id": data.get("message_thread_id")},
   )
-  return message, target
+
+
+def _make_target(bot: Bot, chat_id: int, message_thread_id: int | None) -> Target:
+  return Target(
+    str(chat_id),
+    private=chat_id > 0,
+    adapter=type(bot.adapter),
+    self_id=bot.self_id,
+    scope=SupportScope.telegram,
+    extra={"message_thread_id": message_thread_id},
+  )
 
 
 async def on_calling_api(bot: Bot, api: str, data: dict[str, Any]) -> None:
-  if parsed := _parse_from_data(bot, api, data):
-    message, target = parsed
+  if message := _parse_message_from_data(bot, api, data):
+    target = _parse_target_from_data(bot, data)
     await call_message_sending_hook(bot, message, target)
 
 
@@ -180,6 +194,9 @@ async def on_called_api(
   data: dict[str, Any],
   result: Any,
 ) -> None:
+  message = _parse_message_from_data(bot, api, data)
+  if not message:
+    return
   if e is None:
     if api in (
       "send_message",
@@ -202,35 +219,42 @@ async def on_called_api(
       "send_invoice",  # not implemented in _parse_from_data
       "send_game",  # not implemented in _parse_from_data
     ):
-      message = _message_validate(result)
+      messages = [
+        SentMessage(
+          datetime.fromtimestamp(result["date"]),
+          str(result["message_id"]),
+          unimsg_of(_message_validate(result), bot),
+        ),
+      ]
       chat_id = result["chat"]["id"]
       message_thread_id = result.get("message_thread_id")
-      message_ids = [str(result["message_id"])]
+      target = _make_target(bot, chat_id, message_thread_id)
     elif api == "send_media_group":
-      message = Message(
-        chain.from_iterable(_message_validate(message) for message in result),
-      )
+      messages = [
+        SentMessage(
+          datetime.fromtimestamp(message["date"]),
+          str(message["message_id"]),
+          unimsg_of(_message_validate(message), bot),
+        )
+        for message in result
+      ]
       chat_id = result[0]["chat"]["id"]
       message_thread_id = result[0].get("message_thread_id")
-      message_ids = [str(message["message_id"]) for message in result]
+      target = _make_target(bot, chat_id, message_thread_id)
     elif api == "send_chat_action":
-      message = Message(MessageSegment.chat_action(data["action"]))
-      chat_id = data["chat_id"]
-      message_thread_id = data.get("message_thread_id")
-      message_ids = []
+      messages = [
+        SentMessage(
+          datetime.now(),
+          None,
+          unimsg_of(Message(MessageSegment.chat_action(data["action"])), bot),
+        ),
+      ]
+      target = _parse_target_from_data(bot, data)
     else:
       return
-    target = Target(
-      chat_id,
-      private=chat_id > 0,
-      adapter=type(bot.adapter),
-      self_id=bot.self_id,
-      scope=SupportScope.telegram,
-      extra={"message_thread_id": message_thread_id},
-    )
-    await call_message_sent_hook(bot, unimsg_of(message, bot), target, message_ids)
-  elif parsed := _parse_from_data(bot, api, data):
-    message, target = parsed
+    await call_message_sent_hook(bot, message, messages, target)
+  else:
+    target = _parse_target_from_data(bot, data)
     await call_message_send_failed_hook(bot, message, target, e)
 
 

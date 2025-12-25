@@ -1,3 +1,5 @@
+from itertools import chain
+
 import nonebot
 from nonebot.adapters import Bot
 from nonebot.exception import ActionFailed
@@ -7,6 +9,7 @@ from pydantic import BaseModel
 from idhagnbot.config import SharedConfig
 from idhagnbot.context import SceneIdRaw, get_target_id
 from idhagnbot.hook import on_message_send_failed, on_message_sending, on_message_sent
+from idhagnbot.hook.common import SentMessage
 from idhagnbot.message import MergedEvent, OrigMergedMsg
 from idhagnbot.permission import permission
 from idhagnbot.plugins.repeat.common import (
@@ -91,14 +94,15 @@ async def _(bot: Bot, message: UniMessage[Segment], target: Target) -> None:
 @on_message_sent
 async def _(
   bot: Bot,
-  message: UniMessage[Segment],
+  original_message: UniMessage[Segment],
+  messages: list[SentMessage],
   target: Target,
-  message_ids: list[str],
 ) -> None:
   if already_counted.get():
     return
   scene_id = await get_target_id(target)
   last = last_messages.get(scene_id)
+  message = UniMessage(chain.from_iterable(message.content for message in messages))
   if last and is_same(bot.adapter.get_name(), message, last.message):
     last_messages[scene_id] = LastMessage(
       message=message,
