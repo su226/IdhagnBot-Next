@@ -139,7 +139,7 @@ def _parse_message_from_data(
     message = Message(MessageSegment.chat_action(data["action"]))
   else:
     return None
-  message = UniMessage.of(message, bot)
+  message = unimsg_of(message, bot)
   for segment in message[Media]:
     if isinstance(segment.id, tuple):
       segment.name, segment.raw = segment.id

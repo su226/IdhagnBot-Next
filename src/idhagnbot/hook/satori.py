@@ -82,7 +82,7 @@ async def _parse_from_data(
 ) -> tuple[UniMessage[Segment], Target] | None:
   if api != "message_create":
     return None
-  message = UniMessage.of(Message(data["content"]), bot)
+  message = unimsg_of(Message(data["content"]), bot)
   assert isinstance(bot, Bot)
   return message, await _parse_target_from_id(data["channel_id"], bot)
 
