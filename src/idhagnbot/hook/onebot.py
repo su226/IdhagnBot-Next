@@ -19,7 +19,15 @@ from idhagnbot.message import unimsg_of
 from idhagnbot.url import path_from_url
 
 nonebot.require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import Segment, SupportScope, Target, UniMessage
+from nonebot_plugin_alconna import (
+  CustomNode,
+  Reference,
+  RefNode,
+  Segment,
+  SupportScope,
+  Target,
+  UniMessage,
+)
 from nonebot_plugin_alconna.uniseg.segment import Media
 
 
@@ -63,7 +71,23 @@ def _parse_from_data(
       self_id=bot.self_id,
       scope=SupportScope.qq_client,
     )
-  message = unimsg_of(message, bot)
+  if all(segment.type == "node" for segment in message):
+    message = UniMessage[Segment](
+      Reference(
+        nodes=[
+          RefNode(segment.data["id"])
+          if "id" in segment.data
+          else CustomNode(
+            segment.data["user_id"],
+            segment.data["nickname"],
+            segment.data["content"],
+          )
+          for segment in message
+        ],
+      ),
+    )
+  else:
+    message = unimsg_of(message, bot)
   for i in message[Media]:
     if i.id:
       if i.id.startswith("base64://"):
