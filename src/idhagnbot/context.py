@@ -38,7 +38,11 @@ GROUP = "group"
 GUILD = "guild"
 PRIVATE_RE = re.compile(r"^(?P<platform>[^:]+):private:(?P<private>[^:]+)$")
 GROUP_RE = re.compile(r"^(?P<platform>[^:]+):group:(?P<group>[^:]+)$")
-GUILD_RE = re.compile(r"^(?P<platform>[^:]+):guild:(?P<guild>[^:]+):channel:(?P<channel>[^:]+)$")
+GUILD_RE = re.compile(r"^(?P<platform>[^:]+):guild:(?P<guild>[^:]+)$")
+CHANNEL_RE = re.compile(r"^(?P<platform>[^:]+):channel:(?P<channel>[^:]+)$")
+GUILD_CHANNEL_RE = re.compile(
+  r"^(?P<platform>[^:]+):guild:(?P<guild>[^:]+):channel:(?P<channel>[^:]+)$",
+)
 
 
 def get_scene_id_raw(session: Uninfo) -> str:
@@ -58,8 +62,8 @@ def get_scene_id_raw(session: Uninfo) -> str:
 
 
 def get_scene_id(session: Uninfo) -> str:
-  scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
   if session.scene.type == SceneType.PRIVATE:
+    scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
     data = DATA().contexts.get(f"{scope}:{session.user.id}")
     if data:
       return data.scene
@@ -80,8 +84,12 @@ async def get_target_id(target: Target) -> str:
   interface = get_interface(bot)
   assert interface
   scope = interface.basic_info()["scope"]._name_
+  if message_thread_id := target.extra.get("message_thread_id"):
+    return f"{scope}:guild:{target.id}:channel:{message_thread_id}"
   if target.channel:
-    return f"{scope}:guild:{target.parent_id}:channel:{target.id}"
+    if target.parent_id:
+      return f"{scope}:guild:{target.parent_id}:channel:{target.id}"
+    return f"{scope}:channel:{target.id}"
   if target.private:
     return f"{scope}:private:{target.id}"
   return f"{scope}:group:{target.id}"
@@ -108,7 +116,9 @@ def get_target(scene_id: str) -> Target:
     return Target(match["private"], private=True, selector=_uninfo_selector(match["platform"]))
   if match := GROUP_RE.match(scene_id):
     return Target(match["group"], selector=_uninfo_selector(match["platform"]))
-  if match := GUILD_RE.match(scene_id):
+  if match := CHANNEL_RE.match(scene_id):
+    return Target(match["channel"], channel=True, selector=_uninfo_selector(match["platform"]))
+  if match := GUILD_CHANNEL_RE.match(scene_id):
     return Target(
       match["channel"],
       match["guild"],
@@ -119,28 +129,25 @@ def get_target(scene_id: str) -> Target:
 
 
 async def get_scene(scene_id: str) -> Scene | None:
+  platform = scene_id.split(":", 1)[0]
+  bot = await get_bot(predicate=_uninfo_predicate(platform), rand=True)
+  interface = get_interface(bot)
+  assert interface
   if match := PRIVATE_RE.match(scene_id):
-    bot = await get_bot(predicate=_uninfo_predicate(match["platform"]), rand=True)
-    interface = get_interface(bot)
-    assert interface
-    scene = await interface.get_scene(SceneType.PRIVATE, match["private"])
-  elif match := GROUP_RE.match(scene_id):
-    bot = await get_bot(predicate=_uninfo_predicate(match["platform"]), rand=True)
-    interface = get_interface(bot)
-    assert interface
-    scene = await interface.get_scene(SceneType.GROUP, match["group"])
-  elif match := GUILD_RE.match(scene_id):
-    bot = await get_bot(predicate=_uninfo_predicate(match["platform"]), rand=True)
-    interface = get_interface(bot)
-    assert interface
-    scene = await interface.get_scene(
+    return await interface.get_scene(SceneType.PRIVATE, match["private"])
+  if match := GROUP_RE.match(scene_id):
+    return await interface.get_scene(SceneType.GROUP, match["group"])
+  if match := GUILD_RE.match(scene_id):
+    return await interface.get_scene(SceneType.GUILD, match["guild"])
+  if match := CHANNEL_RE.match(scene_id):
+    return await interface.get_scene(SceneType.CHANNEL_TEXT, match["channel"])
+  if match := GUILD_CHANNEL_RE.match(scene_id):
+    return await interface.get_scene(
       SceneType.CHANNEL_TEXT,
       match["channel"],
       parent_scene_id=match["guild"],
     )
-  else:
-    raise ValueError("无效场景 ID")
-  return scene
+  raise ValueError("无效场景 ID")
 
 
 def in_scene(scene_id: str, scene_ids: set[str]) -> bool:
@@ -150,7 +157,9 @@ def in_scene(scene_id: str, scene_ids: set[str]) -> bool:
     return True
   if GROUP in scene_ids and GROUP_RE.match(scene_id):
     return True
-  return GUILD in scene_ids and bool(GUILD_RE.match(scene_id))
+  return GUILD in scene_ids and bool(
+    GUILD_RE.match(scene_id) or CHANNEL_RE.match(scene_id) or GUILD_CHANNEL_RE.match(scene_id),
+  )
 
 
 async def get_bot_id(bot: Bot) -> str:
