@@ -1,5 +1,9 @@
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import datetime, time, timezone
+from enum import Enum
+from functools import cached_property
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 import nonebot
@@ -29,16 +33,34 @@ API = (
   "https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions"
   "?locale=zh-CN&country=CN&allowCountries=CN"
 )
-URL_BASE = "https://www.epicgames.com/store/zh-CN/p/"
+GAME_URL_BASE = "https://store.epicgames.com/zh-CN/p/"
+BUNDLE_URL_BASE = "https://store.epicgames.com/zh-CN/bundles/"
 DISCOUNT_FREE = {"discountType": "PERCENTAGE", "discountPercentage": 0}
 
 
-class Game(BaseModel):
+class GameType(Enum):
+  GAME = "GAME"
+  ADD_ON = "ADD_ON"
+  BUNDLE = "BUNDLE"
+  OTHERS = "OTHERS"
+
+
+@dataclass
+class Game:
   start_date: datetime
   end_date: datetime
   title: str
   image: str
   slug: str
+  type: GameType
+
+  @cached_property
+  def url(self) -> str:
+    if not self.slug:
+      return ""
+    if self.type == GameType.BUNDLE:
+      return BUNDLE_URL_BASE + self.slug
+    return GAME_URL_BASE + self.slug
 
 
 class ApiDiscountSetting(TypedDict):
@@ -75,6 +97,10 @@ class ApiCatalogNs(TypedDict):
   mappings: list[ApiMapping] | None
 
 
+class ApiCategory(TypedDict):
+  path: str
+
+
 class ApiElement(TypedDict):
   title: str
   productSlug: str | None
@@ -83,6 +109,8 @@ class ApiElement(TypedDict):
   keyImages: list[ApiKeyImage]
   catalogNs: ApiCatalogNs
   offerMappings: list[ApiMapping] | None
+  offerType: Literal["BASE_GAME", "ADD_ON", "BUNDLE", "OTHERS"]
+  categories: list[ApiCategory]
 
 
 class ApiSearchStore(TypedDict):
@@ -128,9 +156,25 @@ def iter_mappings(game: ApiElement) -> Iterable[ApiMapping]:
 
 def get_slug(game: ApiElement) -> str:
   for i in iter_mappings(game):
+    if i["pageType"] == "offer":
+      return i["pageSlug"]
+  for i in iter_mappings(game):
     if i["pageType"] == "productHome":
       return i["pageSlug"]
   return game["productSlug"] or game["urlSlug"]
+
+
+def get_type(game: ApiElement) -> GameType:
+  if game["offerType"] == "ADD_ON":
+    return GameType.ADD_ON
+  if game["offerType"] == "BUNDLE":
+    return GameType.BUNDLE
+  if game["offerType"] == "OTHERS":
+    for category in game["categories"]:
+      if category["path"] == "bundles":
+        return GameType.BUNDLE
+    return GameType.OTHERS
+  return GameType.GAME
 
 
 async def get_free_games() -> list[Game]:
@@ -154,6 +198,7 @@ async def get_free_games() -> list[Game]:
             title=game["title"],
             image=get_image(game),
             slug="" if slug == "[]" else slug,
+            type=get_type(game),
           ),
         )
         break
@@ -224,8 +269,8 @@ class EpicGamesModule(SimpleModule):
     for game in games:
       end_str = game.end_date.astimezone().strftime("%Y-%m-%d %H:%M")
       text = f"{game.title}，截止到 {end_str}"
-      if game.slug:
-        text += f"\n{URL_BASE}{game.slug}"
+      if game.url:
+        text += f"\n{game.url}"
       message.extend([Text.br(), Text(text), Text.br(), Image(url=game.image)])
     return [message]
 
@@ -269,8 +314,8 @@ async def handle_epicgames(*, no_cache: bool) -> None:
     else:
       start_str = game.start_date.astimezone().strftime("%Y-%m-%d %H:%M")
       text = f"{game.title} 将在 {start_str} 免费，截止到 {end_str}"
-    if game.slug:
-      text += f"\n{URL_BASE}{game.slug}"
+    if game.url:
+      text += f"\n{game.url}"
     if message:
       message.append(Text.br())
     message.extend(
