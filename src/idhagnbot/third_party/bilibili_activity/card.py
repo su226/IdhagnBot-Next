@@ -20,7 +20,9 @@ async def fetch_emotion(url: str) -> Image.Image:
   async with get_session().get(url) as response:
     data = await response.read()
   return await run_sync(
-    lambda: Image.open(BytesIO(data)).resize((EMOTION_SIZE, EMOTION_SIZE), get_scale_resample()),
+    lambda: Image.open(BytesIO(data))
+    .convert("RGBA")  # 部分表情为 P 模式
+    .resize((EMOTION_SIZE, EMOTION_SIZE), get_scale_resample()),
   )
 
 
