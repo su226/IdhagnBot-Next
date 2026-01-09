@@ -338,7 +338,7 @@ def paste(
         paste_mask = paste_src
       elif paste_src.mode.endswith(("A", "a")):
         paste_mask = paste_src
-    dst.paste(paste_src, (x1, y1), paste_mask)
+    dst.paste(paste_src, (x1, y1, x1 + width, y1 + height), paste_mask)
 
 
 def replace(
@@ -368,7 +368,7 @@ def replace(
     y1 -= height
   x1 = round(x1)
   y1 = round(y1)
-  dst.paste(paste_src, (x1, y1))
+  dst.paste(paste_src, (x1, y1, x1 + width, y1 + height))
 
 
 def flatten(im: Image.Image, bg: color.RGB = (255, 255, 255)) -> Image.Image:
