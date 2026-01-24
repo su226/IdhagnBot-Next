@@ -57,7 +57,9 @@ async def try_send(message: UniMessage[Text], target: Target) -> None:
 
 
 def format_exception(exception: BaseException) -> str:
-  return format_exception_only(exception)[0] + format_tb(exception.__traceback__)[0][:-1]
+  info = format_exception_only(exception)
+  info.extend(format_tb(exception.__traceback__))
+  return "".join(info).removesuffix("\n")
 
 
 def trim_message(message: str, length: int) -> str:
@@ -111,8 +113,8 @@ async def send_error(module_id: str, description: str, exception: BaseException 
 
 
 def on_job_error(event: JobExecutionEvent) -> None:
-  exception = format_exception_only(cast(BaseException, event.exception))[0]
-  exception += cast(str, event.traceback)[:-1]
+  exception = "".join(format_exception_only(cast(BaseException, event.exception)))
+  exception += cast(str, event.traceback).removesuffix("\n")
   create_background_task(send_error("scheduler", f"定时任务 {event.job_id} 失败", exception))
 
 
