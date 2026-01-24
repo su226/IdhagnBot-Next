@@ -1,14 +1,15 @@
 import math
-from collections.abc import Generator, Sequence
+from collections.abc import Callable, Generator, Sequence
 from io import BytesIO
 from typing import Any, Literal, Protocol, TypeVar, cast, overload
 
 import cairo
 import nonebot
+from aiohttp.typedefs import LooseHeaders
 from anyio.to_thread import run_sync
 from nonebot import logger
 from nonebot.adapters import Bot
-from PIL import Image, ImageChops, ImageDraw, ImageOps, ImageSequence, features
+from PIL import Image, ImageChops, ImageDraw, ImageFile, ImageOps, ImageSequence, features
 from pydantic import BaseModel
 
 from idhagnbot import color
@@ -485,13 +486,23 @@ def normalize_url(url: str, bot: Bot) -> str:
   )
 
 
-async def open_url(url: str) -> Image.Image:
+async def open_url(
+  url: str,
+  process: Callable[[Image.Image], Image.Image] | None = None,
+  headers: LooseHeaders | None = None,
+) -> Image.Image:
   if url.startswith("file://"):
     path = path_from_url(url)
+    if process:
+      return await run_sync(lambda: process(Image.open(path)))
     return await run_sync(lambda: Image.open(path))
-  async with get_session().get(url) as response:
-    data = await response.read()
-    return await run_sync(lambda: Image.open(BytesIO(data)))
+  async with get_session().get(url, headers=headers) as response:
+    parser = ImageFile.Parser()
+    async for chunk in response.content.iter_chunked(65536):
+      await run_sync(parser.feed, chunk)
+    if process:
+      return await run_sync(lambda: process(parser.close()))
+    return await run_sync(parser.close)
 
 
 def colorize(

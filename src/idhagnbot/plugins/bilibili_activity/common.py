@@ -1,13 +1,12 @@
 import re
-from io import BytesIO
 
-from anyio.to_thread import run_sync
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field, PrivateAttr
 
 from idhagnbot.asyncio import gather_seq
 from idhagnbot.config import SharedConfig
-from idhagnbot.http import BROWSER_UA, get_session
+from idhagnbot.http import BROWSER_UA
+from idhagnbot.image import open_url
 from idhagnbot.target import TargetConfig
 
 
@@ -58,9 +57,7 @@ def check_ignore(content: str) -> None:
 
 
 async def fetch_image(url: str) -> Image.Image:
-  async with get_session().get(url, headers={"User-Agent": BROWSER_UA}) as response:
-    data = await response.read()
-  return await run_sync(lambda: ImageOps.exif_transpose(Image.open(BytesIO(data))))
+  return await open_url(url, ImageOps.exif_transpose, {"User-Agent": BROWSER_UA})
 
 
 async def fetch_images(*urls: str) -> tuple[Image.Image, ...]:

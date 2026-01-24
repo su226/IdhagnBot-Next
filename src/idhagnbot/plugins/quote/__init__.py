@@ -17,11 +17,11 @@ from idhagnbot.asyncio import gather, gather_map, gather_seq
 from idhagnbot.color import split_rgb
 from idhagnbot.command import CommandBuilder
 from idhagnbot.context import SceneId
-from idhagnbot.http import get_session
 from idhagnbot.image import (
   circle,
   contain_down,
   get_scale_resample,
+  open_url,
   paste,
   replace,
   rounded_rectangle,
@@ -36,7 +36,6 @@ from idhagnbot.plugins.quote.common import (
   MessageInfo,
   UserInfo,
 )
-from idhagnbot.url import path_from_url
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_localstore")
@@ -92,14 +91,8 @@ def generate_avatar(info: UserInfo) -> Image.Image:
   return im
 
 
-def open_avatar(info: UserInfo) -> Image.Image:
-  im = Image.open(path_from_url(info.avatar)).resize((64, 64), get_scale_resample())
-  circle(im)
-  return im
-
-
-def open_raw_avatar(data: bytes) -> Image.Image:
-  im = Image.open(BytesIO(data)).resize((64, 64), get_scale_resample())
+def avatar_process(im: Image.Image) -> Image.Image:
+  im = im.resize((64, 64), get_scale_resample())
   circle(im)
   return im
 
@@ -107,10 +100,7 @@ def open_raw_avatar(data: bytes) -> Image.Image:
 async def fetch_avatar(info: UserInfo) -> Image.Image:
   if info.avatar.startswith("avatar://"):
     return await run_sync(generate_avatar, info)
-  if info.avatar.startswith("file://"):
-    return await run_sync(open_avatar, info)
-  async with get_session().get(info.avatar) as response:
-    return await run_sync(open_raw_avatar, await response.read())
+  return await open_url(info.avatar, avatar_process)
 
 
 async def fetch_avatars(users: dict[str, UserInfo]) -> dict[str, Image.Image]:

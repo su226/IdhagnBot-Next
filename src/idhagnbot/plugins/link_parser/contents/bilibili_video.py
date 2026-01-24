@@ -1,6 +1,5 @@
 import re
 import time
-from io import BytesIO
 from typing import Any, Literal
 
 import nonebot
@@ -9,8 +8,9 @@ from PIL import Image
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import TypedDict
 
+from idhagnbot.asyncio import gather
 from idhagnbot.http import BROWSER_UA, get_session
-from idhagnbot.image import to_segment
+from idhagnbot.image import open_url, to_segment
 from idhagnbot.image.card import (
   Card,
   CardAuthor,
@@ -154,11 +154,10 @@ async def format_link(
   data_card = data["Card"]["card"]
   data_stat = data_view["stat"]
 
-  http = get_session()
-  async with http.get(data_card["face"], headers={"User-Agent": BROWSER_UA}) as response:
-    avatar_data = await response.read()
-  async with http.get(data_view["pic"], headers={"User-Agent": BROWSER_UA}) as response:
-    cover_data = await response.read()
+  avatar, cover = await gather(
+    open_url(data_card["face"], headers={"User-Agent": BROWSER_UA}),
+    open_url(data_view["pic"], headers={"User-Agent": BROWSER_UA}),
+  )
 
   def make() -> ImageSeg:
     # 2. 构建卡片
@@ -166,11 +165,9 @@ async def format_link(
 
     block = Card()
     block.add(CardText(data_view["title"], size=40, lines=2))
-    avatar = Image.open(BytesIO(avatar_data))
     block.add(CardAuthor(avatar, data_card["name"], data_card["fans"]))
     card.add(block)
 
-    cover = Image.open(BytesIO(cover_data))
     card.add(CardCover(cover))
 
     block = Card()

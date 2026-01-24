@@ -1,12 +1,8 @@
-from io import BytesIO
-
-from anyio.to_thread import run_sync
 from PIL import Image
 from typing_extensions import override
 
 from idhagnbot.asyncio import gather_map
-from idhagnbot.http import get_session
-from idhagnbot.image import get_scale_resample
+from idhagnbot.image import get_scale_resample, open_url
 from idhagnbot.image.card import CONTENT_WIDTH, PADDING, WIDTH, Render
 from idhagnbot.text import RichText as RichTextRender
 from idhagnbot.text import escape, render
@@ -16,19 +12,19 @@ from . import RichText, RichTextEmotion, RichTextText, Topic
 EMOTION_SIZE = 48
 
 
-async def fetch_emotion(url: str) -> Image.Image:
-  async with get_session().get(url) as response:
-    data = await response.read()
-  return await run_sync(
-    lambda: Image.open(BytesIO(data))
-    .convert("RGBA")  # 部分表情为 P 模式
-    .resize((EMOTION_SIZE, EMOTION_SIZE), get_scale_resample()),
-  )
-
-
 async def fetch_emotions(richtext: RichText) -> dict[str, Image.Image]:
   return await gather_map(
-    {node.url: fetch_emotion(node.url) for node in richtext if isinstance(node, RichTextEmotion)},
+    {
+      node.url: open_url(
+        node.url,
+        lambda im: im.convert("RGBA").resize(  # 部分表情为 P 模式
+          (EMOTION_SIZE, EMOTION_SIZE),
+          get_scale_resample(),
+        ),
+      )
+      for node in richtext
+      if isinstance(node, RichTextEmotion)
+    },
   )
 
 
