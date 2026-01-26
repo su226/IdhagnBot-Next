@@ -13,19 +13,14 @@ from nonebot import logger
 from nonebot.adapters import Event
 from nonebot.matcher import Matcher
 from nonebot.typing import T_State
+from nonebot.utils import flatten_exception_group
 from pydantic import BaseModel, HttpUrl, TypeAdapter
 
 from idhagnbot.asyncio import create_background_task
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig
 from idhagnbot.http import get_session
-from idhagnbot.meme_common import (
-  FetchError,
-  MemeImage,
-  MemeParam,
-  handle_params,
-  walk_exc_group,
-)
+from idhagnbot.meme_common import FetchError, MemeImage, MemeParam, handle_params
 from idhagnbot.message import send_image_or_animation
 from idhagnbot.message.common import MaybeReplyInfo
 
@@ -234,7 +229,7 @@ async def handle_meme(
     )
   except BaseExceptionGroup as excgroup:
     messages = list[str]()
-    for exc in walk_exc_group(excgroup):
+    for exc in flatten_exception_group(excgroup):
       if isinstance(exc, FetchError):
         messages.append(exc.message)
       else:

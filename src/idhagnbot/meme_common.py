@@ -1,11 +1,9 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import cast
 
 import anyio
 import nonebot
 from arclet.alconna._internal._util import levenshtein
-from exceptiongroup import BaseExceptionGroup
 from nonebot.adapters import Event
 from nonebot.exception import ActionFailed
 from nonebot.typing import T_State
@@ -13,7 +11,6 @@ from nonebot.typing import T_State
 from idhagnbot.context import get_bot_id
 from idhagnbot.http import get_session
 from idhagnbot.image import normalize_url
-from idhagnbot.itertools import SimpleGenerator
 from idhagnbot.message.common import ReplyInfo
 from idhagnbot.url import path_from_url
 
@@ -213,11 +210,3 @@ async def handle_params(
     image.name = name
 
   return texts, valid_images
-
-
-def walk_exc_group(excgroup: BaseExceptionGroup) -> SimpleGenerator[BaseException]:
-  for exc in excgroup.exceptions:
-    if isinstance(exc, BaseExceptionGroup):
-      yield from walk_exc_group(cast(BaseExceptionGroup[BaseException], exc))
-    else:
-      yield exc
