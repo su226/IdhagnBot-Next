@@ -86,7 +86,7 @@ class ApiReserve(TypedDict):
 
 
 class ApiGoodsItem(TypedDict):
-  id: int
+  id: str
   name: str
   brief: str
   price: str
