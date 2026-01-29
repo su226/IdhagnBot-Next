@@ -19,8 +19,10 @@ async def format_extra(extra: ExtraGoods) -> Callable[[Card], None]:
       source = ""
     title = f"{source}商品" if len(extra.goods) == 1 else f"{len(extra.goods)} 个{source}商品"
     if len(extra.goods) == 1:
-      content = text.escape(extra.goods[0].name)
-      if extra.goods[0].name != extra.goods[0].brief:
+      name = extra.goods[0].name
+      brief = extra.goods[0].brief
+      content = text.escape(name)
+      if brief and brief != name:
         content += (
           f"\n<span size='small' color='#888888'>{text.escape(extra.goods[0].brief)}</span>"
         )

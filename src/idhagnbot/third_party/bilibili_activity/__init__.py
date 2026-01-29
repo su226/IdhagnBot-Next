@@ -981,7 +981,7 @@ class ExtraGoods(ExtraParser["ExtraGoods"]):
     return ExtraGoods(
       goods["head_text"],
       [
-        Goods(i["id"], i["name"], i["brief"], i["price"], i["jump_url"], i["cover"])
+        Goods(int(i["id"]), i["name"], i["brief"], i["price"], i["jump_url"], i["cover"])
         for i in goods["items"]
       ],
     )
