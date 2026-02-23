@@ -54,3 +54,28 @@ def validate_result(result: dict[str, Any], data_type: type[TData]) -> TData:
   if "data" not in parsed:
     raise ApiError(parsed["code"], parsed["message"])
   return parsed["data"]
+
+
+class BiligameApiSuccess(TypedDict, Generic[TData]):
+  code: Literal[0]
+  data: TData
+  ts: int
+  request_id: str
+
+
+class BiligameApiError(TypedDict):
+  code: int
+  message: str
+  ts: int
+  request_id: str
+
+
+BiligameApiResult = BiligameApiSuccess[TData] | BiligameApiError
+
+
+def validate_biligame_result(result: dict[str, Any], data_type: type[TData]) -> TData:
+  adapter = TypeAdapter(BiligameApiResult[data_type], config={"strict": True})
+  parsed = adapter.validate_python(result)
+  if "data" not in parsed:
+    raise ApiError(parsed["code"], parsed["message"])
+  return parsed["data"]

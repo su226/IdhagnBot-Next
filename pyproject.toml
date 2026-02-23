@@ -30,6 +30,9 @@ adapters = [
     "nonebot-adapter-satori>=0.13.8",
     "nonebot-adapter-telegram>=0.1.0b20",
 ]
+crypto = [
+    "pycryptodome>=3.23.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.9.7,<0.10.0"]
