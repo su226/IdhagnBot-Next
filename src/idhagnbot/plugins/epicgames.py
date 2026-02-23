@@ -40,6 +40,7 @@ DISCOUNT_FREE = {"discountType": "PERCENTAGE", "discountPercentage": 0}
 
 class GameType(Enum):
   GAME = "GAME"
+  EDITION = "EDITION"
   ADD_ON = "ADD_ON"
   BUNDLE = "BUNDLE"
   OTHERS = "OTHERS"
@@ -109,7 +110,7 @@ class ApiElement(TypedDict):
   keyImages: list[ApiKeyImage]
   catalogNs: ApiCatalogNs
   offerMappings: list[ApiMapping] | None
-  offerType: Literal["BASE_GAME", "ADD_ON", "BUNDLE", "OTHERS"]
+  offerType: Literal["BASE_GAME", "EDITION", "ADD_ON", "BUNDLE", "OTHERS"]
   categories: list[ApiCategory]
 
 
@@ -165,6 +166,8 @@ def get_slug(game: ApiElement) -> str:
 
 
 def get_type(game: ApiElement) -> GameType:
+  if game["offerType"] == "EDITION":
+    return GameType.EDITION
   if game["offerType"] == "ADD_ON":
     return GameType.ADD_ON
   if game["offerType"] == "BUNDLE":
