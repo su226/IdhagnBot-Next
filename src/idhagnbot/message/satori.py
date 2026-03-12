@@ -7,7 +7,7 @@ from nonebot.adapters.satori import Bot as SatoriBot
 from nonebot.adapters.satori.element import parse
 from nonebot.adapters.satori.event import Event as SatoriEvent
 from nonebot.adapters.satori.message import RenderMessage
-from nonebot.adapters.satori.models import MessageReceipt
+from nonebot.adapters.satori.models import MessageObject
 
 from idhagnbot.message.common import (
   EVENT_TIME_REGISTRY,
@@ -49,7 +49,7 @@ async def reply_info(bot: Bot, event: Event, reply: Reply) -> ReplyInfo | None:
 async def sent_message_id(receipt: Receipt) -> list[str]:
   result = list[str]()
   for msg_id in receipt.msg_ids:
-    assert isinstance(msg_id, MessageReceipt)
+    assert isinstance(msg_id, MessageObject)
     result.append(msg_id.id)
   return result
 
