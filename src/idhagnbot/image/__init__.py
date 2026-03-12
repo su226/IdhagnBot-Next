@@ -1,4 +1,5 @@
 import math
+import mimetypes
 from collections.abc import Callable, Generator, Sequence
 from io import BytesIO
 from typing import Any, Literal, Protocol, TypeVar, cast, overload
@@ -574,13 +575,15 @@ def to_segment(
         )
       else:
         frames[0].save(f, afmt, append_images=frames[1:], duration=duration)
-      return ImageSeg(raw=f, name=f"image.{afmt}")
+      mime = mimetypes.suffix_map.get(f".{afmt}", "image/gif")
+      return ImageSeg(raw=f, name=f"image.{afmt}", mimetype=mime)
     im = im[0]
   fmt = fmt.lower()
   if isinstance(im, cairo.ImageSurface):
     if fmt == "png":
       im.write_to_png(f)
-      return ImageSeg(raw=f)
+      return ImageSeg(raw=f, name="image.png", mimetype="image/png")
     im = from_cairo(im)
   im.save(f, fmt, **kw)
-  return ImageSeg(raw=f, name=f"image.{fmt}")
+  mime = mimetypes.suffix_map.get(f".{fmt}", "image/png")
+  return ImageSeg(raw=f, name=f"image.{fmt}", mimetype=mime)
