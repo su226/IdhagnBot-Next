@@ -4,7 +4,7 @@ from typing import Any
 import nonebot
 from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters.satori import Adapter, Bot, Message
-from nonebot.adapters.satori.models import ChannelType, MessageReceipt
+from nonebot.adapters.satori.models import ChannelType, MessageObject
 from nonebot.exception import ActionFailed
 
 from idhagnbot.asyncio import gather_seq
@@ -46,7 +46,7 @@ async def _parse_target_from_id(channel_id: str, bot: Bot) -> Target:
   )
 
 
-async def _parse_target_from_receipt(receipt: MessageReceipt, bot: Bot) -> Target | None:
+async def _parse_target_from_receipt(receipt: MessageObject, bot: Bot) -> Target | None:
   channel = receipt.channel
   if not channel:
     return None
@@ -88,7 +88,7 @@ async def _parse_from_data(
 
 
 async def _parse_sent_message(
-  message: MessageReceipt,
+  message: MessageObject,
   channel_id: str,
   date: datetime,
   bot: Bot,
