@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from idhagnbot.asyncio import create_background_task, gather_map, gather_seq
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig, SharedData
-from idhagnbot.context import get_target_id
+from idhagnbot.context import get_bot_id, get_target_id
 from idhagnbot.permission import CHANNEL_TYPES
 from idhagnbot.plugins.daily_push.module import (
   MODULE_REGISTRY,
@@ -193,15 +193,16 @@ async def get_bot_name(bot: Bot, target: Target) -> str:
   interface = get_interface(bot)
   if not interface:
     return "IdhagnBot"
+  self_id = await get_bot_id(bot)
   if target.channel:
-    member = await interface.get_member(SceneType.GUILD, target.parent_id, bot.self_id)
+    member = await interface.get_member(SceneType.GUILD, target.parent_id, self_id)
   elif target.private:
-    member = await interface.get_member(SceneType.PRIVATE, target.id, bot.self_id)
+    member = await interface.get_member(SceneType.PRIVATE, target.id, self_id)
   else:
-    member = await interface.get_member(SceneType.GROUP, target.id, bot.self_id)
+    member = await interface.get_member(SceneType.GROUP, target.id, self_id)
   if member:
     return member.nick or member.user.nick or member.user.name or "IdhagnBot"
-  if user := await interface.get_user(bot.self_id):
+  if user := await interface.get_user(self_id):
     return user.nick or user.name or "IdhagnBot"
   return "IdhagnBot"
 
