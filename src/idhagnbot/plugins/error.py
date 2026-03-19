@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from traceback import format_exception_only, format_tb
@@ -28,6 +29,7 @@ __all__ = ["send_error"]
 
 class Config(BaseModel):
   warn_interval: dict[str, timedelta | None] = Field(default_factory=dict)
+  warn_filter: list[re.Pattern[str]] = Field(default_factory=list)
   warn_target: list[TargetConfig] = Field(default_factory=list)
   warn_length_limit: int = 4096
 
@@ -76,9 +78,13 @@ async def send_queued_error(module_id: str) -> None:
   config = CONFIG()
   last_warn[module_id] = datetime.now(timezone.utc)
   info = queue.pop(module_id)
+  content = info.exception if isinstance(info.exception, str) else format_exception(info.exception)
+  for pattern in config.warn_filter:
+    if pattern.search(content):
+      return
   header, content, footer = trim_messages(
     f"[{module_id}|{info.date.astimezone():%Y-%m-%d %H:%M:%S}]: {info.description}\n",
-    info.exception if isinstance(info.exception, str) else format_exception(info.exception),
+    content,
     f"\n还有 {info.additional_count} 个异常" if info.additional_count else "",
     config.warn_length_limit,
   )
@@ -104,9 +110,13 @@ async def send_error(module_id: str, description: str, exception: BaseException 
         scheduler.add_job(send_queued_error, "date", (module_id,), run_date=next_date)
       return
     last_warn[module_id] = now
+  content = exception if isinstance(exception, str) else format_exception(exception)
+  for pattern in config.warn_filter:
+    if pattern.search(content):
+      return
   header, content, _ = trim_messages(
     f"[{module_id}]: {description}\n",
-    exception if isinstance(exception, str) else format_exception(exception),
+    content,
     "",
     config.warn_length_limit,
   )
