@@ -82,7 +82,9 @@ async def send_queued_error(module_id: str) -> None:
     f"\n还有 {info.additional_count} 个异常" if info.additional_count else "",
     config.warn_length_limit,
   )
-  message = UniMessage([Text(header), Text(content).code(), Text(footer)])
+  message = UniMessage(
+    [Text(header).mark(-1, None, "br"), Text(content).code(), Text(footer).mark(0, 1, "br")],
+  )
   await gather_seq(try_send(message, target.target) for target in config.warn_target)
 
 
@@ -108,7 +110,7 @@ async def send_error(module_id: str, description: str, exception: BaseException 
     "",
     config.warn_length_limit,
   )
-  message = UniMessage([Text(header), Text(content).code()])
+  message = UniMessage([Text(header).mark(-1, None, "br"), Text(content).code()])
   await gather_seq(try_send(message, target.target) for target in config.warn_target)
 
 
