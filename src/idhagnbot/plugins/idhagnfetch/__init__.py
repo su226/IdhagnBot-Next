@@ -19,7 +19,7 @@ from idhagnbot.color import split_rgb
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig
 from idhagnbot.context import BotAnyNick, BotUser
-from idhagnbot.image import get_scale_resample, open_url, paste, to_segment
+from idhagnbot.image import get_scale_resample, normalize_url, open_url, paste, to_segment
 from idhagnbot.itertools import batched
 from idhagnbot.plugins.idhagnfetch.gpu import get_gpu_info
 from idhagnbot.text import escape, render
@@ -506,7 +506,11 @@ async def _(*, bot: Bot, bot_nick: BotAnyNick, bot_info: BotUser) -> None:
     gather_seq(ITEMS[name](bot) for name in config.items),
     gather_seq(BAR_ITEMS[name](bot) for name in config.bar_items),
   )
-  avatar = await open_url(bot_info.avatar) if bot_info.avatar and config.avatar_size else None
+  avatar = (
+    await open_url(normalize_url(bot_info.avatar, bot))
+    if bot_info.avatar and config.avatar_size
+    else None
+  )
 
   def make() -> ImageSeg:
     info_lines = [
