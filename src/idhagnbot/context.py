@@ -70,12 +70,20 @@ def get_scene_id(session: Uninfo) -> str:
   return get_scene_id_raw(session)
 
 
+def get_scene_id_one_private(session: Uninfo) -> str:
+  if session.scene.type == SceneType.PRIVATE:
+    scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
+    return f"{scope}:private"
+  return get_scene_id_raw(session)
+
+
 def get_user_id(session: Uninfo) -> str:
   return session.member.id if session.member else session.user.id
 
 
 SceneIdRaw = Annotated[str, Depends(get_scene_id_raw)]
 SceneId = Annotated[str, Depends(get_scene_id)]
+SceneIdOnePrivate = Annotated[str, Depends(get_scene_id_one_private)]
 UserId = Annotated[str, Depends(get_user_id)]
 
 
