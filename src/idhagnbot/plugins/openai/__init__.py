@@ -31,7 +31,7 @@ from nonebot_plugin_alconna import (
   store_true,
 )
 from nonebot_plugin_orm import Model, async_scoped_session
-from nonebot_plugin_uninfo import Uninfo
+from nonebot_plugin_uninfo import Session, Uninfo
 
 from idhagnbot.plugins.fallback import register_exception_explain
 
@@ -62,7 +62,7 @@ class Config(BaseModel):
 CONFIG = SharedConfig("openai", Config)
 
 
-def extract_nickname(session: Uninfo) -> str:
+def extract_nickname(session: Session) -> str:
   if session.member and session.member.nick:
     return session.member.nick
   return session.user.nick or session.user.name or session.user.id

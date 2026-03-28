@@ -30,7 +30,15 @@ from idhagnbot.third_party.bilibili_auth import ApiError
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_orm")
 nonebot.require("nonebot_plugin_uninfo")
-from nonebot_plugin_alconna import Alconna, Args, CommandMeta, Text, UniMessage, on_alconna
+from nonebot_plugin_alconna import (
+  Alconna,
+  Args,
+  CommandMeta,
+  Segment,
+  Text,
+  UniMessage,
+  on_alconna,
+)
 from nonebot_plugin_alconna import Image as ImageSeg
 from nonebot_plugin_orm import Model, async_scoped_session, get_session
 from nonebot_plugin_uninfo import SceneType, Uninfo
@@ -151,7 +159,7 @@ def builtin_exception_explain(exception: Exception) -> str | None:
   return None
 
 
-def starts_with_command_prefix(message: UniMsg) -> bool:
+def starts_with_command_prefix(message: UniMessage[Segment]) -> bool:
   segment = message[0]
   if not isinstance(segment, Text):
     return False

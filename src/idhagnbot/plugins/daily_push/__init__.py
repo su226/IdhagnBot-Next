@@ -39,7 +39,7 @@ from nonebot_plugin_alconna import (
   get_target,
 )
 from nonebot_plugin_apscheduler import scheduler
-from nonebot_plugin_uninfo import SceneType, Uninfo, get_interface
+from nonebot_plugin_uninfo import SceneType, Session, Uninfo, get_interface
 
 from idhagnbot.plugins.error import send_error
 
@@ -252,7 +252,7 @@ resend_push = (
 )
 
 
-async def target_match(target: TargetConfig, session: Uninfo) -> bool:
+async def target_match(target: TargetConfig, session: Session) -> bool:
   bot = await target.target.select()
   if bot.self_id != session.self_id:
     return False
@@ -266,7 +266,7 @@ async def target_match(target: TargetConfig, session: Uninfo) -> bool:
   return session.scene.type in CHANNEL_TYPES
 
 
-async def format_if_match(push: Push, session: Uninfo) -> list[UniMessage[Segment]]:
+async def format_if_match(push: Push, session: Session) -> list[UniMessage[Segment]]:
   matches = await gather_seq(target_match(target, session) for target in push.targets)
   targets = [target.target for target, match in zip(push.targets, matches, strict=True) if match]
   if targets:
