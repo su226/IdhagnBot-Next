@@ -5,9 +5,9 @@ from datetime import datetime, timedelta
 import nonebot
 from anyio import get_cancelled_exc_class
 from apscheduler.events import (  # pyright: ignore[reportMissingTypeStubs]
+  EVENT_JOB_ERROR,
   EVENT_JOB_EXECUTED,
-  EVENT_JOB_MISSED,
-  JobEvent,
+  JobExecutionEvent,
 )
 from loguru import logger
 from nonebot.exception import ActionFailed, NetworkError
@@ -38,8 +38,7 @@ def onload(prev: common.Config | None, curr: common.Config) -> None:
   queue = deque[common.User]()
   for i in curr.users:
     queue.append(i)
-  delta = timedelta(seconds=curr.interval)
-  schedule(datetime.now() + delta)
+  schedule(datetime.now() + timedelta(seconds=curr.interval))
 
 
 def schedule(date: datetime) -> None:
@@ -58,12 +57,12 @@ def schedule(date: datetime) -> None:
   )
 
 
-def schedule_next(event: JobEvent) -> None:
+def schedule_next(event: JobExecutionEvent) -> None:
   if event.job_id == "bilibili_activity":
     schedule(datetime.now() + timedelta(seconds=common.CONFIG().interval))
 
 
-scheduler.add_listener(schedule_next, EVENT_JOB_EXECUTED | EVENT_JOB_MISSED)
+scheduler.add_listener(schedule_next, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
 
 @driver.on_bot_connect
