@@ -1,4 +1,5 @@
 import random
+import time
 from datetime import datetime, timedelta
 from typing import Any, ClassVar, Literal
 
@@ -19,6 +20,7 @@ from idhagnbot.http import get_session
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_orm")
 nonebot.require("nonebot_plugin_uninfo")
+nonebot.require("idhagnbot.plugins.fallback")
 from nonebot_plugin_alconna import (
   Alconna,
   Args,
@@ -31,16 +33,30 @@ from nonebot_plugin_alconna import (
 from nonebot_plugin_orm import Model, async_scoped_session
 from nonebot_plugin_uninfo import Uninfo
 
+from idhagnbot.plugins.fallback import register_exception_explain
+
 
 class Config(BaseModel):
   key: SecretStr = SecretStr("")
   server: HttpUrl = HttpUrl("https://api.openai.com/v1")
   model: str = "gpt-4.1"
   system: str = ""
-  info: bool = True
+  info: bool | Literal["user", "system"] = True
   secret: bool = False
   history_time: timedelta = timedelta(1)
   history_limit: int = 100
+  timer: bool | float = False
+
+  @property
+  def send_info_as(self) -> Literal["system", "user"] | None:
+    if isinstance(self.info, bool):
+      return "system" if self.info else None
+    return self.info
+
+  def should_send_timer(self, duration: float) -> bool:
+    if isinstance(self.timer, bool):
+      return self.timer
+    return duration > self.timer
 
 
 CONFIG = SharedConfig("openai", Config)
@@ -78,11 +94,21 @@ class ResChoice(TypedDict):
   message: ResMessage
 
 
-class ResData(TypedDict):
+class ResDataSuccess(TypedDict):
   created: int
   choices: list[ResChoice]
 
 
+class ResError(TypedDict):
+  code: int
+  message: str
+
+
+class ResDataError(TypedDict):
+  error: ResError
+
+
+ResData = ResDataSuccess | ResDataError
 ResDataAdapter = TypeAdapter(ResData)
 
 
@@ -98,6 +124,20 @@ class ReqData(TypedDict):
 
 class ReqHeaders(TypedDict):
   Authorization: str
+
+
+class OpenAIException(Exception):
+  def __init__(self, code: int, message: str) -> None:
+    super().__init__(code, message)
+    self.code: int = code
+    self.message: str = message
+
+
+@register_exception_explain
+def ai_exception_explain(exception: BaseException) -> str | None:
+  if isinstance(exception, OpenAIException):
+    return "AI 供应商异常\n可能是输入或输出中包含敏感内容，额度用完了，亦或是供应商真的炸了。"
+  return None
 
 
 ai = (
@@ -133,12 +173,12 @@ async def handle_ai(
   no_context: bool,
 ) -> None:
   config = CONFIG()
-  time = datetime.now()
+  now = datetime.now()
   if no_context:
     history = []
   else:
     ignore_time = await sql.get(Ignore, scene_id)
-    min_time = time - config.history_time
+    min_time = now - config.history_time
     min_time = max(min_time, ignore_time.time) if ignore_time else min_time
     history = list(
       await sql.scalars(
@@ -154,7 +194,7 @@ async def handle_ai(
     nickname=extract_nickname(session),
     superuser=await SUPERUSER(bot, event),
     content=message.extract_plain_text(),
-    time=time,
+    time=now,
     ignored=no_context,
   )
   history.append(current)
@@ -163,22 +203,27 @@ async def handle_ai(
   if config.system:
     messages.append(ReqMessage(role="system", content=config.system.format(secret=secret)))
   for item in history:
-    if config.info and item.role == "user":
+    if config.send_info_as and item.role == "user":
       secret_info = f"，带有暗号{secret}" if config.secret and item.superuser else ""
       messages.append(
         ReqMessage(
-          role="system",
+          role=config.send_info_as,
           content=f"下一条消息来自{item.nickname}{secret_info}，"
           f"发送于{item.time:%Y-%m-%d %H:%M:%S}",
         ),
       )
     messages.append(ReqMessage(role=item.role, content=item.content))
+  time_start = time.perf_counter()
   async with get_session().post(
     f"{config.server}/chat/completions",
     headers=ReqHeaders(Authorization=f"Bearer {config.key.get_secret_value()}"),
     json=ReqData(model=config.model, messages=messages),
   ) as response:
     data = ResDataAdapter.validate_python(await response.json())
+  time_end = time.perf_counter()
+  timer = time_end - time_start
+  if error := data.get("error"):
+    raise OpenAIException(error["code"], error["message"])
   content = data["choices"][0]["message"]["content"]
   sql.add(current)
   sql.add(
@@ -193,6 +238,8 @@ async def handle_ai(
     ),
   )
   await sql.commit()
+  if config.should_send_timer(timer):
+    content += f"\n({timer:.1f}s)"
   await ai.send(content)
 
 
