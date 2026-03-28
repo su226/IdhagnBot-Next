@@ -1,4 +1,5 @@
 from datetime import datetime
+from functools import cached_property
 from typing import Any, ClassVar
 
 import nonebot
@@ -29,6 +30,10 @@ class Message(Model):
   content: Mapped[str]
   outgoing: Mapped[bool] = mapped_column(server_default="0")
   caused_by: Mapped[str | None]
+
+  @cached_property
+  def unimessage(self) -> UniMessage[Segment]:
+    return UniMessage.load(self.content)
 
 
 @event_preprocessor

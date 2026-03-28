@@ -20,7 +20,7 @@ async def repeat(
   message_thread_id = (
     events[0].message_thread_id if isinstance(events[0], ForumTopicMessageEvent) else None
   )
-  with count_send(bot.adapter.get_name(), scene_id, message):
+  async with count_send(bot.adapter.get_name(), scene_id, message):
     await bot.forward_messages(
       chat_id=chat_id,
       message_thread_id=message_thread_id,

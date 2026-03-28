@@ -1,17 +1,17 @@
 import re
 
 import nonebot
-from nonebot.adapters.onebot.v11 import Adapter, FriendRecallNoticeEvent, GroupRecallNoticeEvent
+from nonebot.adapters.onebot.v11 import (
+  Adapter,
+  Bot,
+  FriendRecallNoticeEvent,
+  GroupRecallNoticeEvent,
+)
 from nonebot.message import event_preprocessor
 from yarl import URL
 
 from idhagnbot.context import SceneIdRaw
-from idhagnbot.plugins.repeat.common import (
-  COMPARATOR_REGISTRY,
-  CONDITION_REGISTRY,
-  LastMessage,
-  last_messages,
-)
+from idhagnbot.plugins.repeat.common import COMPARATOR_REGISTRY, CONDITION_REGISTRY, count_recall
 
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Emoji, Image, Segment, Text, UniMessage
@@ -20,16 +20,11 @@ SUPER_EMOTE_RE = re.compile(r"^/[A-Za-z0-9\u4e00-\u9fa5]+$")
 
 
 async def handle_recall(
-  _: GroupRecallNoticeEvent | FriendRecallNoticeEvent,
+  bot: Bot,
+  event: GroupRecallNoticeEvent | FriendRecallNoticeEvent,
   scene_id: SceneIdRaw,
 ) -> None:
-  if last := last_messages.get(scene_id):
-    last = LastMessage(
-      message=last.message,
-      received_count=max(last.received_count - 1, 0),
-      sending_count=last.sending_count,
-      sent_count=last.sent_count,
-    )
+  await count_recall(bot.adapter.get_name(), scene_id, str(event.message_id))
 
 
 def _extract_image_id(image_id: str | None) -> str | None:
