@@ -1,12 +1,12 @@
 from dataclasses import dataclass
-from datetime import datetime, time, timezone
-from typing import Literal
+from datetime import UTC, datetime, time
+from typing import Literal, NotRequired
 from zoneinfo import ZoneInfo
 
 import nonebot
 from nonebot.typing import T_State
 from pydantic import BaseModel, TypeAdapter
-from typing_extensions import NotRequired, TypedDict, override
+from typing_extensions import TypedDict, override
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.http import BROWSER_UA, get_session
@@ -94,14 +94,15 @@ async def get_free_games(platform: Literal["android", "ios"]) -> list[Game]:
   else:
     return []
   games: list[Game] = []
-  now_date = datetime.now(timezone.utc)
+  now_date = datetime.now(UTC)
   for offer in offers:
     for purchase in offer["content"]["purchase"]:
       if "discount" in purchase and purchase["discount"]["discountAmountDisplay"] == "-100%":
         start_date = purchase["purchaseStateEffectiveDate"]
         end_date = purchase["discount"]["discountEndDate"]
-        start_date = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
-        end_date = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+        # 从 Python 3.11 开始，不再需要 replace("Z", "+00:00") 了
+        start_date = datetime.fromisoformat(start_date)
+        end_date = datetime.fromisoformat(end_date)
         if start_date < end_date and now_date < end_date:
           games.append(
             Game(
@@ -170,7 +171,7 @@ class EpicGamesMobileModule(SimpleModule):
   async def format(self) -> list[UniMessage[Segment]]:
     cache = ANDROID_CACHE if self.platform == "android" else IOS_CACHE
     await cache.ensure()
-    now_date = datetime.now(timezone.utc)
+    now_date = datetime.now(UTC)
     _, games = cache.get()
     games = [game for game in games if now_date > game.start_date]
     if not self.force:
@@ -242,7 +243,7 @@ async def handle_epicgames_android(*, no_cache: bool, state: T_State) -> None:
   if not games:
     await epicgames_android.finish("似乎没有可白嫖的游戏")
   games.sort(key=lambda x: x.end_date)
-  now_date = datetime.now(timezone.utc)
+  now_date = datetime.now(UTC)
   message = UniMessage()
   for game in games:
     end_str = game.end_date.astimezone().strftime("%Y-%m-%d %H:%M")

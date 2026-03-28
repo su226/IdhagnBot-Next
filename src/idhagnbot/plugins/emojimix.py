@@ -1,6 +1,6 @@
 import random
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import cached_property
 
 import nonebot
@@ -53,7 +53,7 @@ class Cache(BaseModel):
   dates: list[str] = Field(default_factory=list)
   emojis: dict[str, str] = Field(default_factory=dict)
   combinations: dict[str, int] = Field(default_factory=dict)
-  updated: datetime = datetime(1, 1, 1, tzinfo=timezone.utc)
+  updated: datetime = datetime(1, 1, 1, tzinfo=UTC)
 
   @cached_property
   def single_regex(self) -> re.Pattern[str]:
@@ -119,7 +119,7 @@ async def update_cache() -> None:
     cache.dates = dates
     cache.emojis = emojis
     cache.combinations = combinations
-    cache.updated = datetime.now(timezone.utc)
+    cache.updated = datetime.now(UTC)
     CACHE.dump()
     logger.success("更新 emojimix 数据成功")
   except Exception as e:
@@ -131,7 +131,7 @@ async def update_cache() -> None:
 @nonebot.get_driver().on_startup
 async def _() -> None:
   cache = CACHE()
-  now = datetime.now(timezone.utc)
+  now = datetime.now(UTC)
   if now - cache.updated > timedelta(7):
     create_background_task(update_cache())
 

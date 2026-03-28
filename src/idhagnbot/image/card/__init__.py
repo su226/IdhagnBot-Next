@@ -1,8 +1,8 @@
 from pathlib import Path
-from typing import Any, Protocol, overload
+from typing import Any, Protocol, Self, overload
 
 from PIL import Image, ImageOps
-from typing_extensions import Self, override
+from typing_extensions import override
 
 from idhagnbot import image as imutil
 from idhagnbot import text as textutil

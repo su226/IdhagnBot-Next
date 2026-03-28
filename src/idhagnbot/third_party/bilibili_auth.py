@@ -1,9 +1,9 @@
 from pathlib import Path
-from typing import Any, Generic, Literal, TypeVar
+from typing import Any, Generic, Literal, NotRequired, TypeVar
 
 import jsonc  # pyright: ignore[reportMissingTypeStubs]
 from pydantic import BaseModel, SecretStr, TypeAdapter
-from typing_extensions import NotRequired, TypedDict, override
+from typing_extensions import TypedDict, override
 
 from idhagnbot.config import SharedConfig
 

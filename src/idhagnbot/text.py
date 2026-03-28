@@ -1,11 +1,10 @@
 import math
-from typing import Any, ClassVar, Literal, TypeAlias, Union, cast, overload
+from typing import Any, ClassVar, Literal, Self, TypeAlias, Union, cast, overload
 
 import cairo
 import gi
 from PIL import Image
 from pydantic import BaseModel, Field
-from typing_extensions import Self
 
 from idhagnbot import image
 from idhagnbot.color import split_rgb

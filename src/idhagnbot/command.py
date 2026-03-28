@@ -1,10 +1,9 @@
-from typing import Any, cast
+from typing import Any, Self, cast
 
 import nonebot
 from arclet.alconna import config
 from nonebot.exception import FinishedException
 from nonebot.typing import T_State
-from typing_extensions import Self
 
 from idhagnbot.help import CategoryItem, CommandItem, CommonData
 from idhagnbot.permission import DEFAULT, permission

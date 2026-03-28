@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import nonebot
 from nonebot.adapters import Bot, Event
@@ -41,7 +41,7 @@ async def reply_info(bot: Bot, event: Event, reply: Reply) -> ReplyInfo | None:
   time = datetime.fromtimestamp(reply.origin.time)
   if await get_implementation(bot) == LAGRANGE:
     # https://github.com/LagrangeDev/Lagrange.Core/issues/897
-    time = datetime.fromtimestamp(time.replace(tzinfo=timezone.utc).timestamp())
+    time = datetime.fromtimestamp(time.replace(tzinfo=UTC).timestamp())
   return ReplyInfo(
     str(reply.origin.message_id),
     time,

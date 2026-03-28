@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from itertools import chain
 from typing import TypeGuard, cast
 
@@ -37,7 +37,7 @@ media_groups = dict[str, tuple[datetime, list[MessageEvent]]]()
 async def merged_event(bot: Bot, event: Event) -> list[Event] | None:
   if not isinstance(event, MessageEvent) or not event.media_group_id:
     return [event]
-  now = datetime.now(timezone.utc)
+  now = datetime.now(UTC)
   _, events = media_groups.setdefault(event.media_group_id, (now, []))
   events.append(event)
   media_groups[event.media_group_id] = (now, events)

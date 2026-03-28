@@ -109,7 +109,7 @@ class ResDataError(TypedDict):
 
 
 ResData = ResDataSuccess | ResDataError
-ResDataAdapter = TypeAdapter(ResData)
+ResDataAdapter = TypeAdapter[ResData](ResData)
 
 
 class ReqMessage(TypedDict):
@@ -120,10 +120,6 @@ class ReqMessage(TypedDict):
 class ReqData(TypedDict):
   model: str
   messages: list[ReqMessage]
-
-
-class ReqHeaders(TypedDict):
-  Authorization: str
 
 
 class OpenAIException(Exception):
@@ -216,13 +212,14 @@ async def handle_ai(
   time_start = time.perf_counter()
   async with get_session().post(
     f"{config.server}/chat/completions",
-    headers=ReqHeaders(Authorization=f"Bearer {config.key.get_secret_value()}"),
+    headers={"Authorization": f"Bearer {config.key.get_secret_value()}"},
     json=ReqData(model=config.model, messages=messages),
   ) as response:
     data = ResDataAdapter.validate_python(await response.json())
   time_end = time.perf_counter()
   timer = time_end - time_start
-  if error := data.get("error"):
+  if "error" in data:
+    error = data["error"]
     raise OpenAIException(error["code"], error["message"])
   content = data["choices"][0]["message"]["content"]
   sql.add(current)

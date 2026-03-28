@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 from datetime import datetime, time
+from typing import NotRequired
 from zoneinfo import ZoneInfo
 
 import nonebot
 from pydantic import BaseModel, TypeAdapter
-from typing_extensions import NotRequired, TypedDict, override
+from typing_extensions import TypedDict, override
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig

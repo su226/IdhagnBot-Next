@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from traceback import format_exception_only, format_tb
 from typing import cast
 
@@ -76,7 +76,7 @@ def trim_messages(header: str, content: str, footer: str, length: int) -> tuple[
 
 async def send_queued_error(module_id: str) -> None:
   config = CONFIG()
-  last_warn[module_id] = datetime.now(timezone.utc)
+  last_warn[module_id] = datetime.now(UTC)
   info = queue.pop(module_id)
   content = info.exception if isinstance(info.exception, str) else format_exception(info.exception)
   for pattern in config.warn_filter:
@@ -100,7 +100,7 @@ async def send_error(module_id: str, description: str, exception: BaseException 
   if interval is None:
     return
   if interval:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     last = last_warn.get(module_id)
     if last and now < (next_date := last + interval):
       if module_id in queue:

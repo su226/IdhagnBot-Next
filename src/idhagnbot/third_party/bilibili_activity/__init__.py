@@ -2,13 +2,14 @@ from dataclasses import dataclass
 from typing import (
   Generic,
   Literal,
+  NotRequired,
   Optional,
   Protocol,
   TypeVar,
 )
 
 from pydantic import TypeAdapter
-from typing_extensions import NotRequired, TypedDict, override
+from typing_extensions import TypedDict, override
 
 from idhagnbot.http import BROWSER_UA, get_session
 from idhagnbot.third_party.bilibili_auth import get_cookie, validate_result

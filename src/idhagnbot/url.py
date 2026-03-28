@@ -1,7 +1,7 @@
 import os
 import re
 from collections.abc import Generator
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import unquote, unquote_to_bytes
 
@@ -69,7 +69,7 @@ class ClearURLsRules(BaseModel):
 class Data(BaseModel):
   tlds: set[str] = Field(default_factory=set)
   clearurls_rules: list[ClearURLsRule] = Field(default_factory=list)
-  last_update: datetime = datetime(1, 1, 1, tzinfo=timezone.utc)
+  last_update: datetime = datetime(1, 1, 1, tzinfo=UTC)
 
 
 DATA = SharedData("url", Data)
@@ -108,7 +108,7 @@ def clear_url(url: str) -> str:
 @driver.on_startup
 async def update_tlds() -> None:
   data = DATA()
-  now = datetime.now(timezone.utc)
+  now = datetime.now(UTC)
   if now - data.last_update < timedelta(7):
     return
   logger.info("正在更新 URL 数据")

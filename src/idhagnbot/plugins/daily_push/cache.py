@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta, timezone
+from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -49,7 +49,7 @@ class BaseCache:
 
   def write_date(self) -> None:
     with self.date_path.open("w") as f:
-      f.write(datetime.now(timezone.utc).astimezone().isoformat())
+      f.write(datetime.now(UTC).astimezone().isoformat())
 
   async def update(self) -> None:
     self.path.parent.mkdir(parents=True, exist_ok=True)

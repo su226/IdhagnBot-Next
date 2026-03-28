@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, time, timezone
+from datetime import UTC, datetime, time
 from enum import Enum
 from functools import cached_property
 from typing import Literal
@@ -184,14 +184,15 @@ async def get_free_games() -> list[Game]:
   async with get_session().get(API) as response:
     data = ApiResultAdapter.validate_python(await response.json())
   result = list[Game]()
-  now_date = datetime.now(timezone.utc)
+  now_date = datetime.now(UTC)
   for game in data["data"]["Catalog"]["searchStore"]["elements"]:
     for i in iter_promotions(game):
-      # Python不支持Z结束，须替换成+00:00
+      # Python <= 3.10 不支持 Z 结束，须替换成 +00:00
+      # 从 Python 3.11 开始不再需要 replace("Z", "+00:00") 了
       if i["startDate"] is None or i["endDate"] is None:
         continue
-      start_date = datetime.fromisoformat(i["startDate"].replace("Z", "+00:00"))
-      end_date = datetime.fromisoformat(i["endDate"].replace("Z", "+00:00"))
+      start_date = datetime.fromisoformat(i["startDate"])
+      end_date = datetime.fromisoformat(i["endDate"])
       if i["discountSetting"] == DISCOUNT_FREE and start_date < end_date and now_date < end_date:
         slug = get_slug(game)
         result.append(
@@ -257,7 +258,7 @@ class EpicGamesModule(SimpleModule):
   @override
   async def format(self) -> list[UniMessage[Segment]]:
     await CACHE.ensure()
-    now_date = datetime.now(timezone.utc)
+    now_date = datetime.now(UTC)
     _, games = CACHE.get()
     games = [game for game in games if now_date > game.start_date]
     if not self.force:
@@ -308,7 +309,7 @@ async def handle_epicgames(*, no_cache: bool) -> None:
   if not games:
     await epicgames.finish("似乎没有可白嫖的游戏")
   games.sort(key=lambda x: x.end_date)
-  now_date = datetime.now(timezone.utc)
+  now_date = datetime.now(UTC)
   message = UniMessage()
   for game in games:
     end_str = game.end_date.astimezone().strftime("%Y-%m-%d %H:%M")

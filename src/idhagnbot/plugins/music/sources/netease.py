@@ -1,10 +1,11 @@
 import math
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
+from typing import Self
 from urllib.parse import quote as encodeuri
 
 from pydantic import TypeAdapter
-from typing_extensions import Self, TypedDict, override
+from typing_extensions import TypedDict, override
 
 from idhagnbot.http import get_session
 from idhagnbot.plugins.music.sources.base import AudioUrl, Music, SearchResult

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from itertools import count
-from typing import Protocol
+from typing import NotRequired, Protocol
 from urllib.parse import quote as encodeuri
 
 import nonebot
@@ -9,7 +9,7 @@ from anyio.to_thread import run_sync
 from nonebot.exception import FinishedException
 from nonebot.typing import T_State
 from PIL import Image, ImageDraw, ImageOps
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 from idhagnbot.color import split_rgb
 from idhagnbot.command import CommandBuilder

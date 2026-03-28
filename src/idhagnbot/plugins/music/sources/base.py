@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from typing import Generic, TypeVar
+from typing import Generic, Self, TypeVar
 
-from typing_extensions import AsyncGenerator, Self
+from typing_extensions import AsyncGenerator
 
 T_co = TypeVar("T_co", bound="Music", covariant=True)
 

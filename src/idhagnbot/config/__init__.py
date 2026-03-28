@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Generic, Literal, TypeVar
 import nonebot
 from nonebot import logger
 from pydantic import BaseModel
-from typing_extensions import TypeVarTuple, Unpack, override
+from typing_extensions import TypeVarTuple, override
 
 from idhagnbot.config import json, yaml
 from idhagnbot.config.driver import Driver
@@ -18,7 +18,7 @@ from nonebot_plugin_localstore import get_cache_dir, get_config_dir, get_data_di
 
 TModel = TypeVar("TModel", bound=BaseModel)
 TParam = TypeVarTuple("TParam")
-LoadHandler = Callable[[TModel | None, TModel, Unpack[TParam]], None]
+LoadHandler = Callable[[TModel | None, TModel, *TParam], None]
 Reloadable = Literal[False, "eager", "lazy"]
 CONFIG_DIR = get_config_dir("idhagnbot")
 DATA_DIR = get_data_dir("idhagnbot")
@@ -35,15 +35,15 @@ class CacheItem(Generic[TModel]):
   need_reload: bool = False
 
 
-class BaseConfig(Generic[TModel, Unpack[TParam]]):
+class BaseConfig(Generic[TModel, *TParam]):
   category: ClassVar[str] = "配置"
-  all: ClassVar[list["BaseConfig[Any, Unpack[tuple[Any, ...]]]"]] = []
+  all: ClassVar[list["BaseConfig[Any, *tuple[Any, ...]]"]] = []
   driver: ClassVar[Driver] = yaml
 
   model: type[TModel]
-  cache: dict[tuple[Unpack[TParam]], CacheItem[TModel]]
+  cache: dict[tuple[*TParam], CacheItem[TModel]]
   reloadable: Reloadable
-  handlers: list[LoadHandler[TModel, Unpack[TParam]]]
+  handlers: list[LoadHandler[TModel, *TParam]]
   lock: Lock
 
   def __init__(self, model: type[TModel], reloadable: Reloadable = "lazy") -> None:
@@ -55,17 +55,17 @@ class BaseConfig(Generic[TModel, Unpack[TParam]]):
     self.lock = Lock()
     self.all.append(self)
 
-  def get_file(self, *args: Unpack[TParam], fallback: bool = False) -> Path:
+  def get_file(self, *args: *TParam, fallback: bool = False) -> Path:
     raise NotImplementedError
 
-  def __call__(self, *args: Unpack[TParam]) -> TModel:
+  def __call__(self, *args: *TParam) -> TModel:
     if args not in self.cache or self.cache[args].need_reload:
       with self.lock:  # Nonebot 的 run_sync 不在主线程
         if args not in self.cache or self.cache[args].need_reload:
           self.load(*args)
     return self.cache[args].item
 
-  def load(self, *args: Unpack[TParam]) -> None:
+  def load(self, *args: *TParam) -> None:
     file = self.get_file(*args, fallback=True)
     if file.exists():
       logger.info(f"加载{self.category}文件: {file}")
@@ -85,7 +85,7 @@ class BaseConfig(Generic[TModel, Unpack[TParam]]):
     for handler in self.handlers:
       handler(old_config, new_config, *args)
 
-  def dump(self, *args: Unpack[TParam]) -> None:
+  def dump(self, *args: *TParam) -> None:
     if args not in self.cache:
       return
     data = self.cache[args].item
@@ -96,10 +96,10 @@ class BaseConfig(Generic[TModel, Unpack[TParam]]):
 
   def onload(
     self,
-  ) -> Callable[[LoadHandler[TModel, Unpack[TParam]]], LoadHandler[TModel, Unpack[TParam]]]:
+  ) -> Callable[[LoadHandler[TModel, *TParam]], LoadHandler[TModel, *TParam]]:
     def decorator(
-      handler: LoadHandler[TModel, Unpack[TParam]],
-    ) -> LoadHandler[TModel, Unpack[TParam]]:
+      handler: LoadHandler[TModel, *TParam],
+    ) -> LoadHandler[TModel, *TParam]:
       self.handlers.append(handler)
       return handler
 

@@ -8,7 +8,6 @@ import nonebot
 from aiohttp import ClientError, FormData
 from arclet.alconna import ArgFlag, Args, Empty, Option
 from arclet.alconna.action import Action
-from exceptiongroup import BaseExceptionGroup
 from nonebot import logger
 from nonebot.adapters import Event
 from nonebot.matcher import Matcher

@@ -7,7 +7,6 @@ import anyio
 import nonebot
 from aiohttp import ClientError
 from arclet.alconna import Args
-from exceptiongroup import BaseExceptionGroup
 from nonebot import logger
 from nonebot.adapters import Event
 from nonebot.matcher import Matcher
