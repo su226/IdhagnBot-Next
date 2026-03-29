@@ -1,7 +1,6 @@
-from collections.abc import Iterable
 from datetime import datetime, time
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 import nonebot
@@ -49,7 +48,7 @@ class Level(BaseModel):
   @staticmethod
   def parse(data: str) -> "Level":
     level, _, _, author, *_ = data.split("#")
-    data1 = dict(cast(Iterable[tuple[str, str]], batched(level.split(":"), 2)))
+    data1 = dict(batched(level.split(":"), 2))
     return Level.model_validate(
       {
         "id": data1["1"],
