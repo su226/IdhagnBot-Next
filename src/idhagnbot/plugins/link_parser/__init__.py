@@ -1,12 +1,12 @@
 import json
 from collections.abc import Generator
+from importlib.util import find_spec
 from itertools import chain
 from typing import Any, ClassVar
 
-import cv2
 import nonebot
-import numpy as np
 from anyio.to_thread import run_sync
+from nonebot import logger
 from nonebot.adapters import Bot, Event
 from nonebot.typing import T_State
 from pydantic import BaseModel
@@ -39,6 +39,7 @@ class Config(BaseModel):
 
 CONFIG = SharedConfig("link_parser", Config)
 CONTENTS: list[Content] = [bilibili_activity, bilibili_b23, bilibili_video, github]
+cv2_warned = False
 
 
 class LastState(Model):
@@ -64,6 +65,9 @@ def extract_links(message: UniMessage[Segment]) -> Generator[str, None, None]:
 
 
 def decode(data: bytes) -> list[str]:
+  import cv2
+  import numpy as np
+
   im = cv2.imdecode(np.frombuffer(data, "uint8"), cv2.IMREAD_COLOR)
   if im is not None:
     _retval, decoded_info, _points, _straight_code = cv2.QRCodeDetector().detectAndDecodeMulti(im)
@@ -87,6 +91,12 @@ async def extract_qrcodes(
   state: T_State,
   message: UniMessage[Segment],
 ) -> list[str]:
+  if find_spec("cv2") is None:
+    global cv2_warned
+    if not cv2_warned:
+      logger.warning("未安装 OpenCV，无法识别二维码。如需安装，请将 idhagnbot[cv2] 添加到依赖中。")
+      cv2_warned = True
+    return []
   return list(
     chain.from_iterable(
       await gather_seq(download_and_decode(bot, event, state, seg) for seg in message[Image]),

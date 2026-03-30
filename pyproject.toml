@@ -6,7 +6,6 @@ authors = [
     {name = "su226", email = "thesu226@outlook.com"},
 ]
 dependencies = [
-    "json-with-comments>=1.2.10",
     "nonebot-plugin-alconna>=0.60.3",
     "nonebot-plugin-apscheduler>=0.5.0",
     "nonebot-plugin-localstore>=0.7.4",
@@ -14,9 +13,7 @@ dependencies = [
     "nonebot-plugin-uninfo>=0.10.1",
     "nonebot-plugin-waiter>=0.8.1",
     "nonebot2>=2.4.4",
-    "opencv-python-headless>=4.12.0.88",
     "pillow>=12.0.0",
-    "psutil>=7.1.3",
     "pygobject>=3.54.5",
 ]
 requires-python = ">=3.11,<4.0"
@@ -32,6 +29,15 @@ adapters = [
 ]
 crypto = [
     "pycryptodome>=3.23.0",
+]
+psutil = [
+    "psutil>=7.1.3",
+]
+cv2 = [
+    "opencv-python-headless>=4.12.0.88",
+]
+jsonc = [
+    "json-with-comments>=1.2.10",
 ]
 
 [build-system]

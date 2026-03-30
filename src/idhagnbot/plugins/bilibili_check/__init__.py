@@ -6,6 +6,7 @@ from urllib.parse import quote as encodeuri
 
 import nonebot
 from anyio.to_thread import run_sync
+from nonebot import logger
 from nonebot.exception import FinishedException
 from nonebot.typing import T_State
 from PIL import Image, ImageDraw, ImageOps
@@ -406,6 +407,8 @@ register(vtb)
 try:
   from idhagnbot.plugins.bilibili_check import furry
 except ImportError:
-  pass
+  logger.warning(
+    "未安装 PyCryptodome，无法使用 /查福瑞。如需安装，请将 idhagnbot[crypto] 添加到依赖中。",
+  )
 else:
   register(furry)

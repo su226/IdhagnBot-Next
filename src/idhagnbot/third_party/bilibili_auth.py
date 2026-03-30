@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any, Generic, Literal, NotRequired, TypeVar
 
-import jsonc  # pyright: ignore[reportMissingTypeStubs]
+from nonebot import logger
 from pydantic import BaseModel, SecretStr, TypeAdapter
 from typing_extensions import TypedDict, override
 
@@ -17,12 +17,24 @@ class Config(BaseModel):
 
 CONFIG = SharedConfig("bilibili_auth", Config)
 TData = TypeVar("TData")
+jsonc_warned = False
 
 
 def get_cookie() -> str:
   config = CONFIG()
   if config.cookie_type == "static":
     return config.cookie.get_secret_value()
+  try:
+    import jsonc  # pyright: ignore[reportMissingTypeStubs]
+  except ImportError:
+    global jsonc_warned
+    if not jsonc_warned:
+      logger.warning(
+        "未安装 json-with-comments，无法使用 BilibiliTool 的 Cookie。"
+        "如需安装，请将 idhagnbot[jsonc] 添加到依赖中。",
+      )
+      jsonc_warned = True
+    return ""
   with config.bilibilitool_cookies_file.open() as f:
     data = jsonc.load(f)
   return data["BiliBiliCookies"][config.bilibilitool_cookies_index]
