@@ -7,9 +7,9 @@ import idhagnbot.plugins
 
 __all__ = ["__plugin_meta__", "load_plugins"]
 __plugin_meta__ = PluginMetadata(
-  name="idhagnbot",
+  name="IdhagnBot",
   description="加载所有 IdhagnBot 插件的快捷方式，亦可通过配置文件排除部分插件。",
-  usage="""`nonebot.load_plugin("idhagnbot")`""",
+  usage="""发送 <命令前缀>help 获取所有可用命令。""",
   type="application",
   homepage="https://github.com/su226/IdhagnBot-Next",
   supported_adapters={"~onebot.v11", "~satori", "~telegram"},
