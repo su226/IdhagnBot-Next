@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field, PrivateAttr, RootModel
 from pygtrie import Trie  # pyright: ignore[reportMissingTypeStubs]
 from sqlalchemy.orm import Mapped, mapped_column
 
-from idhagnbot.command import CommandBuilder
+from idhagnbot.command import COMMAND_LIKE_KEY, IDHAGNBOT_KEY, CommandBuilder
 from idhagnbot.config import SharedConfig
 from idhagnbot.context import SceneId, SceneIdRaw
 from idhagnbot.help import COMMAND_PREFIX
@@ -159,13 +159,6 @@ def builtin_exception_explain(exception: Exception) -> str | None:
   return None
 
 
-def starts_with_command_prefix(message: UniMessage[Segment]) -> bool:
-  segment = message[0]
-  if not isinstance(segment, Text):
-    return False
-  return any(segment.text.startswith(prefix) for prefix in DRIVER.config.command_start if prefix)
-
-
 @run_preprocessor
 async def pre_run(state: T_State) -> None:
   state[PREFIX_KEY][RUN_KEY] = True
@@ -250,7 +243,7 @@ async def post_event(
     return
   if config.has_ignored_prefix(scene_id, message):
     return
-  if starts_with_command_prefix(message) and config.show_invaild_command[scene_id]:
+  if state[IDHAGNBOT_KEY][COMMAND_LIKE_KEY] and config.show_invaild_command[scene_id]:
     await UniMessage(Text("命令不存在、权限不足或不适用于当前上下文")).send(event, bot)
   if (
     event.is_tome()

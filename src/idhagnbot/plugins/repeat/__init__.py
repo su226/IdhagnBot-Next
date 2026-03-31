@@ -5,6 +5,7 @@ from nonebot.adapters import Bot
 from nonebot.exception import ActionFailed
 from nonebot.message import event_preprocessor
 
+from idhagnbot.command import COMMAND_LIKE_KEY, IDHAGNBOT_KEY
 from idhagnbot.context import SceneIdRaw, get_target_id
 from idhagnbot.hook import on_message_send_failed, on_message_sending, on_message_sent
 from idhagnbot.hook.common import SentMessage
@@ -27,6 +28,7 @@ from idhagnbot.plugins.repeat.common import (
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_orm")
 nonebot.require("nonebot_plugin_uninfo")
+from nonebot.typing import T_State
 from nonebot_plugin_alconna import Segment, Target, UniMessage
 from nonebot_plugin_orm import async_scoped_session
 from nonebot_plugin_uninfo import SceneType, Uninfo
@@ -97,10 +99,6 @@ async def _(
 
 def is_ignored(scene_id: str, message: UniMessage[Segment]) -> bool:
   text = message.extract_plain_text()
-  prefixes = tuple(prefix for prefix in nonebot.get_driver().config.command_start if prefix)
-  if text.startswith(prefixes):
-    return True
-
   config = CONFIG()
   for pattern in config.global_ignore:
     if pattern.search(text):
@@ -124,9 +122,11 @@ async def can_repeat(
   scene_id: SceneIdRaw,
   message: OrigMergedMsg,
   sql: async_scoped_session,
+  state: T_State,
 ) -> bool:
   if (
     session.scene.type != SceneType.PRIVATE
+    and not state[IDHAGNBOT_KEY][COMMAND_LIKE_KEY]
     and not is_ignored(scene_id, message)
     and check_condition(bot.adapter.get_name(), message)
     and (last := await sql.get(LastMessage, scene_id))

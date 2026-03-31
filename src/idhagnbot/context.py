@@ -136,26 +136,26 @@ def get_target(scene_id: str) -> Target:
   raise ValueError("无效场景 ID")
 
 
+def unpack_scene_id(scene_id: str) -> tuple[str, SceneType, str, str | None]:
+  if match := PRIVATE_RE.match(scene_id):
+    return match["platform"], SceneType.PRIVATE, match["private"], None
+  if match := GROUP_RE.match(scene_id):
+    return match["platform"], SceneType.GROUP, match["group"], None
+  if match := GUILD_RE.match(scene_id):
+    return match["platform"], SceneType.GUILD, match["guild"], None
+  if match := CHANNEL_RE.match(scene_id):
+    return match["platform"], SceneType.CHANNEL_TEXT, match["channel"], None
+  if match := GUILD_CHANNEL_RE.match(scene_id):
+    return match["platform"], SceneType.CHANNEL_TEXT, match["channel"], match["guild"]
+  raise ValueError("无效场景 ID")
+
+
 async def get_scene(scene_id: str) -> Scene | None:
-  platform = scene_id.split(":", 1)[0]
+  platform, scene_type, current_id, parent_id = unpack_scene_id(scene_id)
   bot = await get_bot(predicate=_uninfo_predicate(platform), rand=True)
   interface = get_interface(bot)
   assert interface
-  if match := PRIVATE_RE.match(scene_id):
-    return await interface.get_scene(SceneType.PRIVATE, match["private"])
-  if match := GROUP_RE.match(scene_id):
-    return await interface.get_scene(SceneType.GROUP, match["group"])
-  if match := GUILD_RE.match(scene_id):
-    return await interface.get_scene(SceneType.GUILD, match["guild"])
-  if match := CHANNEL_RE.match(scene_id):
-    return await interface.get_scene(SceneType.CHANNEL_TEXT, match["channel"])
-  if match := GUILD_CHANNEL_RE.match(scene_id):
-    return await interface.get_scene(
-      SceneType.CHANNEL_TEXT,
-      match["channel"],
-      parent_scene_id=match["guild"],
-    )
-  raise ValueError("无效场景 ID")
+  return await interface.get_scene(scene_type, current_id, parent_scene_id=parent_id)
 
 
 def in_scene(scene_id: str, scene_ids: set[str]) -> bool:

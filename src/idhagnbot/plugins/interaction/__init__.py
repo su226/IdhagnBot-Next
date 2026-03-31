@@ -4,6 +4,7 @@ from nonebot.consts import CMD_KEY, PREFIX_KEY
 from nonebot.typing import T_State
 from pydantic import BaseModel
 
+from idhagnbot.command import COMMAND_KEY, IDHAGNBOT_KEY
 from idhagnbot.config import SharedConfig
 from idhagnbot.message import OrigUniMsg
 from idhagnbot.permission import permission
@@ -11,7 +12,7 @@ from idhagnbot.plugins.interaction.common import AT_EXTRACT_REGISTRY, REPLY_EXTR
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_uninfo")
-from nonebot_plugin_alconna import At, Reply, Text, command_manager
+from nonebot_plugin_alconna import At, Reply, Text
 from nonebot_plugin_uninfo import Uninfo
 
 try:
@@ -38,7 +39,7 @@ CONFIG = SharedConfig("interaction", Config)
 
 
 async def check_interaction(bot: Bot, event: Event, message: OrigUniMsg, state: T_State) -> bool:
-  if state[PREFIX_KEY][CMD_KEY]:
+  if state[PREFIX_KEY][CMD_KEY] or state[IDHAGNBOT_KEY][COMMAND_KEY]:
     return False
   reply_segments = message[Reply]
   if len(reply_segments) > 1:
@@ -62,8 +63,6 @@ async def check_interaction(bot: Bot, event: Event, message: OrigUniMsg, state: 
   if not action:
     return False
   if len(action) > config.max_length:
-    return False
-  if command_manager.test(text):
     return False
   adapter = bot.adapter.get_name()
   if reply_segments and at_segments:

@@ -40,7 +40,7 @@ def find_command(name: str) -> CommandItem | None:
   except KeyError:
     pass
   for prefix in nonebot.get_driver().config.command_start:
-    if name.startswith(prefix):
+    if prefix and name.startswith(prefix):
       try:
         return CommandItem.find(name[len(prefix) :])
       except KeyError:

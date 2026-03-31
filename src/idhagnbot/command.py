@@ -3,9 +3,11 @@ from typing import Any, Self, cast
 import nonebot
 from arclet.alconna import config
 from nonebot.exception import FinishedException
+from nonebot.message import event_preprocessor
 from nonebot.typing import T_State
 
 from idhagnbot.help import CategoryItem, CommandItem, CommonData
+from idhagnbot.message import UniMsg
 from idhagnbot.permission import DEFAULT, permission
 
 nonebot.require("nonebot_plugin_alconna")
@@ -14,7 +16,9 @@ from nonebot_plugin_alconna import (
   AlconnaMatcher,
   CommandResult,
   Extension,
+  Text,
   UniMessage,
+  command_manager,
   on_alconna,
 )
 
@@ -111,3 +115,21 @@ class CommandBuilder:
     if self.__auto_reject:
       matcher.handle()(send_output)
     return matcher
+
+
+IDHAGNBOT_KEY = "_idhagnbot"
+COMMAND_KEY = "command"
+COMMAND_LIKE_KEY = "command_like"
+DRIVER = nonebot.get_driver()
+
+
+@event_preprocessor
+async def _(message: UniMsg, state: T_State) -> None:
+  state[IDHAGNBOT_KEY] = idhagnbot_state = {COMMAND_KEY: False, COMMAND_LIKE_KEY: False}
+  if command_manager.test(message):
+    idhagnbot_state[COMMAND_KEY] = True
+  segment = message[0]
+  if isinstance(segment, Text) and any(
+    segment.text.startswith(prefix) for prefix in DRIVER.config.command_start if prefix
+  ):
+    idhagnbot_state[COMMAND_LIKE_KEY] = True
