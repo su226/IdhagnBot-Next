@@ -90,17 +90,16 @@ class CommandBuilder:
     if not self.__parser:
       raise ValueError("parser is required")
     parser = self.__parser
-    CategoryItem.find(self.__category, create=True).add(
-      CommandItem(
-        [parser.name, *self.__aliases],
-        parser.meta.description,
-        cast(Any, parser.formatter.format_node),
-        CommonData(
-          node=self.__node,
-          default_grant_to=self.__default_grant_to,
-        ),
+    item = CommandItem(
+      [parser.name, *self.__aliases],
+      parser.meta.description,
+      cast(Any, parser.formatter.format_node),
+      CommonData(
+        node=self.__node,
+        default_grant_to=self.__default_grant_to,
       ),
     )
+    CategoryItem.find(self.__category, create=True).add(item)
     matcher = on_alconna(
       parser,
       aliases=self.__aliases,
@@ -112,6 +111,12 @@ class CommandBuilder:
       use_cmd_start=True,
       _depth=1,
     )
+
+    def destroy() -> None:
+      item.remove_self()
+      matcher.clean()
+
+    matcher.destroy = destroy
     if self.__auto_reject:
       matcher.handle()(send_output)
     return matcher
