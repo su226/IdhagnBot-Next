@@ -67,7 +67,7 @@ class EnableSet(RootModel[IncludeExcludeSet | bool]):
 
 
 class Config(BaseModel):
-  show_invaild_command: EnableSet = EnableSet.true()
+  show_invalid_command: EnableSet = EnableSet.true()
   show_im_bot: EnableSet = EnableSet.true()
   show_exception: EnableSet = EnableSet.true()
   ignore_prefix_global: dict[str, set[str]] = Field(default_factory=dict)
@@ -243,7 +243,7 @@ async def post_event(
     return
   if config.has_ignored_prefix(scene_id, message):
     return
-  if state[IDHAGNBOT_KEY][COMMAND_LIKE_KEY] and config.show_invaild_command[scene_id]:
+  if state[IDHAGNBOT_KEY][COMMAND_LIKE_KEY] and config.show_invalid_command[scene_id]:
     await UniMessage(Text("命令不存在、权限不足或不适用于当前上下文")).send(event, bot)
   if (
     event.is_tome()

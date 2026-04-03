@@ -388,16 +388,16 @@ class CategoryItem(Item):
 
   def format_all(self, show_data: ShowData, path: list[str]) -> list[str]:
     config = CONFIG()
-    vaild_items = sorted(
+    valid_items = sorted(
       ((x(), x) for x in self.items if x.can_show(show_data)),
       key=lambda x: (-x[1].data.priority, x[1].get_order(), x[0]),
     )
-    if not vaild_items:
+    if not valid_items:
       return ["当前分类没有内容"]
     has_command = False
     has_category = False
     nodes: list[str] = []
-    for chunk in batched(vaild_items, config.page_size):
+    for chunk in batched(valid_items, config.page_size):
       lines: list[str] = []
       for formatted, item in chunk:
         if isinstance(item, CommandItem):
