@@ -19,7 +19,7 @@ from nonebot.typing import T_State
 from idhagnbot.context import SceneId
 from idhagnbot.help import CategoryItem
 from idhagnbot.permission import Roles
-from idhagnbot.plugins.help.common import HELP_PAGE_RE, get_show_data, join_path, normalize_path
+from idhagnbot.plugins.help.common import HELP_PAGE_RE, get_context, join_path, normalize_path
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_uninfo")
@@ -80,15 +80,15 @@ async def handle_help_page(
   roles: Roles,
   state: T_State,
 ) -> None:
-  show_data = await get_show_data(scene, session, interface, roles)
+  context = await get_context(scene, session, interface, roles)
   page = state["page"]
   path = state["path"]
   try:
-    category = CategoryItem.find(path, check=show_data)
+    category = CategoryItem.find(path, ctx=context)
   except (KeyError, ValueError):
     await interaction_edit_message(bot, event, "无此条目或分类、权限不足或在当前上下文不可用")
     return
-  content, page, total_pages = category.format_page(show_data, path, page)
+  content, page, total_pages = category.format_page(page, context)
   row = ActionRow(components=[])
   if page - 1 >= 0:
     row.components.append(

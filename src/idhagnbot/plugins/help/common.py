@@ -5,7 +5,7 @@ import nonebot
 from nonebot.exception import ActionFailed
 
 from idhagnbot.asyncio import gather_seq
-from idhagnbot.help import ShowData
+from idhagnbot.help import Context
 
 nonebot.require("nonebot_plugin_uninfo")
 from nonebot_plugin_uninfo import Interface, SceneType, Session
@@ -28,17 +28,17 @@ async def get_available_groups(session: Session, interface: Interface, user_id: 
   ]
 
 
-async def get_show_data(
+async def get_context(
   scene: str,
   session: Session,
   interface: Interface,
   roles: set[str],
-) -> ShowData:
+) -> Context:
   available_scenes = {scene}
   if session.scene.type == SceneType.PRIVATE:
     available_scenes.update(await get_available_groups(session, interface, session.user.id))
   scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
-  return ShowData(
+  return Context(
     scope,
     f"{scope}:{session.user.id}",
     scene,

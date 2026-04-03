@@ -937,6 +937,7 @@ dependencies = [
     { name = "nonebot2" },
     { name = "pillow" },
     { name = "pygobject" },
+    { name = "pypinyin" },
 ]
 
 [package.optional-dependencies]
@@ -992,6 +993,7 @@ requires-dist = [
     { name = "psutil", marker = "extra == 'psutil'", specifier = ">=7.1.3" },
     { name = "pycryptodome", marker = "extra == 'crypto'", specifier = ">=3.23.0" },
     { name = "pygobject", specifier = ">=3.54.5" },
+    { name = "pypinyin", specifier = ">=0.55.0" },
 ]
 provides-extras = ["adapters", "crypto", "psutil", "cv2", "jsonc"]
 
@@ -2245,6 +2247,15 @@ source = { registry = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/" }
 sdist = { url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/packages/b9/13/55deec25bf09383216fa7f1dfcdbfca40a04aa00b6d15a5cbf25af8fce5f/pygtrie-2.5.0.tar.gz", hash = "sha256:203514ad826eb403dab1d2e2ddd034e0d1534bbe4dbe0213bb0593f66beba4e2", size = 39266, upload-time = "2022-07-16T14:29:47.459Z" }
 wheels = [
     { url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/packages/ec/cd/bd196b2cf014afb1009de8b0f05ecd54011d881944e62763f3c1b1e8ef37/pygtrie-2.5.0-py3-none-any.whl", hash = "sha256:8795cda8105493d5ae159a5bef313ff13156c5d4d72feddefacaad59f8c8ce16", size = 25099, upload-time = "2022-09-23T20:30:05.12Z" },
+]
+
+[[package]]
+name = "pypinyin"
+version = "0.55.0"
+source = { registry = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/" }
+sdist = { url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/packages/b4/a4/784cf98c09e0dc22776b0d7d8a4a5b761218bcae4608c2416ce1e167c8af/pypinyin-0.55.0.tar.gz", hash = "sha256:b5711b3a0c6f76e67408ec6b2e3c4987a3a806b7c528076e7c7b86fcf0eaa66b", size = 839836, upload-time = "2025-07-20T12:01:50.657Z" }
+wheels = [
+    { url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/packages/b9/7b/4cabc76fcc21c3c7d5c671d8783984d30ac9d3bb387c4ba784fca3cdfa3a/pypinyin-0.55.0-py2.py3-none-any.whl", hash = "sha256:d53b1e8ad2cdb815fb2cb604ed3123372f5a28c6f447571244aca36fc62a286f", size = 840203, upload-time = "2025-07-20T12:01:48.535Z" },
 ]
 
 [[package]]
