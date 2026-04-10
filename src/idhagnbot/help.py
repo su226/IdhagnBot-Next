@@ -24,7 +24,6 @@ from idhagnbot.permission import check as check_permission
 @dataclass
 class Context:
   scope: str
-  user_id: str
   current_scene: str
   available_scenes: set[str]
   private: bool

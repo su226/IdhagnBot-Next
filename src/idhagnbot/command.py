@@ -1,4 +1,4 @@
-from typing import Any, Self, cast
+from typing import Any, Self, TypedDict, cast
 
 import nonebot
 from arclet.alconna import config
@@ -122,6 +122,11 @@ class CommandBuilder:
     return matcher
 
 
+class IBState(TypedDict):
+  command: bool
+  command_like: tuple[str, str] | None
+
+
 IDHAGNBOT_KEY = "_idhagnbot"
 COMMAND_KEY = "command"
 COMMAND_LIKE_KEY = "command_like"
@@ -130,11 +135,16 @@ DRIVER = nonebot.get_driver()
 
 @event_preprocessor
 async def _(message: UniMsg, state: T_State) -> None:
-  state[IDHAGNBOT_KEY] = idhagnbot_state = {COMMAND_KEY: False, COMMAND_LIKE_KEY: False}
+  idhagnbot_state = IBState(command=False, command_like=None)
+  state[IDHAGNBOT_KEY] = idhagnbot_state
   if command_manager.test(message):
     idhagnbot_state[COMMAND_KEY] = True
   segment = message[0]
-  if isinstance(segment, Text) and any(
-    segment.text.startswith(prefix) for prefix in DRIVER.config.command_start if prefix
-  ):
-    idhagnbot_state[COMMAND_LIKE_KEY] = True
+  if isinstance(segment, Text):
+    longest_prefix_len = 0
+    first = segment.text.split(None, 1)[0]
+    for prefix in DRIVER.config.command_start:
+      if prefix and first.startswith(prefix):
+        longest_prefix_len = max(longest_prefix_len, len(prefix))
+    if longest_prefix_len:
+      idhagnbot_state[COMMAND_LIKE_KEY] = (first[:longest_prefix_len], first[longest_prefix_len:])

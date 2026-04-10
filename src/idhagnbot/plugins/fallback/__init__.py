@@ -7,6 +7,7 @@ from typing import Any, ClassVar, Literal, TypeVar
 import nonebot
 from aiohttp import ClientError
 from anyio.to_thread import run_sync
+from arclet.alconna._internal._util import levenshtein
 from nonebot.adapters import Bot, Event
 from nonebot.consts import PREFIX_KEY
 from nonebot.exception import ActionFailed
@@ -20,10 +21,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from idhagnbot.command import COMMAND_LIKE_KEY, IDHAGNBOT_KEY, CommandBuilder
 from idhagnbot.config import SharedConfig
 from idhagnbot.context import SceneId, SceneIdRaw
-from idhagnbot.help import COMMAND_PREFIX
+from idhagnbot.help import COMMAND_PREFIX, CommandItem, Context
 from idhagnbot.image import paste, to_segment
 from idhagnbot.message import UniMsg
-from idhagnbot.permission import ADMINISTRATOR_OR_ABOVE
+from idhagnbot.permission import ADMINISTRATOR_OR_ABOVE, Roles
 from idhagnbot.text import escape, render
 from idhagnbot.third_party.bilibili_auth import ApiError
 
@@ -34,7 +35,6 @@ from nonebot_plugin_alconna import (
   Alconna,
   Args,
   CommandMeta,
-  Segment,
   Text,
   UniMessage,
   on_alconna,
@@ -70,6 +70,7 @@ class Config(BaseModel):
   show_invalid_command: EnableSet = EnableSet.true()
   show_im_bot: EnableSet = EnableSet.true()
   show_exception: EnableSet = EnableSet.true()
+  min_similarity: None | float = 0.6
   ignore_prefix_global: dict[str, set[str]] = Field(default_factory=dict)
   _ignore_prefix_global: dict[str, Trie] = PrivateAttr()
   ignore_prefix_local: dict[str, set[str]] = Field(default_factory=dict)
@@ -230,6 +231,7 @@ async def post_event(
   session: Uninfo,
   scene_id: SceneIdRaw,
   message: UniMsg,
+  roles: Roles,
 ) -> None:
   if RUN_KEY in state[PREFIX_KEY]:
     return
@@ -243,8 +245,28 @@ async def post_event(
     return
   if config.has_ignored_prefix(scene_id, message):
     return
-  if state[IDHAGNBOT_KEY][COMMAND_LIKE_KEY] and config.show_invalid_command[scene_id]:
-    await UniMessage(Text("命令不存在、权限不足或不适用于当前上下文")).send(event, bot)
+  if (match := state[IDHAGNBOT_KEY][COMMAND_LIKE_KEY]) and config.show_invalid_command[scene_id]:
+    fallback = "命令不存在、权限不足或不适用于当前上下文"
+    if config.min_similarity is not None:
+      prefix, suffix = match
+      context = Context(
+        scope,
+        scene_id,
+        {scene_id},  # TODO: available_scenes
+        session.scene.type == SceneType.PRIVATE,
+        roles,
+      )
+      command, similarity = max(
+        (
+          (command, levenshtein(command, suffix))
+          for command, item in CommandItem.COMMANDS.items()
+          if item.check(context)
+        ),
+        key=lambda x: x[1],
+      )
+      if similarity >= config.min_similarity:
+        fallback += f"\n你要找的是不是：{prefix}{command}"
+    await UniMessage(Text(fallback)).send(event, bot)
   if (
     event.is_tome()
     and config.show_im_bot[scene_id]

@@ -40,7 +40,6 @@ async def get_context(
   scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
   return Context(
     scope,
-    f"{scope}:{session.user.id}",
     scene,
     available_scenes,
     session.scene.type == SceneType.PRIVATE,
