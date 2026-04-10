@@ -273,6 +273,7 @@ async def _(
       .where(Message.scene_id == scene_id, Message.time >= reply_info.time)
       # 如果平台时间戳为浮点型，几乎不会出现相同时间戳的情况
       # 但如果时间戳为整型，则可能出现相同时间戳，因此预留一定余量
+      .order_by(Message.record_id)
       .limit(count + 10),
     )
     records = list(islice(dropwhile(lambda x: x.message_id != reply_info.id, records), 1, count))
