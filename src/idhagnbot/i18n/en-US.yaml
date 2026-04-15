@@ -1,0 +1,11 @@
+idhagnbot:
+  lang_name: "English (US)"
+
+idhagnbot_lang:
+  locale_get: "Current locale is {lang}."
+  locale_get_unset: "Current locale is unset."
+  locale_get_force: "Current locale is {lang} (force apply)."
+  locale_set: "Current locale is set to {lang}."
+  locale_set_force: "Current locale is set to {lang} (force apply)."
+  locale_set_invalid: "Locale {lang} is invalid."
+  locale_set_reset: "Current locale is set to default."

@@ -1,0 +1,11 @@
+idhagnbot:
+  lang_name: "中文（中国）"
+
+idhagnbot_lang:
+  locale_get: "当前语言是 {lang}。"
+  locale_get_unset: "未指定当前语言。"
+  locale_get_force: "当前语言是 {lang}（强制应用）。"
+  locale_set: "当前语言已设置为 {lang}。"
+  locale_set_force: "当前语言已设置为 {lang}（强制应用）。"
+  locale_set_invalid: "无效语言 {lang}。"
+  locale_set_reset: "已恢复默认语言。"

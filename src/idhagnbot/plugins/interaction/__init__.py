@@ -4,7 +4,7 @@ from nonebot.consts import CMD_KEY, PREFIX_KEY
 from nonebot.typing import T_State
 from pydantic import BaseModel
 
-from idhagnbot.command import COMMAND_KEY, IDHAGNBOT_KEY
+from idhagnbot.command import COMMAND_KEY
 from idhagnbot.config import SharedConfig
 from idhagnbot.message import OrigUniMsg
 from idhagnbot.permission import permission
@@ -39,7 +39,7 @@ CONFIG = SharedConfig("interaction", Config)
 
 
 async def check_interaction(bot: Bot, event: Event, message: OrigUniMsg, state: T_State) -> bool:
-  if state[PREFIX_KEY][CMD_KEY] or state[IDHAGNBOT_KEY][COMMAND_KEY]:
+  if state[PREFIX_KEY][CMD_KEY] or state.get(COMMAND_KEY, False):
     return False
   reply_segments = message[Reply]
   if len(reply_segments) > 1:

@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field, PrivateAttr, RootModel
 from pygtrie import Trie  # pyright: ignore[reportMissingTypeStubs]
 from sqlalchemy.orm import Mapped, mapped_column
 
-from idhagnbot.command import COMMAND_LIKE_KEY, IDHAGNBOT_KEY, CommandBuilder
+from idhagnbot.command import COMMAND_LIKE_KEY, CommandBuilder
 from idhagnbot.config import SharedConfig
 from idhagnbot.context import SceneId, SceneIdRaw
 from idhagnbot.help import COMMAND_PREFIX, CommandItem, Context
@@ -245,7 +245,7 @@ async def post_event(
     return
   if config.has_ignored_prefix(scene_id, message):
     return
-  if (match := state[IDHAGNBOT_KEY][COMMAND_LIKE_KEY]) and config.show_invalid_command[scene_id]:
+  if (match := state.get(COMMAND_LIKE_KEY)) and config.show_invalid_command[scene_id]:
     fallback = "命令不存在、权限不足或不适用于当前上下文"
     if config.min_similarity is not None:
       prefix, suffix = match

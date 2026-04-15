@@ -5,7 +5,7 @@ from nonebot.adapters import Bot
 from nonebot.exception import ActionFailed
 from nonebot.message import event_preprocessor
 
-from idhagnbot.command import COMMAND_LIKE_KEY, IDHAGNBOT_KEY
+from idhagnbot.command import COMMAND_LIKE_KEY
 from idhagnbot.context import SceneIdRaw, get_target_id
 from idhagnbot.hook import on_message_send_failed, on_message_sending, on_message_sent
 from idhagnbot.hook.common import SentMessage
@@ -126,7 +126,7 @@ async def can_repeat(
 ) -> bool:
   if (
     session.scene.type != SceneType.PRIVATE
-    and not state[IDHAGNBOT_KEY][COMMAND_LIKE_KEY]
+    and not state.get(COMMAND_LIKE_KEY)
     and not is_ignored(scene_id, message)
     and check_condition(bot.adapter.get_name(), message)
     and (last := await sql.get(LastMessage, scene_id))

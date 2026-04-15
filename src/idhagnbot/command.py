@@ -122,23 +122,15 @@ class CommandBuilder:
     return matcher
 
 
-class IBState(TypedDict):
-  command: bool
-  command_like: tuple[str, str] | None
-
-
-IDHAGNBOT_KEY = "_idhagnbot"
-COMMAND_KEY = "command"
-COMMAND_LIKE_KEY = "command_like"
+COMMAND_KEY = "_idhagnbot_command"
+COMMAND_LIKE_KEY = "_idhagnbot_command_like"
 DRIVER = nonebot.get_driver()
 
 
 @event_preprocessor
 async def _(message: UniMsg, state: T_State) -> None:
-  idhagnbot_state = IBState(command=False, command_like=None)
-  state[IDHAGNBOT_KEY] = idhagnbot_state
   if command_manager.test(message):
-    idhagnbot_state[COMMAND_KEY] = True
+    state[COMMAND_KEY] = True
   segment = message[0]
   if isinstance(segment, Text):
     longest_prefix_len = 0
@@ -147,4 +139,4 @@ async def _(message: UniMsg, state: T_State) -> None:
       if prefix and first.startswith(prefix):
         longest_prefix_len = max(longest_prefix_len, len(prefix))
     if longest_prefix_len:
-      idhagnbot_state[COMMAND_LIKE_KEY] = (first[:longest_prefix_len], first[longest_prefix_len:])
+      state[COMMAND_LIKE_KEY] = (first[:longest_prefix_len], first[longest_prefix_len:])

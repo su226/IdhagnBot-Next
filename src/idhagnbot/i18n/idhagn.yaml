@@ -1,0 +1,12 @@
+idhagnbot:
+  lang_name: "伊哈根语"
+  lang_fallback: zh-CN
+
+idhagnbot_lang:
+  locale_get: "伊哈根现在会说 {lang} 喵。"
+  locale_get_unset: "伊哈根现在会说默认语言喵。"
+  locale_get_force: "伊哈根现在会对大家说 {lang} 喵。"
+  locale_set: "伊哈根以后会说 {lang} 喵。"
+  locale_set_force: "伊哈根以后会对大家说 {lang} 喵。"
+  locale_set_invalid: "伊哈根不会 {lang} 这门语言喵。"
+  locale_set_reset: "伊哈根以后会说默认语言喵。"

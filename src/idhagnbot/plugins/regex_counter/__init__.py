@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Mapped, mapped_column
 
-from idhagnbot.command import COMMAND_LIKE_KEY, IDHAGNBOT_KEY, CommandBuilder
+from idhagnbot.command import COMMAND_LIKE_KEY, CommandBuilder
 from idhagnbot.config import SharedConfig
 from idhagnbot.context import SceneId, SceneIdRaw, get_scene
 from idhagnbot.datetime import DATE_ARGS_USAGE, parse_date_range
@@ -86,7 +86,7 @@ def register(counter: Counter) -> Generator[type[Matcher], None, None]:
       event.get_user_id()
     except (ValueError, NotImplementedError):
       return False
-    if state[IDHAGNBOT_KEY][COMMAND_LIKE_KEY]:
+    if state.get(COMMAND_LIKE_KEY):
       return False
     text = message.extract_plain_text()
     matches = list[str]()
