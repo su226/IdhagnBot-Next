@@ -22,6 +22,7 @@ from idhagnbot.command import COMMAND_LIKE_KEY, CommandBuilder
 from idhagnbot.config import SharedConfig
 from idhagnbot.context import SceneId, SceneIdRaw
 from idhagnbot.help import COMMAND_PREFIX, CommandItem, Context
+from idhagnbot.i18n import Locale, bound_lang
 from idhagnbot.image import paste, to_segment
 from idhagnbot.message import UniMsg
 from idhagnbot.permission import ADMINISTRATOR_OR_ABOVE, Roles
@@ -132,6 +133,7 @@ async def is_im_bot_suppressed_for(platform: str, user_id: str) -> bool:
 RUN_KEY = "_idhagnbot_run"
 DRIVER = nonebot.get_driver()
 CONFIG = SharedConfig("fallback", Config)
+L = bound_lang("idhagnbot_fallback")
 ExceptionExplain = Callable[[Exception], str | None]
 TExceptionExplain = TypeVar("TExceptionExplain", bound=ExceptionExplain)
 registered_exception_explains = list[ExceptionExplain]()
@@ -150,13 +152,13 @@ class ManualException(Exception):
 @register_exception_explain
 def builtin_exception_explain(exception: Exception) -> str | None:
   if isinstance(exception, ClientError):
-    return "网络错误\n可能是命令使用的在线 API 不稳定，或者机器人服务器的网络问题。"
+    return L("error_type_network")
   if isinstance(exception, ManualException):
-    return "管理员手动触发\n如果你不是群管理员，可以忽略这个。"
+    return L("error_type_manual")
   if isinstance(exception, Image.DecompressionBombError):
-    return "图片过大\n发送的图片或链接中的图片过大。"
+    return L("error_type_large_image")
   if isinstance(exception, ApiError):
-    return "B站 API 异常\n接口出现更变或者被B站风控。"
+    return L("error_type_bilibili")
   return None
 
 
@@ -180,25 +182,14 @@ async def post_run(
       if reason:
         break
     else:
-      reason = "未知错误\n这可能是 IdhagnBot Next 的设计缺陷，请向开发者寻求帮助。"
+      reason = L("error_type_unknown")
 
-    header_markup = (
-      "<span weight='heavy' size='200%'>这个要慌，问题很大</span>\n"
-      "<span color='#ffffff88'>Something really bad happens. Panic!</span>"
-    )
-    content_markup = (
-      "<b>IdhagnBot Next 遇到了一个内部错误。</b>\n"
-      f"<span color='#f5f543'>可能原因: </span>{escape(reason)}"
-    )
-    content_fallback = f"IdhagnBot Next 遇到了一个内部错误。\n可能原因: {reason}"
+    header_markup = L("error_markup_header")
+    content_markup = L("error_markup_content").format(reason=escape(reason))
+    content_fallback = L("error_plain_content").format(reason=reason)
     if session.scene.type != SceneType.PRIVATE:
-      content_markup += (
-        "\n<span color='#29b8db'>提示: </span>"
-        f"群管理员可以发送 {COMMAND_PREFIX}suppress true 暂时禁用本群错误消息。"
-      )
-      content_fallback += (
-        f"\n提示: 群管理员可以发送 {COMMAND_PREFIX}suppress true 暂时禁用本群错误消息。"
-      )
+      content_markup += "\n" + L("error_markup_group").format(prefix=COMMAND_PREFIX)
+      content_fallback += "\n" + L("error_plain_group").format(prefix=COMMAND_PREFIX)
 
     def make() -> ImageSeg:
       header = render(header_markup, "sans", 32, color=(255, 255, 255), align="m", markup=True)
@@ -232,6 +223,7 @@ async def post_event(
   scene_id: SceneIdRaw,
   message: UniMsg,
   roles: Roles,
+  locale: Locale,
 ) -> None:
   if RUN_KEY in state[PREFIX_KEY]:
     return
@@ -246,7 +238,7 @@ async def post_event(
   if config.has_ignored_prefix(scene_id, message):
     return
   if (match := state.get(COMMAND_LIKE_KEY)) and config.show_invalid_command[scene_id]:
-    fallback = "命令不存在、权限不足或不适用于当前上下文"
+    fallback = L("bad_command", locale)
     if config.min_similarity is not None:
       prefix, suffix = match
       context = Context(
@@ -265,7 +257,7 @@ async def post_event(
         key=lambda x: x[1],
       )
       if similarity >= config.min_similarity:
-        fallback += f"\n你要找的是不是：{prefix}{command}"
+        fallback += f"\n{L('bad_command_suggestion', locale)}{prefix}{command}"
     await UniMessage(Text(fallback)).send(event, bot)
   if (
     event.is_tome()
@@ -274,10 +266,7 @@ async def post_event(
     and not await is_im_bot_suppressed_for(scope, user_id)
   ):
     await UniMessage(
-      Text(
-        f"本帐号为机器人，请发送 {COMMAND_PREFIX}帮助 查看可用命令（可以不@）\n"
-        f"发送 {COMMAND_PREFIX}禁用提示 为你禁用本提示",
-      ),
+      Text(L("im_a_bot", locale).format(prefix=COMMAND_PREFIX)),
     ).send(event, bot)
 
 
@@ -308,12 +297,10 @@ async def _(
   if ignored := await sql.get(ImBotSuppressedUser, (scope, user_id)):
     await sql.delete(ignored)
     await sql.commit()
-    await suppress_im_bot.finish("你已恢复“本帐号为机器人”的提示。")
+    await suppress_im_bot.finish(L("im_a_bot_restored"))
   sql.add(ImBotSuppressedUser(platform=scope, user_id=user_id))
   await sql.commit()
-  await suppress_im_bot.finish(
-    f"你已禁用“本帐号为机器人”的提示，再次发送 {COMMAND_PREFIX}禁用提示 可恢复。",
-  )
+  await suppress_im_bot.finish(L("im_a_bot_suppressed").format(prefix=COMMAND_PREFIX))
 
 
 suppress_exception = (
@@ -342,18 +329,15 @@ async def _(toggle: str, scene_id: SceneId, sql: async_scoped_session) -> None:
     else:
       sql.add(ExceptionSuppressedScene(scene_id=scene_id, until=until))
     await sql.commit()
-    await suppress_exception.finish("本群错误消息已禁用 24 小时。")
+    await suppress_exception.finish(L("error_suppressed"))
   elif toggle in ("false", "f", "0", "no", "n", "off"):
     info = await sql.get(ExceptionSuppressedScene, scene_id)
     if info:
       await sql.delete(info)
       await sql.commit()
-    await suppress_exception.finish("本群错误消息已恢复。")
+    await suppress_exception.finish(L("error_restored"))
   else:
-    await suppress_exception.finish(
-      f"{COMMAND_PREFIX}suppress true - 暂时禁用本群错误消息。\n"
-      f"{COMMAND_PREFIX}suppress false - 恢复本群错误消息。",
-    )
+    await suppress_exception.finish(L("error_suppress_usage").format(prefix=COMMAND_PREFIX))
 
 
 raise_exception = (
@@ -375,4 +359,4 @@ raise_exception = (
 async def _(confirm: Literal["confirm"] | None) -> None:
   if confirm == "confirm":
     raise ManualException
-  await raise_exception.finish(f"{COMMAND_PREFIX}raise confirm - 手动触发一个错误")
+  await raise_exception.finish(L("error_raise_usage").format(prefix=COMMAND_PREFIX))

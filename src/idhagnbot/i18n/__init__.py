@@ -1,17 +1,19 @@
 from contextlib import AsyncExitStack
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Protocol
+from typing import Annotated, Protocol
 
 import nonebot.message
 from nonebot.adapters import Bot, Event
 from nonebot.matcher import Matcher, current_matcher
+from nonebot.params import Depends
 from nonebot.typing import T_DependencyCache, T_State
 from tarina.lang import lang
 
 __all__ = [
   "LOCALE_KEY",
   "L",
+  "Locale",
   "bound_lang",
   "get_fallback",
   "get_full_name",
@@ -50,12 +52,19 @@ def get_fallback(locale: str) -> str | None:
     return None
 
 
-def _get_current_locale() -> str | None:
+def get_locale(state: T_State) -> str:
+  return state.get(LOCALE_KEY) or lang.current
+
+
+Locale = Annotated[str, Depends(get_locale)]
+
+
+def _get_current_locale() -> str:
   if (state := _current_state.get(None)) is not None:
-    return state.get(LOCALE_KEY)
+    return get_locale(state)
   if (matcher := current_matcher.get(None)) is not None:
-    return matcher.state.get(LOCALE_KEY)
-  return None
+    return get_locale(matcher.state)
+  return lang.current
 
 
 _raw_check_matcher = nonebot.message._check_matcher  # pyright: ignore[reportPrivateUsage]
@@ -82,7 +91,7 @@ def _require(
   locale: str | None = None,
 ) -> str:
   if locale is None:
-    locale = _get_current_locale() or lang.current
+    locale = _get_current_locale()
   while locale:
     try:
       return _raw_require(scope, type, locale)

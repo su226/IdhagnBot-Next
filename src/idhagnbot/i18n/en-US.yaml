@@ -1,6 +1,45 @@
 idhagnbot:
   lang_name: "English (US)"
 
+idhagnbot_fallback:
+  error_markup_header: "<span weight='heavy' size='150%'>Something really bad happens. Panic!</span>"
+  error_markup_content: |-
+    <b>IdhagnBot Next has encountered an internal error.</b>
+    <span color='#f5f543'>Possible reason: </span>{reason}
+  error_markup_group: "<span color='#29b8db'>Hint: </span>Group admins can send \"{COMMAND_PREFIX}suppress true\" to suppress errors in this group temporarily."
+  error_plain_content: |-
+    IdhagnBot Next has encountered an internal error.
+    Possible reason: 
+  error_plain_group: "Hint: Group admins can send \"{COMMAND_PREFIX}suppress true\" to suppress errors in this group temporarily."
+  error_type_unknown: |-
+    Unknown
+    There might be a design flaw in IdhagnBot Next, ask the developer for help.
+  error_type_network: |-
+    Network error
+    Maybe the online API used by the command is unstable, or there's a issue with the network of bot server.
+  error_type_manual: |-
+    Manually triggered by admins
+    If you are not an admin, safely ignore this.
+  error_type_large_image: |-
+    Image too large
+    Image(s) in message or link are too large.
+  error_type_bilibili: |-
+    Bilibili API error
+    There's a change in Bilibili API or being banned.
+  bad_command: "Command not exists, insufficient permission or unapplicable context."
+  bad_command_suggestion: "Are you looking for: "
+  im_a_bot: |-
+    I'm a bot. Send {prefix}help for available commands (may without mention).
+    Send {prefix}禁用提示 to disable this hint for you.
+  im_a_bot_suppressed: "You have suppressed \"I'm a bot\" hint. Send {prefix}禁用提示 again to restore."
+  im_a_bot_restored: "You have restored \"I'm a bot\" hint."
+  error_suppressed: "Error reports in this group have been suppressed for 24 hours."
+  error_restored: "Error reports in this group have been restored."
+  error_suppress_usage: |-
+    {prefix}suppress true - Suppress error reports in this group temporarily.
+    {prefix}suppress false - Restore error reports in this group.
+  error_raise_usage: "{prefix}raise confirm - Manually raise an error."
+
 idhagnbot_lang:
   locale_get: "Current locale is {lang}."
   locale_get_unset: "Current locale is unset."

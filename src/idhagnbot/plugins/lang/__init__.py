@@ -186,7 +186,7 @@ async def _(
   if locale not in lang.locales:
     await scene_locale.finish(L("locale_set_invalid").format(lang=locale))
   if locale_config is None:
-    locale_config = UserLocale(scene_id=scene_id, locale=locale)
+    locale_config = SceneLocale(scene_id=scene_id, locale=locale, force=force)
   else:
     locale_config.locale = locale
     locale_config.force = force
