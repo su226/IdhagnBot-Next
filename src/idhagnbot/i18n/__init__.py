@@ -1,5 +1,7 @@
+import re
 from contextlib import AsyncExitStack
 from contextvars import ContextVar
+from enum import Enum
 from pathlib import Path
 from typing import Annotated, Protocol
 
@@ -15,6 +17,7 @@ __all__ = [
   "L",
   "Locale",
   "bound_lang",
+  "get_current_locale",
   "get_fallback",
   "get_full_name",
   "get_name",
@@ -22,7 +25,8 @@ __all__ = [
 ]
 LOCALE_KEY = "_idhagnbot_locale"
 lang.load(Path(__file__).parent)
-_current_state = ContextVar[T_State]("_current_state")
+_locale_override = ContextVar[str | None]("_locale_override")
+_I18N_PATTERN = re.compile(r"__([a-z0-9_]+):([a-z0-9_\.]+)__")
 
 
 def _raw_require(
@@ -59,9 +63,13 @@ def get_locale(state: T_State) -> str:
 Locale = Annotated[str, Depends(get_locale)]
 
 
-def _get_current_locale() -> str:
-  if (state := _current_state.get(None)) is not None:
-    return get_locale(state)
+class Sentinel(Enum):
+  SENTINEL = "sentinel"
+
+
+def get_current_locale() -> str:
+  if (locale := _locale_override.get(Sentinel.SENTINEL)) is not Sentinel.SENTINEL:
+    return locale or lang.current
   if (matcher := current_matcher.get(None)) is not None:
     return get_locale(matcher.state)
   return lang.current
@@ -78,11 +86,11 @@ async def _check_matcher(
   stack: AsyncExitStack | None = None,
   dependency_cache: T_DependencyCache | None = None,
 ) -> bool:
-  token = _current_state.set(state)
+  token = _locale_override.set(state.get(LOCALE_KEY))
   try:
     return await _raw_check_matcher(Matcher, bot, event, state, stack, dependency_cache)
   finally:
-    _current_state.reset(token)
+    _locale_override.reset(token)
 
 
 def _require(
@@ -91,7 +99,7 @@ def _require(
   locale: str | None = None,
 ) -> str:
   if locale is None:
-    locale = _get_current_locale()
+    locale = get_current_locale()
   while locale:
     try:
       return _raw_require(scope, type, locale)
@@ -117,3 +125,10 @@ def bound_lang(namespace: str) -> BoundLang:
 
 
 L = bound_lang("idhagnbot")
+
+
+def apply_i18n(text: str, locale: str | None = None) -> str:
+  def translate(match: re.Match[str]) -> str:
+    return lang.require(match[1], match[2], locale)
+
+  return _I18N_PATTERN.sub(translate, text)

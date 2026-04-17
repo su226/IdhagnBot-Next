@@ -17,7 +17,7 @@ from nonebot.exception import ActionFailed
 from nonebot.typing import T_State
 
 from idhagnbot.context import SceneId
-from idhagnbot.help import CategoryItem
+from idhagnbot.help import CategoryItem, L
 from idhagnbot.permission import Roles
 from idhagnbot.plugins.help.common import HELP_PAGE_RE, get_context, join_path, normalize_path
 
@@ -86,7 +86,7 @@ async def handle_help_page(
   try:
     category = CategoryItem.find(path, ctx=context)
   except (KeyError, ValueError):
-    await interaction_edit_message(bot, event, "无此条目或分类、权限不足或在当前上下文不可用")
+    await interaction_edit_message(bot, event, L("not_available"))
     return
   content, page, total_pages = category.format_page(page, context)
   row = ActionRow(components=[])

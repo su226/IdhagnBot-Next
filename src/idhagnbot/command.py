@@ -1,4 +1,4 @@
-from typing import Any, Self, TypedDict, cast
+from typing import Any, Self, cast
 
 import nonebot
 from arclet.alconna import config
@@ -6,7 +6,7 @@ from nonebot.exception import FinishedException
 from nonebot.message import event_preprocessor
 from nonebot.typing import T_State
 
-from idhagnbot.help import CategoryItem, CommandItem, CommonData
+from idhagnbot.help import CategoryItem, CommandItem, CommandName, CommonData
 from idhagnbot.message import UniMsg
 from idhagnbot.permission import DEFAULT, permission
 
@@ -36,7 +36,7 @@ class CommandBuilder:
   __category: str
   __default_grant_to: set[str]
   __parser: Alconna[Any] | None
-  __aliases: set[str]
+  __aliases: dict[str, str | None]
   __state: dict[str, Any] | None
   __auto_reject: bool
   __extensions: list[type[Extension] | Extension]
@@ -47,7 +47,7 @@ class CommandBuilder:
     self.__category = ""
     self.__default_grant_to = DEFAULT
     self.__parser = None
-    self.__aliases = set()
+    self.__aliases = {}
     self.__state = None
     self.__auto_reject = True
     self.__extensions = []
@@ -68,8 +68,8 @@ class CommandBuilder:
     self.__parser = parser
     return self
 
-  def aliases(self, aliases: set[str]) -> Self:
-    self.__aliases = aliases
+  def aliases(self, aliases: set[str] | dict[str, str | None]) -> Self:
+    self.__aliases = dict.fromkeys(aliases) if isinstance(aliases, set) else aliases
     return self
 
   def state(self, state: T_State) -> Self:
@@ -90,8 +90,10 @@ class CommandBuilder:
     if not self.__parser:
       raise ValueError("parser is required")
     parser = self.__parser
+    names = [CommandName(parser.name, None)]
+    names.extend(CommandName(name, locale) for name, locale in self.__aliases.items())
     item = CommandItem(
-      [parser.name, *self.__aliases],
+      names,
       parser.meta.description,
       cast(Any, parser.formatter.format_node),
       CommonData(
@@ -102,7 +104,7 @@ class CommandBuilder:
     CategoryItem.find(self.__category, create=True).add(item)
     matcher = on_alconna(
       parser,
-      aliases=self.__aliases,
+      aliases=set(self.__aliases),
       extensions=self.__extensions,
       permission=permission(self.__node, self.__default_grant_to),
       default_state=self.__state,

@@ -1,11 +1,12 @@
 import nonebot
 from nonebot.adapters.satori import Bot
+from nonebot.adapters.satori.element import escape
 from nonebot.adapters.satori.event import InteractionButtonEvent
 from nonebot.adapters.satori.message import Message, MessageSegment
 from nonebot.typing import T_State
 
 from idhagnbot.context import SceneId
-from idhagnbot.help import CategoryItem
+from idhagnbot.help import CategoryItem, L
 from idhagnbot.permission import Roles
 from idhagnbot.plugins.help.common import HELP_PAGE_RE, get_context, join_path, normalize_path
 
@@ -47,7 +48,7 @@ async def handle_help_page(
     await bot.message_update(
       channel_id=event.channel.id,
       message_id=event.message.id,
-      content="无此条目或分类、权限不足或在当前上下文不可用",
+      content=escape(L("not_available")),
     )
     return
   content, page, total_pages = category.format_page(page, context)

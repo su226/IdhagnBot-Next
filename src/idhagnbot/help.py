@@ -1,7 +1,7 @@
 import math
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import Any, ClassVar, cast
 
 import nonebot
 from pydantic import BaseModel, Field
@@ -10,6 +10,7 @@ from typing_extensions import override
 
 from idhagnbot.config import SharedConfig
 from idhagnbot.context import in_scene
+from idhagnbot.i18n import apply_i18n, bound_lang, get_current_locale, get_fallback
 from idhagnbot.itertools import batched
 from idhagnbot.permission import (
   ADMINISTRATOR_OR_ABOVE,
@@ -19,6 +20,8 @@ from idhagnbot.permission import (
   parse_node,
 )
 from idhagnbot.permission import check as check_permission
+
+L = bound_lang("idhagnbot_help")
 
 
 @dataclass
@@ -64,10 +67,10 @@ class CommonData(BaseModel):
   def prefix(self) -> str:
     return {
       0: "",
-      1: "群管",
-      2: "群主",
-      3: "超管",
-      4: "其他",
+      1: L("prefix_admin"),
+      2: L("prefix_owner"),
+      3: L("prefix_superuser"),
+      4: L("prefix_other"),
     }[self.order]
 
   def format_prefix(self, fmt: str) -> str:
@@ -121,7 +124,8 @@ def onload(prev: Config | None, curr: Config) -> None:
       category.add(UserStringItem(item.string, item))
     else:
       category = UserCategoryItem.find(item.category, create=True)
-      category.add(UserCommandItem(item.command, item.brief, item.usage, item))
+      names = [CommandName(name, None) for name in item.command]
+      category.add(UserCommandItem(names, item.brief, item.usage, item))
 
 
 class Item:
@@ -161,9 +165,13 @@ class Item:
     raise NotImplementedError
 
 
+def pinyin_errors_handler(x: str) -> list[str]:
+  return list(x.upper())
+
+
 def get_sort_key(title: str) -> list[str]:
   # 将没有拼音的字符转为大写，拼音保持小写，确保英文指令在中文指令前面
-  return lazy_pinyin(title, errors=str.upper)
+  return lazy_pinyin(title, errors=cast(Any, pinyin_errors_handler))
 
 
 class StringItem(Item):
@@ -180,23 +188,29 @@ class StringItem(Item):
 
   @override
   def get_sort_key(self) -> list[str]:
-    return get_sort_key(self.string)
+    return get_sort_key(apply_i18n(self.string))
 
   @override
   def format_title(self) -> str:
-    return self.string
+    return apply_i18n(self.string)
+
+
+@dataclass
+class CommandName:
+  name: str
+  locale: str | None
 
 
 class CommandItem(Item):
   COMMANDS: ClassVar[dict[str, "CommandItem"]] = {}
 
-  names: list[str]
+  names: list[CommandName]
   brief: str
   usage: str | Callable[[], str]
 
   def __init__(
     self,
-    names: list[str],
+    names: list[CommandName],
     brief: str = "",
     usage: str | Callable[[], str] = "",
     data: CommonData | None = None,
@@ -206,43 +220,59 @@ class CommandItem(Item):
     self.usage = usage
     self.brief = brief
     for i in names:
-      if i in self.COMMANDS:
+      if i.name in self.COMMANDS:
         raise ValueError(f"重复的命令名: {i}")
-      self.COMMANDS[i] = self
+      self.COMMANDS[i.name] = self
 
   @override
   def remove_self(self) -> None:
     super().remove_self()
     for name in self.names:
-      del self.COMMANDS[name]
+      del self.COMMANDS[name.name]
 
   @property
   @override
   def order(self) -> int:
     return self.data.order
 
+  def get_localized_names(self) -> list[str]:
+    locales = dict[str, int]()
+    locale = get_current_locale()
+    while locale:
+      locales[locale] = len(locales)
+      locale = get_fallback(locale)
+    names = list[tuple[str, int]]()
+    for name in self.names:
+      if name.locale is None:
+        names.append((name.name, 999))
+      elif name.locale in locales:
+        names.append((name.name, locales[name.locale]))
+    names.sort(key=lambda x: x[1])
+    return [name for name, _ in names]
+
   @override
   def get_sort_key(self) -> list[str]:
-    return get_sort_key(self.names[0])
+    return get_sort_key(self.get_localized_names()[0])
 
   @override
   def format_title(self) -> str:
-    brief = f" - {self.brief}" if self.brief else ""
+    brief = f" - {apply_i18n(self.brief)}" if self.brief else ""
     prefix = self.data.format_prefix("[{}] ")
-    return f"{prefix}{COMMAND_PREFIX}{self.names[0]}{brief}"
+    return f"{prefix}{COMMAND_PREFIX}{self.get_localized_names()[0]}{brief}"
 
   def format_detail(self, header: bool = True) -> str:
     segments = list[str]()
+    names = self.get_localized_names()
     if header:
       prefix = self.data.format_prefix("{} | ")
-      segments.append(f"「{prefix}{self.names[0]}」{self.brief}")
+      segments.append(f"「{prefix}{names[0]}」{apply_i18n(self.brief)}")
       segments.append(SEPARATOR)
     usage = self.usage() if isinstance(self.usage, Callable) else self.usage
-    usage = usage.replace("__cmd__", self.names[0])
-    segments.append(usage or "没有用法说明")
-    if len(self.names) > 1:
+    usage = apply_i18n(usage.replace("__cmd__", names[0]))
+    segments.append(usage or L("usage_empty"))
+    if len(names) > 1:
       segments.append(SEPARATOR)
-      segments.append("该命令有以下别名：" + "、".join(self.names[1:]))
+      segments.append(L("alias_prefix") + L("alias_separator").join(names[1:]))
     return "\n".join(segments)
 
 
@@ -252,34 +282,34 @@ class CategoryItem(Item):
   name: str
   brief: str
   items: list[Item]
-  _subcategorie: dict[str, "CategoryItem"]
+  _subcategories: dict[str, "CategoryItem"]
 
   def __init__(self, name: str, brief: str = "", data: CommonData | None = None) -> None:
     super().__init__(data)
     self.name = name
     self.brief = brief
     self.items = []
-    self._subcategorie = {}
+    self._subcategories = {}
 
   def add(self, item: Item) -> None:
     if isinstance(item, CategoryItem):
-      if item.name in self._subcategorie:
+      if item.name in self._subcategories:
         raise ValueError(f"重复的子分类名: {item.name}")
-      self._subcategorie[item.name] = item
+      self._subcategories[item.name] = item
     item.parent = self
     self.items.append(item)
 
   def remove(self, item: Item) -> None:
     self.items.remove(item)
     if isinstance(item, CategoryItem):
-      del self._subcategorie[item.name]
+      del self._subcategories[item.name]
     item.parent = None
 
   def remove_user_items(self) -> None:
     remove_items = [item for item in self.items if isinstance(item, UserItem)]
     for item in remove_items:
       item.remove_self()
-    for category in self._subcategorie.values():
+    for category in self._subcategories.values():
       category.remove_user_items()
 
   @classmethod
@@ -295,14 +325,14 @@ class CategoryItem(Item):
     if isinstance(path, str):
       path = [x for x in path.split(".") if x]
     for i, name in enumerate(path, 1):
-      if name not in current._subcategorie:
+      if name not in current._subcategories:
         if not create:
           raise KeyError(f"子分类 {'.'.join(path[:i])} 不存在")
         subcategory = cls(name)
         current.add(subcategory)
         current = subcategory
       else:
-        current = current._subcategorie[name]
+        current = current._subcategories[name]
         if ctx and not current.check(ctx):
           raise ValueError(f"子分类 {'.'.join(path[:i])} 不能显示")
     return current
@@ -318,7 +348,7 @@ class CategoryItem(Item):
 
   @override
   def format_title(self) -> str:
-    brief = f" - {self.brief}" if self.brief else ""
+    brief = f" - {apply_i18n(self.brief)}" if self.brief else ""
     return f"📁{self.name}{brief}"
 
   def get_items(self, ctx: Context) -> list[Item]:
@@ -338,7 +368,7 @@ class CategoryItem(Item):
   def format_page(self, page: int, ctx: Context) -> tuple[str, int, int]:
     items = self.get_items(ctx)
     if not items:
-      return "当前分类没有内容", 0, 0
+      return L("category_empty"), 0, 0
     config = CONFIG()
     total_pages = math.ceil(len(items) / config.page_size)
     page = max(min(page, total_pages - 1), 0)
@@ -353,23 +383,13 @@ class CategoryItem(Item):
         has_category = True
       lines.append(item.format_title())
     lines.append(SEPARATOR)
-    lines.append(f"第 {page + 1} 页，共 {total_pages} 页")
+    lines.append(L("paginator").format(page=page + 1, total=total_pages))
     header_lines: list[str] = []
     if has_command:
-      header_lines.append(
-        f"ℹ 「{COMMAND_PREFIX}」开头的是命令，"
-        f"发送「{COMMAND_PREFIX}帮助 <命令名>」查看，"
-        f"比如假设有「{COMMAND_PREFIX}某个命令」，"
-        f"就需要发送「{COMMAND_PREFIX}帮助 某个命令」来查看",
-      )
+      header_lines.append(L("header_command").format(prefix=COMMAND_PREFIX))
     if has_category:
       path = self.get_path()
-      header_lines.append(
-        f"ℹ 文件夹「📁」开头的是分类，"
-        f"发送「{COMMAND_PREFIX}帮助 {path}<分类名>」查看，"
-        f"比如假设有「📁某个分类」，"
-        f"就需要发送「{COMMAND_PREFIX}帮助 {path}某个分类」来查看",
-      )
+      header_lines.append(L("header_category").format(prefix=COMMAND_PREFIX, path=path))
     if header_lines:
       lines = [*header_lines, SEPARATOR, *lines]
     return "\n".join(lines), page, total_pages
@@ -377,7 +397,7 @@ class CategoryItem(Item):
   def format_forward(self, ctx: Context) -> list[str]:
     items = self.get_items(ctx)
     if not items:
-      return ["当前分类没有内容"]
+      return [L("category_empty")]
     config = CONFIG()
     has_command = False
     has_category = False
@@ -393,20 +413,10 @@ class CategoryItem(Item):
       nodes.append("\n".join(lines))
     header_lines: list[str] = []
     if has_command:
-      header_lines.append(
-        f"ℹ 「{COMMAND_PREFIX}」开头的是命令，"
-        f"发送「{COMMAND_PREFIX}帮助 <命令名>」查看，"
-        f"比如假设有「{COMMAND_PREFIX}某个命令」，"
-        f"就需要发送「{COMMAND_PREFIX}帮助 某个命令」来查看",
-      )
+      header_lines.append(L("header_command").format(prefix=COMMAND_PREFIX))
     if has_category:
       path = self.get_path()
-      header_lines.append(
-        f"ℹ 文件夹「📁」开头的是分类，"
-        f"发送「{COMMAND_PREFIX}帮助 {path}<分类名>」查看，"
-        f"比如假设有「📁某个分类」，"
-        f"就需要发送「{COMMAND_PREFIX}帮助 {path}某个分类」来查看",
-      )
+      header_lines.append(L("header_category").format(prefix=COMMAND_PREFIX, path=path))
     if header_lines:
       return ["\n".join(header_lines), *nodes]
     return nodes

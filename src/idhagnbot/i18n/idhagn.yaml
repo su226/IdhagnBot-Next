@@ -42,6 +42,23 @@ idhagnbot_fallback:
     {prefix}suppress true - 暂时对乱子视而不见。
     {prefix}suppress false - 继续对乱子惊慌失措。
   error_raise_usage: "{prefix}raise confirm - 让伊哈根装死（倒）。"
+  command_brief_suppress_exception: "让伊哈根暂时对乱子视而不见。"
+  command_brief_raise_exception: "让伊哈根装死（倒）。"
+
+idhagnbot_help:
+  prefix_admin: "群管"
+  prefix_owner: "群主"
+  prefix_superuser: "超管"
+  prefix_other: "其他"
+  usage_empty: "主人没告诉我这个命令怎么用。"
+  category_empty: "这个分类空空如也。"
+  alias_prefix: "这个命令还可以这么叫："
+  alias_separator: "、"
+  header_command: "ℹ 「{prefix}」开头的是命令喵，对我说「{prefix}帮助 <命令名>」我就会告诉你细节，比如说有「{prefix}某个命令」，你就要说「{prefix}帮助 某个命令」。"
+  header_category: f"ℹ 文件夹「📁」开头的是分类喵，对我说「{prefix}帮助 {path}<分类名>」我就会告诉你细节，比如说有「📁某个分类」，你就要说「{prefix}帮助 {path}某个分类」。"
+  not_available: "好像没有这个命令或分类，还是说你掌控不了它的力量，或者用错了地方。"
+  paginator: "第 {page} 页，共 {total} 页"
+  command_brief_help: "需要伊哈根帮助你吗？"
 
 idhagnbot_lang:
   locale_get: "伊哈根现在会说 {lang} 喵。"
@@ -51,3 +68,4 @@ idhagnbot_lang:
   locale_set_force: "伊哈根以后会对大家说 {lang} 喵。"
   locale_set_invalid: "伊哈根不会 {lang} 这门语言喵。"
   locale_set_reset: "伊哈根以后会说默认语言喵。"
+  command_brief_scene_locale: "让伊哈根对新人（或者所有人）说某一门语言。"

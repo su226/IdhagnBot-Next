@@ -39,6 +39,23 @@ idhagnbot_fallback:
     {prefix}suppress true - Suppress error reports in this group temporarily.
     {prefix}suppress false - Restore error reports in this group.
   error_raise_usage: "{prefix}raise confirm - Manually raise an error."
+  command_brief_suppress_exception: "Suppress error reports temporarily."
+  command_brief_raise_exception: "Manually raise an error."
+
+idhagnbot_help:
+  prefix_admin: "Admin"
+  prefix_owner: "Owner"
+  prefix_superuser: "Superuser"
+  prefix_other: "Other"
+  usage_empty: "No usage info available."
+  category_empty: "Category is empty."
+  alias_prefix: "Alias(es) available:"
+  alias_separator: ", "
+  header_command: "ℹ Items starts with \"{prefix}\" are commands, send \"{prefix}help <COMMAND_NAME>\" to get help. For example there's \"{prefix}some_command\", send \"{prefix}help some_command\"."
+  header_category: "ℹ Items starts with folder emoji 📁 are categories, send \"{prefix}help <CATEGORY_NAME>\" to view children. For example there's \"📁some_category\", send \"{prefix}help some_category\"."
+  not_available: "Command or category not exists, insufficient permission or unapplicable context."
+  paginator: "Page {page} / {total}"
+  command_brief_help: "View all help."
 
 idhagnbot_lang:
   locale_get: "Current locale is {lang}."
@@ -48,3 +65,4 @@ idhagnbot_lang:
   locale_set_force: "Current locale is set to {lang} (force apply)."
   locale_set_invalid: "Locale {lang} is invalid."
   locale_set_reset: "Current locale is set to default."
+  command_brief_scene_locale: "Set default (or force apply) locale in group."

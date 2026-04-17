@@ -2,7 +2,7 @@ import nonebot
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.context import BotAnyNick, SceneId
-from idhagnbot.help import CategoryItem, CommandItem
+from idhagnbot.help import CategoryItem, CommandItem, L
 from idhagnbot.permission import Roles
 from idhagnbot.plugins.help.common import get_context, join_path, normalize_path
 
@@ -53,13 +53,13 @@ help_ = (
   .node("help")
   .parser(
     Alconna(
-      "帮助",
+      "help",
       Args["path", MultiVar(str, "*")],
       Args["page", int, 1],
-      meta=CommandMeta("查看所有帮助"),
+      meta=CommandMeta("__idhagnbot_help:command_brief_help__"),
     ),
   )
-  .aliases({"help"})
+  .aliases({"帮助": "zh-CN"})
   .build()
 )
 
@@ -82,7 +82,7 @@ async def handle_help(
   try:
     category = CategoryItem.find(normalized_path, ctx=show_data)
   except (KeyError, ValueError):
-    await help_.finish("无此条目或分类、权限不足或在当前上下文不可用")
+    await help_.finish(L("not_available"))
   if session.adapter == SupportAdapter.onebot11:
     pages = category.format_forward(show_data)
     if len(pages) == 1:

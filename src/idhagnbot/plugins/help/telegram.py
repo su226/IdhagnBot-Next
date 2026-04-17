@@ -5,7 +5,7 @@ from nonebot.adapters.telegram.model import InlineKeyboardButton, InlineKeyboard
 from nonebot.typing import T_State
 
 from idhagnbot.context import SceneId
-from idhagnbot.help import CategoryItem
+from idhagnbot.help import CategoryItem, L
 from idhagnbot.permission import Roles
 from idhagnbot.plugins.help.common import HELP_PAGE_RE, get_context, join_path, normalize_path
 
@@ -45,7 +45,7 @@ async def handle_help_page(
     category = CategoryItem.find(path, ctx=context)
   except (KeyError, ValueError):
     await bot.edit_message_text(
-      "无此条目或分类、权限不足或在当前上下文不可用",
+      L("not_available"),
       chat_id=event.message.chat.id,
       message_id=event.message.message_id,
     )

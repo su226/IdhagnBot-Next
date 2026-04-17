@@ -40,7 +40,24 @@ idhagnbot_fallback:
   error_suppress_usage: |-
     {prefix}suppress true - 暂时禁用本群错误消息。
     {prefix}suppress false - 恢复本群错误消息。
-  error_raise_usage: "{prefix}raise confirm - 手动触发一个错误"
+  error_raise_usage: "{prefix}raise confirm - 手动触发一个错误。"
+  command_brief_suppress_exception: "暂时禁用错误消息。"
+  command_brief_raise_exception: "手动触发一个错误。"
+
+idhagnbot_help:
+  prefix_admin: "群管"
+  prefix_owner: "群主"
+  prefix_superuser: "超管"
+  prefix_other: "其他"
+  usage_empty: "没有用法说明。"
+  category_empty: "当前分类没有内容。"
+  alias_prefix: "该命令有以下别名："
+  alias_separator: "、"
+  header_command: "ℹ 「{prefix}」开头的是命令，发送「{prefix}帮助 <命令名>」查看，比如假设有「{prefix}某个命令」，就需要发送「{prefix}帮助 某个命令」来查看。"
+  header_category: f"ℹ 文件夹「📁」开头的是分类，发送「{prefix}帮助 {path}<分类名>」查看，比如假设有「📁某个分类」，就需要发送「{prefix}帮助 {path}某个分类」来查看。"
+  not_available: "无此条目或分类、权限不足或在当前上下文不可用。"
+  paginator: "第 {page} 页，共 {total} 页"
+  command_brief_help: "查看所有帮助。"
 
 idhagnbot_lang:
   locale_get: "当前语言是 {lang}。"
@@ -50,3 +67,4 @@ idhagnbot_lang:
   locale_set_force: "当前语言已设置为 {lang}（强制应用）。"
   locale_set_invalid: "无效语言 {lang}。"
   locale_set_reset: "已恢复默认语言。"
+  command_brief_scene_locale: "设置群内默认（或强制）语言。"

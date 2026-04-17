@@ -310,7 +310,7 @@ suppress_exception = (
     Alconna(
       "suppress",
       Args["toggle?", str, ""],
-      meta=CommandMeta("暂时禁用错误消息"),
+      meta=CommandMeta("__idhagnbot_fallback:command_brief_suppress_exception__"),
     ),
   )
   .default_grant_to(ADMINISTRATOR_OR_ABOVE)
@@ -347,7 +347,7 @@ raise_exception = (
     Alconna(
       "raise",
       Args["confirm?", Literal["confirm"], None],
-      meta=CommandMeta("手动触发一个错误"),
+      meta=CommandMeta("__idhagnbot_fallback:command_brief_raise_exception__"),
     ),
   )
   .default_grant_to(ADMINISTRATOR_OR_ABOVE)
