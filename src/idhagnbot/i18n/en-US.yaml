@@ -1,6 +1,11 @@
 idhagnbot:
   lang_name: "English (US)"
 
+idhagnbot_booru:
+  invalid_page_size: "Invalid page size, must between 1 and {max}."
+  invalid_page: "Invalid page, must greater than 0."
+  posts_empty: "No posts."
+
 idhagnbot_fallback:
   error_markup_header: "<span weight='heavy' size='150%'>Something really bad happens. Panic!</span>"
   error_markup_content: |-

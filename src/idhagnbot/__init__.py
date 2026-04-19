@@ -5,14 +5,15 @@ from nonebot.plugin import PluginMetadata
 
 import idhagnbot.plugins
 
-__all__ = ["__plugin_meta__", "load_plugins"]
+__all__ = ["SUPPORTED_ADAPTERS", "__plugin_meta__", "load_plugins"]
+SUPPORTED_ADAPTERS = {"~onebot.v11", "~satori", "~telegram"}
 __plugin_meta__ = PluginMetadata(
   name="IdhagnBot",
   description="加载所有 IdhagnBot 插件的快捷方式，亦可通过配置文件排除部分插件。",
   usage="""发送 <命令前缀>help 获取所有可用命令。""",
   type="application",
   homepage="https://github.com/su226/IdhagnBot-Next",
-  supported_adapters={"~onebot.v11", "~satori", "~telegram"},
+  supported_adapters=SUPPORTED_ADAPTERS,
 )
 
 

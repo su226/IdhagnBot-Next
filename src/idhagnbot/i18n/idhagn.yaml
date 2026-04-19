@@ -2,6 +2,11 @@ idhagnbot:
   lang_name: "伊哈根语"
   lang_fallback: zh-CN
 
+idhagnbot_booru:
+  invalid_page_size: "每页图片数要在 1 和 {max} 之间喵。"
+  invalid_page: "页码要大于 0 喵。"
+  posts_empty: "好像没有图片喵。"
+
 idhagnbot_fallback:
   error_markup_header: |-
     <span weight='heavy' size='200%'>这个要慌，问题很大</span>

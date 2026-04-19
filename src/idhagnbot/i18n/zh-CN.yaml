@@ -1,6 +1,11 @@
 idhagnbot:
   lang_name: "中文（中国）"
 
+idhagnbot_booru:
+  invalid_page_size: "每页数量无效，必须在 1 和 {max} 之间。"
+  invalid_page: "页码无效，必须大于 0。"
+  posts_empty: "没有图片。"
+
 idhagnbot_fallback:
   error_markup_header: |-
     <span weight='heavy' size='200%'>这个要慌，问题很大</span>
