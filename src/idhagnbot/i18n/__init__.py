@@ -25,7 +25,7 @@ __all__ = [
 ]
 LOCALE_KEY = "_idhagnbot_locale"
 lang.load(Path(__file__).parent)
-_locale_override = ContextVar[str | None]("_locale_override")
+_current_locale = ContextVar[str | None]("_current_locale")
 _I18N_PATTERN = re.compile(r"__([a-z0-9_]+):([a-z0-9_\.]+)__")
 
 
@@ -56,11 +56,11 @@ def get_fallback(locale: str) -> str | None:
     return None
 
 
-def get_locale(state: T_State) -> str:
+def _get_locale_from_state(state: T_State) -> str:
   return state.get(LOCALE_KEY) or lang.current
 
 
-Locale = Annotated[str, Depends(get_locale)]
+Locale = Annotated[str, Depends(_get_locale_from_state)]
 
 
 class Sentinel(Enum):
@@ -68,10 +68,10 @@ class Sentinel(Enum):
 
 
 def get_current_locale() -> str:
-  if (locale := _locale_override.get(Sentinel.SENTINEL)) is not Sentinel.SENTINEL:
+  if (locale := _current_locale.get(Sentinel.SENTINEL)) is not Sentinel.SENTINEL:
     return locale or lang.current
   if (matcher := current_matcher.get(None)) is not None:
-    return get_locale(matcher.state)
+    return matcher.state.get(LOCALE_KEY) or lang.current
   return lang.current
 
 
@@ -86,11 +86,11 @@ async def _check_matcher(
   stack: AsyncExitStack | None = None,
   dependency_cache: T_DependencyCache | None = None,
 ) -> bool:
-  token = _locale_override.set(state.get(LOCALE_KEY))
+  token = _current_locale.set(state.get(LOCALE_KEY))
   try:
     return await _raw_check_matcher(Matcher, bot, event, state, stack, dependency_cache)
   finally:
-    _locale_override.reset(token)
+    _current_locale.reset(token)
 
 
 def _require(
@@ -106,7 +106,7 @@ def _require(
     except KeyError:
       locale = get_fallback(locale)
   identifier = f"{scope}:{type}"
-  raise ValueError(f"Locale missing: {identifier!r}")
+  raise ValueError(f"Locale {locale} missing key: {identifier!r}")
 
 
 nonebot.message._check_matcher = _check_matcher  # pyright: ignore[reportPrivateUsage]

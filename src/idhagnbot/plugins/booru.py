@@ -1,10 +1,8 @@
-from contextlib import AbstractAsyncContextManager, AbstractContextManager
+from contextlib import AsyncExitStack
 from enum import Enum
 from functools import cached_property
-from os import PathLike
 from tempfile import NamedTemporaryFile
-from types import TracebackType
-from typing import IO, TYPE_CHECKING, Any, AnyStr, Literal, TypeVar, overload
+from typing import IO, Any
 from urllib.parse import quote
 
 import nonebot
@@ -15,18 +13,14 @@ from nonebot.matcher import Matcher
 from nonebot.plugin import PluginMetadata
 from nonebot.typing import T_State
 from pydantic import BaseModel, Field, RootModel
-from typing_extensions import override
 
 from idhagnbot import SUPPORTED_ADAPTERS
-from idhagnbot.asyncio import gather_seq
+from idhagnbot.asyncio import AsyncContextWrapper, gather_seq
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig
 from idhagnbot.http import get_session
 from idhagnbot.i18n import bound_lang
 from idhagnbot.permission import DEFAULT
-
-if TYPE_CHECKING:
-  from tempfile import _TemporaryFileWrapper  # pyright: ignore[reportPrivateUsage]
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_localstore")
@@ -356,150 +350,6 @@ def url_to_absolute(origin: str, path: str) -> str:
   return path
 
 
-OpenTextModeUpdating = Literal[
-  "r+",
-  "+r",
-  "rt+",
-  "r+t",
-  "+rt",
-  "tr+",
-  "t+r",
-  "+tr",
-  "w+",
-  "+w",
-  "wt+",
-  "w+t",
-  "+wt",
-  "tw+",
-  "t+w",
-  "+tw",
-  "a+",
-  "+a",
-  "at+",
-  "a+t",
-  "+at",
-  "ta+",
-  "t+a",
-  "+ta",
-  "x+",
-  "+x",
-  "xt+",
-  "x+t",
-  "+xt",
-  "tx+",
-  "t+x",
-  "+tx",
-]
-OpenTextModeWriting = Literal["w", "wt", "tw", "a", "at", "ta", "x", "xt", "tx"]
-OpenTextModeReading = Literal[
-  "r",
-  "rt",
-  "tr",
-  "U",
-  "rU",
-  "Ur",
-  "rtU",
-  "rUt",
-  "Urt",
-  "trU",
-  "tUr",
-  "Utr",
-]
-OpenTextMode = OpenTextModeUpdating | OpenTextModeWriting | OpenTextModeReading
-OpenBinaryModeUpdating = Literal[
-  "rb+",
-  "r+b",
-  "+rb",
-  "br+",
-  "b+r",
-  "+br",
-  "wb+",
-  "w+b",
-  "+wb",
-  "bw+",
-  "b+w",
-  "+bw",
-  "ab+",
-  "a+b",
-  "+ab",
-  "ba+",
-  "b+a",
-  "+ba",
-  "xb+",
-  "x+b",
-  "+xb",
-  "bx+",
-  "b+x",
-  "+bx",
-]
-OpenBinaryModeWriting = Literal["wb", "bw", "ab", "ba", "xb", "bx"]
-OpenBinaryModeReading = Literal["rb", "br", "rbU", "rUb", "Urb", "brU", "bUr", "Ubr"]
-OpenBinaryMode = OpenBinaryModeUpdating | OpenBinaryModeReading | OpenBinaryModeWriting
-
-
-class TempFiles(AbstractContextManager[list["_TemporaryFileWrapper[AnyStr]"], None]):
-  @overload
-  def __init__(
-    self: "TempFiles[str]",
-    mode: OpenTextMode,
-    count: int,
-    dir: PathLike[Any] | None = None,
-  ) -> None: ...
-  @overload
-  def __init__(
-    self: "TempFiles[bytes]",
-    mode: OpenBinaryMode,
-    count: int,
-    dir: PathLike[Any] | None = None,
-  ) -> None: ...
-  def __init__(
-    self,
-    mode: OpenTextMode | OpenBinaryMode,
-    count: int,
-    dir: PathLike[Any] | None = None,  # noqa: A002
-  ) -> None:
-    self.__files = [NamedTemporaryFile(mode, dir=dir) for _ in range(count)]  # noqa: SIM115
-
-  @override
-  def __enter__(self) -> list["_TemporaryFileWrapper[AnyStr]"]:
-    super().__enter__()
-    for file in self.__files:
-      file.__enter__()
-    return self.__files
-
-  @override
-  def __exit__(
-    self,
-    exc_type: type[BaseException] | None,
-    exc_value: BaseException | None,
-    traceback: TracebackType | None,
-  ) -> None:
-    for file in self.__files:
-      file.__exit__(exc_type, exc_value, traceback)
-
-
-TEnter_co = TypeVar("TEnter_co", covariant=True)
-TExit_co = TypeVar("TExit_co", covariant=True, bound=bool | None)
-
-
-class AsyncContextWrapper(AbstractAsyncContextManager[TEnter_co, TExit_co]):
-  def __init__(self, sync: AbstractContextManager[TEnter_co, TExit_co]) -> None:
-    self.__sync = sync
-
-  @override
-  async def __aenter__(self) -> TEnter_co:
-    return await run_sync(self.__sync.__enter__)
-
-  @override
-  async def __aexit__(
-    self,
-    exc_type: type[BaseException] | None,
-    exc_value: BaseException | None,
-    traceback: TracebackType | None,
-  ) -> TExit_co:
-    return await run_sync(self.__sync.__exit__, exc_type, exc_value, traceback)
-
-
 async def handle_booru(
   session: Uninfo,
   state: T_State,
@@ -551,7 +401,11 @@ async def handle_booru(
     await UniMessage(L("posts_empty")).finish()
 
   await CACHE_DIR.mkdir(parents=True, exist_ok=True)
-  async with AsyncContextWrapper(TempFiles("wb", len(posts), dir=CACHE_DIR)) as files:
+  async with AsyncExitStack() as stack:
+    files = await gather_seq(
+      stack.enter_async_context(AsyncContextWrapper(NamedTemporaryFile("wb", dir=CACHE_DIR)))  # noqa: SIM115
+      for _ in range(len(posts))
+    )
 
     async def download_post(post: Any, file: IO[bytes]) -> None:
       post_id = site.id_ptr.select(post)

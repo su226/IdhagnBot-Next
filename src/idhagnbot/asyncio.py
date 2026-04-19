@@ -1,11 +1,25 @@
 from collections.abc import Awaitable, Callable, Iterable, Mapping
-from typing import Any, Literal, TypeVar, cast, overload
+from contextlib import AbstractAsyncContextManager, AbstractContextManager
+from dataclasses import dataclass
+from types import TracebackType
+from typing import Any, Generic, Literal, TypeVar, cast, overload
 
 import anyio
 import nonebot
+from anyio.to_thread import run_sync
 from nonebot import logger
+from typing_extensions import override
 
-__all__ = ["create_background_task", "gather", "gather_seq"]
+__all__ = [
+  "AsyncContextWrapper",
+  "background_exception_handler",
+  "create_background_task",
+  "first",
+  "first_success",
+  "gather",
+  "gather_map",
+  "gather_seq",
+]
 _T = TypeVar("_T")
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2")
@@ -263,3 +277,106 @@ async def gather_map(
       tg.start_soon(wrapper, k, coro)
 
   return cast(Any, results)
+
+
+TEnter_co = TypeVar("TEnter_co", covariant=True)
+TExit_co = TypeVar("TExit_co", covariant=True, bound=bool | None)
+
+
+class AsyncContextWrapper(AbstractAsyncContextManager[TEnter_co, TExit_co]):
+  def __init__(self, sync: AbstractContextManager[TEnter_co, TExit_co], /) -> None:
+    self.__sync = sync
+
+  @override
+  async def __aenter__(self) -> TEnter_co:
+    return await run_sync(self.__sync.__enter__)
+
+  @override
+  async def __aexit__(
+    self,
+    exc_type: type[BaseException] | None,
+    exc_value: BaseException | None,
+    traceback: TracebackType | None,
+  ) -> TExit_co:
+    return await run_sync(self.__sync.__exit__, exc_type, exc_value, traceback)
+
+
+@dataclass
+class _Ok(Generic[_T1]):
+  value: _T1
+
+
+@dataclass
+class _Err:
+  error: BaseException
+
+
+@overload
+async def first() -> None: ...
+@overload
+async def first(coro: Awaitable[_T], /, *coros: Awaitable[_T]) -> _T: ...
+async def first(*coros: Awaitable[_T]) -> _T | None:
+  async def wrapper(coro: Awaitable[_T]) -> None:
+    nonlocal result
+    try:
+      result1 = _Ok(await coro)
+    except BaseException as e:
+      result1 = _Err(e)
+    if not event.is_set():
+      result = result1
+      event.set()
+
+  if not coros:
+    return None
+
+  result: _Ok[_T] | _Err | None = None
+  event = anyio.Event()
+
+  async with anyio.create_task_group() as tg:
+    for coro in coros:
+      tg.start_soon(wrapper, coro)
+    await event.wait()
+    tg.cancel_scope.cancel()
+
+  assert result is not None
+
+  if isinstance(result, _Ok):
+    return result.value
+  raise result.error
+
+
+@overload
+async def first_success() -> None: ...
+@overload
+async def first_success(coro: Awaitable[_T], /, *coros: Awaitable[_T]) -> _T: ...
+async def first_success(*coros: Awaitable[_T]) -> _T | None:
+  async def wrapper(coro: Awaitable[_T]) -> None:
+    nonlocal result
+    try:
+      result1 = await coro
+    except BaseException as e:
+      exceptions.append(e)
+      if len(exceptions) == len(coros):
+        event.set()
+    else:
+      if not event.is_set():
+        result = _Ok(result1)
+        event.set()
+
+  if not coros:
+    return None
+
+  result: _Ok[_T] | None = None
+  exceptions = list[BaseException]()
+  event = anyio.Event()
+
+  async with anyio.create_task_group() as tg:
+    for coro in coros:
+      tg.start_soon(wrapper, coro)
+    await event.wait()
+    tg.cancel_scope.cancel()
+
+  if result is None:
+    raise BaseExceptionGroup("所有任务都失败了", exceptions)
+
+  return result.value

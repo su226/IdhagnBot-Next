@@ -42,7 +42,7 @@ USER_LOCALES: "LRU[tuple[str, str], str | None]" = LRU(128)
 SCENE_LOCALES: "LRU[str, tuple[str, bool] | None]" = LRU(128)
 
 
-async def get_scene_locale(sql: AsyncSession, scene_id: str) -> tuple[str, bool] | None:
+async def query_scene_locale(sql: AsyncSession, scene_id: str) -> tuple[str, bool] | None:
   try:
     return SCENE_LOCALES[scene_id]
   except KeyError:
@@ -53,7 +53,7 @@ async def get_scene_locale(sql: AsyncSession, scene_id: str) -> tuple[str, bool]
   return locale
 
 
-async def get_user_locale(sql: AsyncSession, platform: str, user_id: str) -> str | None:
+async def query_user_locale(sql: AsyncSession, platform: str, user_id: str) -> str | None:
   try:
     return USER_LOCALES[platform, user_id]
   except KeyError:
@@ -64,13 +64,13 @@ async def get_user_locale(sql: AsyncSession, platform: str, user_id: str) -> str
   return locale
 
 
-async def locale(session: Uninfo, scene_id: SceneIdRaw) -> str | None:
+async def query_locale(session: Uninfo, scene_id: SceneIdRaw) -> str | None:
   async with get_session() as sql:
-    scene_locale = await get_scene_locale(sql, scene_id)
+    scene_locale = await query_scene_locale(sql, scene_id)
     if scene_locale is not None and scene_locale[1]:
       return scene_locale[0]
     scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
-    user_locale = await get_user_locale(sql, scope, session.user.id)
+    user_locale = await query_user_locale(sql, scope, session.user.id)
     if user_locale is not None:
       return user_locale
     if scene_locale is not None:
@@ -78,11 +78,8 @@ async def locale(session: Uninfo, scene_id: SceneIdRaw) -> str | None:
   return None
 
 
-Locale = Annotated[str, Depends(locale)]
-
-
 @event_preprocessor
-async def _(locale: Locale, state: T_State) -> None:
+async def _(locale: Annotated[str, Depends(query_locale)], state: T_State) -> None:
   state[LOCALE_KEY] = locale
 
 

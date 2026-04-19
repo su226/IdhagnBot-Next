@@ -198,17 +198,23 @@ async def handle_ai(
   messages: list[ReqMessage] = []
   if config.system:
     messages.append(ReqMessage(role="system", content=config.system.format(secret=secret)))
+  send_info_as = config.send_info_as
   for item in history:
-    if config.send_info_as and item.role == "user":
-      secret_info = f"，带有暗号{secret}" if config.secret and item.superuser else ""
-      messages.append(
-        ReqMessage(
-          role=config.send_info_as,
-          content=f"下一条消息来自{item.nickname}{secret_info}，"
-          f"发送于{item.time:%Y-%m-%d %H:%M:%S}",
-        ),
-      )
-    messages.append(ReqMessage(role=item.role, content=item.content))
+    content = item.content
+    if item.role == "user":
+      if send_info_as == "system":
+        secret_info = f"，带有暗号{secret}" if config.secret and item.superuser else ""
+        messages.append(
+          ReqMessage(
+            role="system",
+            content=f"下一条消息来自{item.nickname}{secret_info}，"
+            f"发送于{item.time:%Y-%m-%d %H:%M:%S}",
+          ),
+        )
+      elif send_info_as == "user":
+        secret_info = f"带暗号{secret}" if config.secret and item.superuser else ""
+        content = f"{item.nickname}在{item.time:%Y-%m-%d %H:%M:%S}{secret_info}说：" + content
+    messages.append(ReqMessage(role=item.role, content=content))
   time_start = time.perf_counter()
   async with get_session().post(
     f"{config.server}/chat/completions",

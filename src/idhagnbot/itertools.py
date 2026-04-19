@@ -1,11 +1,11 @@
 import sys
 from collections.abc import AsyncGenerator, AsyncIterable, Generator, Iterable
 from itertools import islice
-from typing import Literal, NoReturn, TypeVar, overload
+from typing import Literal, TypeVar, overload
 
 __all__ = ["batched"]
 T = TypeVar("T")
-SimpleGenerator = Generator[T, NoReturn, None]
+SimpleGenerator = Generator[T, None, None]
 SimpleAsyncGenerator = AsyncGenerator[T, None]
 
 
