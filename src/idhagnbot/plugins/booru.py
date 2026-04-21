@@ -1,13 +1,11 @@
 from contextlib import AsyncExitStack
 from enum import Enum
 from functools import cached_property
-from tempfile import NamedTemporaryFile
-from typing import IO, Any
+from typing import Any
 from urllib.parse import quote
 
 import nonebot
-from anyio import Path
-from anyio.to_thread import run_sync
+from anyio import AsyncFile, NamedTemporaryFile, Path
 from arclet.alconna import CommandMeta
 from nonebot.matcher import Matcher
 from nonebot.plugin import PluginMetadata
@@ -15,7 +13,7 @@ from nonebot.typing import T_State
 from pydantic import BaseModel, Field, RootModel
 
 from idhagnbot import SUPPORTED_ADAPTERS
-from idhagnbot.asyncio import AsyncContextWrapper, gather_seq
+from idhagnbot.asyncio import gather_seq
 from idhagnbot.command import CommandBuilder
 from idhagnbot.config import SharedConfig
 from idhagnbot.http import get_session
@@ -401,13 +399,13 @@ async def handle_booru(
     await UniMessage(L("posts_empty")).finish()
 
   await CACHE_DIR.mkdir(parents=True, exist_ok=True)
+  cache_dir = str(CACHE_DIR)
   async with AsyncExitStack() as stack:
     files = await gather_seq(
-      stack.enter_async_context(AsyncContextWrapper(NamedTemporaryFile("wb", dir=CACHE_DIR)))  # noqa: SIM115
-      for _ in range(len(posts))
+      stack.enter_async_context(NamedTemporaryFile("wb", dir=cache_dir)) for _ in range(len(posts))
     )
 
-    async def download_post(post: Any, file: IO[bytes]) -> None:
+    async def download_post(post: Any, file: AsyncFile[bytes]) -> None:
       post_id = site.id_ptr.select(post)
       url = None
       for ptr in site.sample_ptr:
@@ -423,8 +421,8 @@ async def handle_booru(
       url = url_to_absolute(site.origin, url)
       async with http.get(url, headers=headers, proxy=proxy, raise_for_status=True) as response:
         async for chunk in response.content.iter_chunked(65536):
-          await run_sync(file.write, chunk)
-      await run_sync(file.flush)
+          await file.write(chunk)
+      await file.flush()
 
     await gather_seq(download_post(post, file) for post, file in zip(posts, files, strict=True))
     message = UniMessage()
@@ -458,7 +456,7 @@ async def handle_booru(
         infos.append(get_extension(extension).upper())
       if message:
         message.append(Text.br())
-      message.append(Image(path=file.name))
+      message.append(Image(path=file.wrapped.name))
       message.append(Text.br())
       message.append(Text(url))
       if infos:
