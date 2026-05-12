@@ -4,6 +4,7 @@ import nonebot
 from nonebot.plugin import PluginMetadata
 
 import idhagnbot.plugins
+import idhagnbot.webui as _
 
 __all__ = ["SUPPORTED_ADAPTERS", "__plugin_meta__", "load_plugins"]
 SUPPORTED_ADAPTERS = {"~onebot.v11", "~satori", "~telegram"}

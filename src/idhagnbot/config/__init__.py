@@ -117,6 +117,7 @@ class BaseConfig(Generic[TModel, *TParam]):
 
 
 class SharedConfig(BaseConfig[TModel]):
+  by_name: ClassVar[dict[str, "SharedConfig[Any]"]] = {}
   base_dir: ClassVar[Path] = CONFIG_DIR
 
   name: str
@@ -124,6 +125,7 @@ class SharedConfig(BaseConfig[TModel]):
   def __init__(self, name: str, model: type[TModel], reloadable: Reloadable = "lazy") -> None:
     super().__init__(model, reloadable)
     self.name = name
+    self.by_name[name] = self
 
   @override
   def get_file(self, *, fallback: bool = False) -> Path:
@@ -131,18 +133,21 @@ class SharedConfig(BaseConfig[TModel]):
 
 
 class SharedData(SharedConfig[TModel]):
+  by_name: ClassVar[dict[str, "SharedData[Any]"]] = {}  # pyright: ignore[reportIncompatibleVariableOverride]
   category: ClassVar[str] = "数据"
   base_dir: ClassVar[Path] = DATA_DIR
   driver: ClassVar[Driver] = json
 
 
 class SharedCache(SharedConfig[TModel]):
+  by_name: ClassVar[dict[str, "SharedCache[Any]"]] = {}  # pyright: ignore[reportIncompatibleVariableOverride]
   category: ClassVar[str] = "缓存"
   base_dir: ClassVar[Path] = CACHE_DIR
   driver: ClassVar[Driver] = json
 
 
 class SessionConfig(BaseConfig[TModel, str]):
+  by_name: ClassVar[dict[str, "SessionConfig[Any]"]] = {}
   base_dir: ClassVar[Path] = CONFIG_DIR
 
   name: str
@@ -150,6 +155,7 @@ class SessionConfig(BaseConfig[TModel, str]):
   def __init__(self, name: str, model: type[TModel], reloadable: Reloadable = "lazy") -> None:
     super().__init__(model, reloadable)
     self.name = name
+    self.by_name[name] = self
 
   @override
   def get_file(self, session: str, *, fallback: bool = False) -> Path:
@@ -178,12 +184,14 @@ class SessionConfig(BaseConfig[TModel, str]):
 
 
 class SessionData(SessionConfig[TModel]):
+  by_name: ClassVar[dict[str, "SessionData[Any]"]] = {}  # pyright: ignore[reportIncompatibleVariableOverride]
   category: ClassVar[str] = "数据"
   base_dir: ClassVar[Path] = DATA_DIR
   driver: ClassVar[Driver] = json
 
 
 class SessionCache(SessionConfig[TModel]):
+  by_name: ClassVar[dict[str, "SessionCache[Any]"]] = {}  # pyright: ignore[reportIncompatibleVariableOverride]
   category: ClassVar[str] = "缓存"
   base_dir: ClassVar[Path] = CACHE_DIR
   driver: ClassVar[Driver] = json
