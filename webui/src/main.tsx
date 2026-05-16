@@ -1,14 +1,21 @@
-import { CircularProgress, createTheme, CssBaseline, Stack, ThemeProvider, Typography } from '@mui/material';
-import { lazy, StrictMode, Suspense } from 'react'
-import { createRoot } from 'react-dom/client'
+import {
+  CircularProgress,
+  createTheme,
+  CssBaseline,
+  ThemeProvider,
+  Typography,
+} from "@mui/material";
+import { lazy, StrictMode, Suspense } from "react"
+import { createRoot } from "react-dom/client"
 import { createBrowserRouter, isRouteErrorResponse, useRouteError } from "react-router";
 import { RouterProvider } from "react-router/dom";
-import Login from './routes/Login';
-import PrimaryText from './components/PrimaryH2';
-import EmptyContainer from './components/EmptyContainer';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import Login from "./routes/Login";
+import PrimaryText from "./components/PrimaryH2";
+import EmptyContainer from "./components/EmptyContainer";
 
 function ErrorBoundary() {
-  let error = useRouteError();
+  const error = useRouteError();
   if (isRouteErrorResponse(error)) {
     return (
       <EmptyContainer>
@@ -56,7 +63,9 @@ const router = createBrowserRouter([
       { path: "/config", element: <Config /> },
     ],
   },
-]);
+], {
+  basename: "/idhagnbot-webui",
+});
 
 const theme = createTheme({
   colorSchemes: {
@@ -64,12 +73,16 @@ const theme = createTheme({
   },
 });
 
-createRoot(document.getElementById('root')!).render(
+const queryClient = new QueryClient();
+
+createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Suspense fallback={<EmptyContainer><CircularProgress /></EmptyContainer>}>
-        <RouterProvider router={router} />
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
       </Suspense>
     </ThemeProvider>
   </StrictMode>,

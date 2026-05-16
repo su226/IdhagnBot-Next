@@ -5,6 +5,12 @@ from yarl import URL
 
 from idhagnbot.webui.common import ResponseData, authenticate
 from idhagnbot.webui.config import setup as setup_config_editor
+from idhagnbot.webui.dashboard import setup as setup_dashboard
+
+try:
+  from idhagnbot.webui import static_fastapi
+except ImportError:
+  static_fastapi = None
 
 
 class AuthenticateResponseData(BaseModel):
@@ -14,15 +20,8 @@ class AuthenticateResponseData(BaseModel):
 async def handle_authenticate(request: Request) -> Response:
   if response := authenticate(request):
     return response
-  return Response(
-    200,
-    content=ResponseData(
-      success=True,
-      message="",
-      data=AuthenticateResponseData(
-        plugins={plugin.id_ for plugin in nonebot.get_loaded_plugins()},
-      ),
-    ).model_dump_json(),
+  return ResponseData.res_success(
+    AuthenticateResponseData(plugins={plugin.id_ for plugin in nonebot.get_loaded_plugins()}),
   )
 
 
@@ -35,7 +34,10 @@ def setup(driver: ASGIMixin) -> None:
       handle_authenticate,
     ),
   )
+  if static_fastapi and isinstance(driver.server_app, static_fastapi.FastAPI):
+    static_fastapi.setup(driver.server_app)
   setup_config_editor(driver)
+  setup_dashboard(driver)
 
 
 if isinstance(driver := nonebot.get_driver(), ASGIMixin):

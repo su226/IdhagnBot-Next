@@ -21,7 +21,7 @@ import {
   type Theme,
 } from "@mui/material";
 import { ChevronLeft, Dashboard, Logout, Menu, Settings } from "@mui/icons-material";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import type { SystemStyleObject } from "@mui/system";
 
@@ -169,6 +169,7 @@ export default function DashboardContainer(props: { children?: ReactNode, sx?: S
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopOpen, setDesktopOpenRaw] = useState(localStorage.desktopMenuOpen === "true");
   const navigate = useNavigate();
+  const location = useLocation();
 
   const setDesktopOpen = (open: boolean) => {
     setDesktopOpenRaw(open);
@@ -176,9 +177,16 @@ export default function DashboardContainer(props: { children?: ReactNode, sx?: S
   }
 
   const logout = () => {
+    delete sessionStorage.token;
     delete localStorage.token;
     navigate("/");
   };
+
+  useEffect(() => {
+    if (!sessionStorage.token) {
+      navigate("/", { state: { back: location } });
+    }
+  }, []);
 
   return (
     desktop

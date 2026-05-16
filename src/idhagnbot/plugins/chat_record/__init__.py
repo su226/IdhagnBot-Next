@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import cached_property
 from typing import Any, ClassVar
 
@@ -6,6 +6,7 @@ import nonebot
 from nonebot.adapters import Bot
 from nonebot.matcher import current_event
 from nonebot.message import event_preprocessor
+from sqlalchemy import func, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from idhagnbot.context import SceneId, UserId, get_bot_id, get_target_id
@@ -13,6 +14,7 @@ from idhagnbot.hook import on_message_sent
 from idhagnbot.hook.common import SentMessage
 from idhagnbot.message import EventTime, MessageId, OrigUniMsg
 from idhagnbot.message.common import message_id
+from idhagnbot.webui.dashboard import OverviewNumber, register
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_orm")
@@ -84,3 +86,31 @@ async def _(
         ),
       )
     await sql.commit()
+
+
+@register("chat_record:message_incoming")
+async def get_message_incoming() -> OverviewNumber:
+  time_now = datetime.now()
+  time_start = time_now - timedelta(1)
+  async with get_session() as sql:
+    result = await sql.execute(
+      select(func.count())
+      .select_from(Message)
+      .where(Message.time >= time_start, Message.time <= time_now, ~Message.outgoing),
+    )
+    count = result.scalar_one()
+  return OverviewNumber(name="24h 收到消息", icon="message", type="number", value=count)
+
+
+@register("chat_record:message_outgoing")
+async def get_message_outgoing() -> OverviewNumber:
+  time_now = datetime.now()
+  time_start = time_now - timedelta(1)
+  async with get_session() as sql:
+    result = await sql.execute(
+      select(func.count())
+      .select_from(Message)
+      .where(Message.time >= time_start, Message.time <= time_now, Message.outgoing),
+    )
+    count = result.scalar_one()
+  return OverviewNumber(name="24h 发出消息", icon="message", type="number", value=count)

@@ -8,3 +8,6 @@ if find_spec("psutil") is None:
   )
 else:
   import idhagnbot.plugins.idhagnfetch.main as _
+  from idhagnbot.plugins.idhagnfetch.webui import register_all
+
+  register_all()

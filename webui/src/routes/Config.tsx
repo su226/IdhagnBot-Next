@@ -201,7 +201,7 @@ export default function Config() {
     try {
       const response = await fetch("/idhagnbot-api/configs", {
         headers: {
-          Authorization: `Bearer ${localStorage.token}`,
+          Authorization: `Bearer ${sessionStorage.token}`,
         },
       });
       const result = Result.parse(await response.json());
@@ -227,7 +227,7 @@ export default function Config() {
       url.searchParams.set("name", fileName);
       const response = await fetch(url, {
         headers: {
-          Authorization: `Bearer ${localStorage.token}`,
+          Authorization: `Bearer ${sessionStorage.token}`,
         },
       });
       const result = Result.parse(await response.json());
@@ -259,7 +259,7 @@ export default function Config() {
       const response = await fetch(url, {
         method: "DELETE",
         headers: {
-          Authorization: `Bearer ${localStorage.token}`,
+          Authorization: `Bearer ${sessionStorage.token}`,
         },
       });
       const result = Result.parse(await response.json());
@@ -271,7 +271,7 @@ export default function Config() {
       const data = ConfigSetDeleteData.parse(result.data);
       const response2 = await fetch("/idhagnbot-api/configs", {
         headers: {
-          Authorization: `Bearer ${localStorage.token}`,
+          Authorization: `Bearer ${sessionStorage.token}`,
         },
       });
       const result2 = Result.parse(await response2.json());
@@ -310,7 +310,7 @@ export default function Config() {
           config: editorValue
         }),
         headers: {
-          Authorization: `Bearer ${localStorage.token}`,
+          Authorization: `Bearer ${sessionStorage.token}`,
         },
       });
       const result = Result.parse(await response.json());

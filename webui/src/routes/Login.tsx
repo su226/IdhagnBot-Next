@@ -1,6 +1,6 @@
-import { Button, Snackbar, TextField, Typography } from "@mui/material";
+import { Button, Checkbox, FormControlLabel, Snackbar, TextField, Typography } from "@mui/material";
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import PrimaryText from "../components/PrimaryH2";
 import EmptyContainer from "../components/EmptyContainer";
 import { Result } from "../utils/response";
@@ -14,10 +14,12 @@ type LoginData = z.infer<typeof LoginData>;
 
 export default function Login() {
   const [loading, setLoading] = useState(false);
-  const [token, setToken] = useState("");
+  const [token, setToken] = useState(localStorage.token);
+  const [remember, setRemember] = useState(Boolean(localStorage.token));
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
 
   const login = async (token: string) => {
     setLoading(true);
@@ -36,9 +38,12 @@ export default function Login() {
         return;
       }
       const data = LoginData.parse(result.data);
-      localStorage.token = token;
-      localStorage.plugins = JSON.stringify(data.plugins);
-      navigate("/dashboard");
+      sessionStorage.token = token;
+      sessionStorage.plugins = JSON.stringify(data.plugins);
+      if (remember) {
+        localStorage.token = token;
+      }
+      navigate(location.state?.back ?? "/dashboard");
     } catch (e) {
       setLoading(false);
       setSnackbarOpen(true);
@@ -48,7 +53,6 @@ export default function Login() {
 
   useEffect(() => {
     if (localStorage.token) {
-      setToken(localStorage.token);
       login(localStorage.token);
     }
   }, []);
@@ -72,6 +76,16 @@ export default function Login() {
         value={token}
         onChange={event => setToken(event.target.value)}
         onKeyUp={onKeyUp}
+      />
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={remember}
+            onChange={event => setRemember(event.target.checked)}
+          />
+        }
+        disabled={loading}
+        label="记住 Token"
       />
       <Button variant="contained" disabled={loading} onClick={() => login(token)}>登录</Button>
       <Snackbar

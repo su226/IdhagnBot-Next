@@ -96,14 +96,7 @@ async def handle_configs(request: Request) -> Response:
     configs[".env.dev"] = Config(path=".env.dev", type="dotenv", exist=False)
   if not has_prod:
     configs[".env.prod"] = Config(path=".env.prod", type="dotenv", exist=False)
-  return Response(
-    200,
-    content=ResponseData(
-      success=True,
-      message="",
-      data=ConfigsResponseData(configs=list(configs.values())),
-    ).model_dump_json(),
-  )
+  return ResponseData.res_success(ConfigsResponseData(configs=list(configs.values())))
 
 
 class ConfigGetResponseData(BaseModel):
@@ -119,10 +112,7 @@ async def handle_config_get(request: Request) -> Response:
   if name.startswith("config/"):
     path = Path(await run_sync(os.path.abspath, CONFIG_DIR / name[7:]))
     if not path.is_relative_to(CONFIG_DIR) or path == CONFIG_DIR:
-      return Response(
-        400,
-        content=ResponseData(success=False, message="无效配置名", data=None).model_dump_json(),
-      )
+      return ResponseData.res_error(400, "无效配置名")
     rel = path.relative_to(CONFIG_DIR)
     if len(rel.parts) == 3 and rel.parts[0] == "idhagnbot" and rel.suffix == ".yaml":
       if config := SessionConfig.by_name.get(rel.parts[1]):
@@ -134,33 +124,20 @@ async def handle_config_get(request: Request) -> Response:
     path = await Path(name).resolve()
     cwd = await Path.cwd()
     if not (path.name == ".env" or path.name.startswith(".env.")) or path.parent != cwd:
-      return Response(
-        400,
-        content=ResponseData(success=False, message="无效配置名", data=None).model_dump_json(),
-      )
+      return ResponseData.res_error(400, "无效配置名")
     schema = NonebotConfig.model_json_schema()
   try:
     st = await path.stat()
   except FileNotFoundError:
     st = None
   if st is not None and not stat.S_ISREG(st.st_mode):
-    return Response(
-      400,
-      content=ResponseData(success=False, message="不是文件", data=None).model_dump_json(),
-    )
+    return ResponseData.res_error(400, "不是文件")
   if st is None:
     content = ""
   else:
     async with await path.open("r", errors="replace") as file:
       content = await file.read()
-  return Response(
-    200,
-    content=ResponseData(
-      success=True,
-      message="",
-      data=ConfigGetResponseData(config=content, schema=schema),
-    ).model_dump_json(),
-  )
+  return ResponseData.res_success(ConfigGetResponseData(config=content, schema=schema))
 
 
 class ConfigSetRequestData(BaseModel):
@@ -177,19 +154,13 @@ async def handle_config_set(request: Request) -> Response:
   try:
     data = ConfigSetRequestData.model_validate(request.json)
   except ValidationError as e:
-    return Response(
-      400,
-      content=ResponseData(success=False, message=str(e), data=None).model_dump_json(),
-    )
+    return ResponseData.res_error(400, str(e))
   name = request.url.query.get("name", "")
   config = None
   if name.startswith("config/"):
     path = Path(await run_sync(os.path.abspath, CONFIG_DIR / name[7:]))
     if not path.is_relative_to(CONFIG_DIR) or path == CONFIG_DIR:
-      return Response(
-        400,
-        content=ResponseData(success=False, message="无效配置名", data=None).model_dump_json(),
-      )
+      return ResponseData.res_error(400, "无效配置名")
     rel = path.relative_to(CONFIG_DIR)
     if len(rel.parts) == 3 and rel.parts[0] == "idhagnbot" and rel.suffix == ".yaml":
       config = SessionConfig.by_name.get(rel.parts[1])
@@ -199,24 +170,14 @@ async def handle_config_set(request: Request) -> Response:
     path = await Path(name).resolve()
     cwd = await Path.cwd()
     if not (path.name == ".env" or path.name.startswith(".env.")) or path.parent != cwd:
-      return Response(
-        400,
-        content=ResponseData(success=False, message="无效配置名", data=None).model_dump_json(),
-      )
+      return ResponseData.res_error(400, "无效配置名")
   async with await path.open("w") as f:
     await f.write(data.config)
   reloaded = False
   if config and config.reloadable:
     reloaded = True
     config.reload()
-  return Response(
-    200,
-    content=ResponseData(
-      success=True,
-      message="",
-      data=ConfigSetDeleteResponseData(reloaded=reloaded),
-    ).model_dump_json(),
-  )
+  return ResponseData.res_success(ConfigSetDeleteResponseData(reloaded=reloaded))
 
 
 async def handle_config_delete(request: Request) -> Response:
@@ -227,10 +188,7 @@ async def handle_config_delete(request: Request) -> Response:
   if name.startswith("config/"):
     path = Path(await run_sync(os.path.abspath, CONFIG_DIR / name[7:]))
     if not path.is_relative_to(CONFIG_DIR) or path == CONFIG_DIR:
-      return Response(
-        400,
-        content=ResponseData(success=False, message="无效配置名", data=None).model_dump_json(),
-      )
+      return ResponseData.res_error(400, "无效配置名")
     rel = path.relative_to(CONFIG_DIR)
     if len(rel.parts) == 3 and rel.parts[0] == "idhagnbot" and rel.suffix == ".yaml":
       config = SessionConfig.by_name.get(rel.parts[1])
@@ -240,23 +198,13 @@ async def handle_config_delete(request: Request) -> Response:
     path = await Path(name).resolve()
     cwd = await Path.cwd()
     if not (path.name == ".env" or path.name.startswith(".env.")) or path.parent != cwd:
-      return Response(
-        400,
-        content=ResponseData(success=False, message="无效配置名", data=None).model_dump_json(),
-      )
+      return ResponseData.res_error(400, "无效配置名")
   await path.unlink(missing_ok=True)
   reloaded = False
   if config and config.reloadable:
     reloaded = True
     config.reload()
-  return Response(
-    200,
-    content=ResponseData(
-      success=True,
-      message="",
-      data=ConfigSetDeleteResponseData(reloaded=reloaded),
-    ).model_dump_json(),
-  )
+  return ResponseData.res_success(ConfigSetDeleteResponseData(reloaded=reloaded))
 
 
 def setup(driver: ASGIMixin) -> None:
