@@ -1,4 +1,3 @@
-import DashboardContainer from "../components/DashboardContainer";
 import {
   AppBar,
   Box,
@@ -25,7 +24,7 @@ import {
 import { Close, Delete, Folder, Save } from "@mui/icons-material";
 import z from "zod";
 import React, { forwardRef, useState } from "react";
-import { Result } from "../utils/response";
+import { Result } from "../../utils/response";
 import type { TransitionProps } from "@mui/material/transitions";
 import CodeMirror, { type Extension } from "@uiw/react-codemirror";
 import { shell } from "@codemirror/legacy-modes/mode/shell";
@@ -336,7 +335,7 @@ export default function Config() {
   };
 
   return (
-    <DashboardContainer sx={{ height: "100vh" }}>
+    <>
       <Toolbar>
         <Tooltip title="打开">
           <IconButton edge="start" onClick={openDialog}>
@@ -376,6 +375,6 @@ export default function Config() {
         onClose={() => setSnackbarOpen(false)}
         message={snackbarMessage}
       />
-    </DashboardContainer>
+    </>
   );
 }

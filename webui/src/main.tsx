@@ -13,6 +13,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Login from "./routes/Login";
 import PrimaryText from "./components/PrimaryH2";
 import EmptyContainer from "./components/EmptyContainer";
+import Dashboard from "./routes/Dashboard";
 
 function ErrorBoundary() {
   const error = useRouteError();
@@ -50,8 +51,8 @@ function ErrorBoundary() {
   }
 }
 
-const Dashboard = lazy(() => import("./routes/Dashboard"));
-const Config = lazy(() => import("./routes/Config"));
+const Overview = lazy(() => import("./routes/dashboard/Overview"));
+const Config = lazy(() => import("./routes/dashboard/Config"));
 
 const router = createBrowserRouter([
   {
@@ -59,8 +60,14 @@ const router = createBrowserRouter([
     ErrorBoundary,
     children: [
       { index: true, element: <Login /> },
-      { path: "/dashboard", element: <Dashboard /> },
-      { path: "/config", element: <Config /> },
+      {
+        path: "dashboard",
+        element: <Dashboard />,
+        children: [
+          { index: true, element: <Overview /> },
+          { path: "config", element: <Config /> },
+        ]
+      }
     ],
   },
 ], {
