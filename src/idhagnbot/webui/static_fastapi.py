@@ -35,4 +35,8 @@ def setup(app: FastAPI) -> None:
   host = driver.config.host
   port = driver.config.port
   url = f"http://{host}/{path}" if port == 80 else f"http://{host}:{port}/{path}"
-  logger.success(f"IdhagnBot WebUI 已在 {url} 可用。")
+
+  async def print_log() -> None:
+    logger.success(f"IdhagnBot WebUI 已在 {url} 可用。")
+
+  nonebot.get_driver().on_startup(print_log)

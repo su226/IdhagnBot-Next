@@ -37,6 +37,7 @@ import classes from "./Config.module.css";
 const ConfigFile = z.object({
   path: z.string(),
   type: z.literal(["shared", "session", "dotenv", "other"]),
+  description: z.string(),
   exist: z.boolean(),
 });
 
@@ -136,7 +137,7 @@ function ConfigSelectDialog(props: {
             <ListItemButton onClick={() => onSelect(file.path)}>
               <ListItemText
                 primary={file.exist ? file.path : <i>{file.path}</i>}
-                secondary={file.type}
+                secondary={`[${file.type}] ${file.description}`}
               />
             </ListItemButton>
           </ListItem>
@@ -194,6 +195,7 @@ export default function Config() {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [path, setPath] = useState("");
+  const [description, setDescription] = useState("");
   const [editorValue, setEditorValue] = useState("");
   const [editorExtensions, setEditorExtensions] = useState<Extension[]>([]);
 
@@ -238,6 +240,7 @@ export default function Config() {
       }
       const data = ConfigGetData.parse(result.data);
       setPath(fileName);
+      setDescription(data.schema?.description || "");
       setEditorValue(data.config);
       if (fileName.endsWith(".yaml")) {
         setEditorExtensions([yamlSchema(data.schema)]);
@@ -341,7 +344,9 @@ export default function Config() {
           </IconButton>
         </Tooltip>
         <Box sx={{ flexGrow: 1, textAlign: "center" }}>
-          {path || "没有打开文件"}
+          <Tooltip title={description}>
+            <span>{path || "没有打开文件"}</span>
+          </Tooltip>
         </Box>
         <Tooltip title="保存并重载">
           <IconButton edge="end" onClick={saveConfig}>

@@ -6,3 +6,20 @@
 .editor > :global(.cm-editor) {
   height: 100%;
 }
+
+.editor :global(.cm-tooltip) {
+  /* https://mui.com/material-ui/customization/z-index/ */
+  z-index: 1500;
+  max-width: 400px;
+}
+
+.editor :global(.cm6-json-schema-hover--description) {
+  max-height: 250px;
+  overflow-y: auto;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.editor :global(.cm6-json-schema-hover--description) > p,
+.editor :global(.cm6-json-schema-hover--code) > p {
+  margin: 0.5rem;
+}

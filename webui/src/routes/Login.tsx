@@ -76,6 +76,7 @@ export default function Login() {
         value={token}
         onChange={event => setToken(event.target.value)}
         onKeyUp={onKeyUp}
+        helperText="若忘记 Token，可查看配置文件 config/idhagnbot/webui.yaml"
       />
       <FormControlLabel
         control={

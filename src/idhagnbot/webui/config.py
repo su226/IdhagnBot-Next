@@ -23,6 +23,7 @@ CONFIG_DIR = Path(get_config_dir(None))
 class Config(BaseModel):
   path: str
   type: Literal["shared", "session", "dotenv", "other"]
+  description: str = ""
   exist: bool
 
 
@@ -57,6 +58,7 @@ async def handle_configs(request: Request) -> Response:
       configs[path_str] = Config(
         path=path_str,
         type="shared",
+        description=config.model.__doc__ or "",
         exist=await path.is_file(),
       )
     elif type(config) is SessionConfig:
@@ -67,10 +69,20 @@ async def handle_configs(request: Request) -> Response:
           if child.stem == "default":
             has_default = True
           path_str = str("config" / child.relative_to(CONFIG_DIR))
-          configs[path_str] = Config(path=path_str, type="session", exist=True)
+          configs[path_str] = Config(
+            path=path_str,
+            type="session",
+            description=config.model.__doc__ or "",
+            exist=True,
+          )
       if not has_default:
         path_str = str("config" / (path / "default.yaml").relative_to(CONFIG_DIR))
-        configs[path_str] = Config(path=path_str, type="session", exist=False)
+        configs[path_str] = Config(
+          path=path_str,
+          type="session",
+          description=config.model.__doc__ or "",
+          exist=False,
+        )
   async for root, _, files in walk(CONFIG_DIR):
     path_root = Path(root).relative_to(CONFIG_DIR)
     for file in files:

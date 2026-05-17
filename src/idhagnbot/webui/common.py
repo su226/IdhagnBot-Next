@@ -8,10 +8,30 @@ from pydantic import BaseModel, SecretStr
 from idhagnbot.config import SharedConfig
 
 
-class Config(BaseModel):
+class Config(BaseModel, use_attribute_docstrings=True):
+  """
+  WebUI 相关配置
+  """
+
   token: SecretStr | None = None
+  """
+  WebUI 的令牌，设置为 null 以禁用 WebUI。出于安全性考虑，不建议设置为空字符串。
+  令牌明文传输，如果需要将 WebUI 暴露于公网，请使用 Nginx 等配置 HTTPS 反代。
+  可选，默认：null
+  """
+
   static_path: Path | None = None
+  """
+  WebUI 前端文件的路径，将被挂载到 http://<HOST>:<PORT>/idhagnbot-webui
+  仅支持 FastAPI 驱动器，该配置项不可热重载。设置为 null 时将不会自动挂载。
+  可选，默认：null
+  """
+
   redirect: bool = True
+  """
+  是否将 / 301 重定向到 /idhagnbot-webui。如果与其他插件冲突，将此选项设置为 false。
+  可选，默认：true
+  """
 
 
 CONFIG = SharedConfig("webui", Config)
