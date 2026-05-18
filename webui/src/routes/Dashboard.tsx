@@ -26,7 +26,7 @@ import {
   Menu,
   Settings
 } from "@mui/icons-material";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
 
 const drawerWidth = 250;
@@ -176,6 +176,7 @@ export default function Dashboard() {
   const [desktopOpen, setDesktopOpenRaw] = useState(localStorage.desktopMenuOpen === "true");
   const navigate = useNavigate();
   const location = useLocation();
+  const checkedLoginStatus = useRef(false);
 
   const setDesktopOpen = (open: boolean) => {
     setDesktopOpenRaw(open);
@@ -189,10 +190,14 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    if (checkedLoginStatus.current) {
+      return;
+    }
+    checkedLoginStatus.current = true;
     if (!sessionStorage.token) {
       navigate("/", { state: { back: location } });
     }
-  }, []);
+  }, [navigate, location]);
 
   return (
     desktop
