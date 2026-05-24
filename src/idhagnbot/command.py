@@ -133,10 +133,10 @@ DRIVER = nonebot.get_driver()
 async def _(message: UniMsg, state: T_State) -> None:
   if command_manager.test(message):
     state[COMMAND_KEY] = True
-  segment = message[0]
-  if isinstance(segment, Text):
+  if message and isinstance(segment := message[0], Text):
     longest_prefix_len = 0
-    first = segment.text.split(None, 1)[0]
+    splited = segment.text.split(None, 1)
+    first = splited[0] if splited else ""
     for prefix in DRIVER.config.command_start:
       if prefix and first.startswith(prefix):
         longest_prefix_len = max(longest_prefix_len, len(prefix))
