@@ -15,7 +15,13 @@ from typing_extensions import TypedDict
 from idhagnbot.color import split_rgb
 from idhagnbot.command import CommandBuilder
 from idhagnbot.http import BROWSER_UA, get_session
-from idhagnbot.image import circle, get_resample, get_scale_resample, open_url, to_segment
+from idhagnbot.image import (
+  apply_circle_mask,
+  get_resample,
+  get_scale_resample,
+  open_url,
+  to_segment,
+)
 from idhagnbot.plugins.bilibili_check import vtb
 from idhagnbot.plugins.bilibili_check.common import CACHE, CONFIG, CacheItem
 from idhagnbot.text import Layout, layout, render
@@ -238,7 +244,7 @@ def make_header(
   info2_im = render(f"<b>{matched_name}:</b> {info2}", "sans", 32, markup=True)
 
   avatar = avatar.convert("RGB").resize((144, 144), get_scale_resample())
-  circle(avatar)
+  apply_circle_mask(avatar)
 
   margin = 12
   padding = 6

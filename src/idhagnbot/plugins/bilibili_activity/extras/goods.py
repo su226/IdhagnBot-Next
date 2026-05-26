@@ -37,7 +37,7 @@ async def format_extra(extra: ExtraGoods) -> Callable[[Card], None]:
       out_image.paste((255, 255, 255), (x, 0, x + 100, 100))
       image.paste(out_image, im.resize((100, 100), image.get_resample()), (x, 0))
     if len(extra.goods) > 5:
-      text.paste(out_image, (566, 50), f"+{len(extra.goods) - 5}", "sans", 32, anchor="mm")
+      text.paste(out_image, (566, 50), f"+{len(extra.goods) - 5}", "sans", 32, anchor=(0.5, 0.5))
     card.add(CardTab(content, title, out_image))
 
   return appender

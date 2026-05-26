@@ -164,7 +164,7 @@ class CardAuthor(Render):
   def __init__(self, avatar: Image.Image, name: str, fans: int = -1) -> None:
     super().__init__()
     self.avatar = avatar.convert("RGB").resize((40, 40), imutil.get_scale_resample())
-    imutil.circle(self.avatar)
+    imutil.apply_circle_mask(self.avatar)
     name_max = CONTENT_WIDTH - self.avatar.width - AVATAR_MARGIN
     self.height = self.avatar.height
     if fans != -1:
@@ -191,9 +191,9 @@ class CardAuthor(Render):
     dst.paste(self.avatar, (x + PADDING, y + (self.height - self.avatar.height) // 2), self.avatar)
     y += self.height // 2
     name_x = PADDING + self.avatar.width + AVATAR_MARGIN
-    textutil.paste(dst, (x + name_x, y), self.name_layout, anchor="lm")
+    textutil.paste(dst, (x + name_x, y), self.name_layout, anchor=(0, 0.5))
     if self.fans_layout is not None:
-      textutil.paste(dst, (x + WIDTH - PADDING, y), self.fans_layout, anchor="rm")
+      textutil.paste(dst, (x + WIDTH - PADDING, y), self.fans_layout, anchor=(1, 0.5))
 
 
 class InfoText(Render):
@@ -249,7 +249,7 @@ class InfoCount(Render):
       dst,
       (x + INFO_ICON_SIZE + INFO_ICON_MARGIN, y + self.height // 2),
       self.layout,
-      anchor="lm",
+      anchor=(0, 0.5),
     )
 
 
@@ -384,10 +384,10 @@ class CardTab(Render):
     x += 8
     y_ = y + 8 + content_h / 2
     if self.icon:
-      imutil.paste(dst, self.icon, (x, y_), anchor="lm")
+      imutil.paste(dst, self.icon, (x, y_), (0, 0.5))
       x += self.icon.width + PADDING
     if self.content_im:
-      imutil.paste(dst, self.content_im, (x, y_), anchor="lm")
+      imutil.paste(dst, self.content_im, (x, y_), (0, 0.5))
 
 
 class Card(Render):

@@ -12,7 +12,7 @@ from aiohttp.typedefs import LooseHeaders
 from anyio.to_thread import run_sync
 from nonebot import logger
 from nonebot.adapters import Bot
-from PIL import Image, ImageChops, ImageDraw, ImageFile, ImageOps, ImageSequence, features
+from PIL import Image, ImageChops, ImageFile, ImageOps, ImageSequence, features
 from pydantic import BaseModel
 
 from idhagnbot import color
@@ -29,7 +29,6 @@ except ImportError:
   SatoriBot = None
 
 __all__ = [
-  "Anchor",
   "AnyImage",
   "Color",
   "PasteColor",
@@ -42,15 +41,21 @@ __all__ = [
   "Resample",
   "ScaleResample",
   "Size",
+  "apply_circle_mask",
+  "apply_mask",
+  "apply_rounded_rectangle_mask",
   "center_pad",
-  "circle",
   "contain_down",
+  "ensure_mode",
+  "ensure_pil",
   "flatten",
   "frames",
   "from_cairo",
   "get_resample",
   "get_scale_resample",
   "load",
+  "make_circle_mask",
+  "make_rounded_rectangle_mask",
   "open_url",
   "paste",
   "quantize",
@@ -58,7 +63,6 @@ __all__ = [
   "resize_canvas",
   "resize_height",
   "resize_width",
-  "rounded_rectangle",
   "sample_frames",
   "square",
   "to_cairo",
@@ -115,12 +119,6 @@ class Config(BaseModel, use_attribute_docstrings=True):
 
 CONFIG = SharedConfig("image", Config)
 """图像处理全局配置"""
-
-Anchor = Literal["lt", "lm", "lb", "mt", "mm", "mb", "rt", "rm", "rb"]
-"""
-粘贴图像时的对齐方式，将源图像的指定点与粘贴目标点对齐。
-第一个字母（l、m、r）代表左中右，第二个字母（t、m、b）代表上中下。
-"""
 
 Size = tuple[int, int]
 """图像宽高。"""
@@ -236,85 +234,127 @@ def to_cairo(im: Image.Image) -> cairo.ImageSurface:
     data = bytearray(im.tobytes())
     return cairo.ImageSurface.create_for_data(data, cairo.FORMAT_A1, w, h)
   if im.mode == "L":
-    stride = math.ceil(im.width / 4) * 4
+    stride = cairo.Format.A8.stride_for_width(im.width)
     data = bytearray(im.tobytes("raw", "L", stride))
     return cairo.ImageSurface.create_for_data(data, cairo.FORMAT_A8, im.width, im.height)
   if im.mode == "RGB":
-    data = bytearray(im.tobytes("raw", "BGRX"))
+    stride = cairo.Format.RGB24.stride_for_width(im.width)
+    data = bytearray(im.tobytes("raw", "BGRX", stride))
     return cairo.ImageSurface.create_for_data(data, cairo.FORMAT_RGB24, im.width, im.height)
   if im.mode == "RGBA":
-    data = bytearray(im.tobytes("raw", "BGRa"))
+    stride = cairo.Format.ARGB32.stride_for_width(im.width)
+    data = bytearray(im.tobytes("raw", "BGRa", stride))
     return cairo.ImageSurface.create_for_data(data, cairo.FORMAT_ARGB32, im.width, im.height)
   raise NotImplementedError(f"Unsupported mode: {im.mode}")
 
 
-# TODO: 增加使用 PyCairo 创建遮罩的函数避免缩小大图的性能损失，并让它可配置。
-def circle(im: Image.Image, antialias: bool | float = True) -> None:
+def ensure_pil(im: AnyImage) -> Image.Image:
   """
-  为图片覆盖圆形遮罩，原地修改图片，若图片已有 Alpha 通道则会与其叠加。
+  将支持的图片转换为 Pillow 的 Image，若已经是 Pillow 的 Image 则直接返回。
+
+  :param im: 要转换的图片。
+  :return: 转换后的图片。
+  """
+  if isinstance(im, cairo.ImageSurface):
+    return from_cairo(im)
+  return im
+
+
+def ensure_mode(im: AnyImage, mode: str) -> Image.Image:
+  """
+  确保图片的模式与指定模式相同，相同时直接返回（不拷贝图片）。
+
+  :param im: 要转换模式的图片。
+  :param mode: 目标模式。
+  :return: 转换模式后的图片。
+  """
+  im = ensure_pil(im)
+  if im.mode == mode:
+    return im
+  return im.convert(mode)
+
+
+def apply_mask(im: Image.Image, mask: Image.Image) -> None:
+  """
+  为图片应用遮罩，遮罩的模式为 1 或 L，尺寸与图片相同。
+  原地修改图片，若图片已有 Alpha 通道则会与其叠加。
+  非 RGBA、LA 将会被原地转换，包括预乘 Alpha 模式 RGBa 和 La。
+  由于可能的问题，不支持 P 或 PA 类型的图片，请先转换为 RGBA。
 
   :param im: 要覆盖遮罩的图片。
-  :param antialias: 通过创建大遮罩并缩小来达到抗锯齿的效果，True 代表 2 倍，也可传入自定义倍数。
+  :param mask: 遮罩。
   """
-  ratio = (2 if antialias else 1) if isinstance(antialias, bool) else antialias
-  if ratio > 1:
-    mask = Image.new("L", (round(im.width * ratio), round(im.height * ratio)))
-    draw = ImageDraw.Draw(mask)
-    draw.ellipse((0, 0, mask.width - 1, mask.height - 1), 255)
-    mask = mask.resize(im.size, get_scale_resample())
-  else:
-    mask = Image.new("L", im.size)
-    draw = ImageDraw.Draw(mask)
-    draw.ellipse((0, 0, mask.width - 1, mask.height - 1), 255)
-  if "A" in im.getbands():
-    mask = ImageChops.multiply(im.getchannel("A"), mask)
+  if im.has_transparency_data:
+    if im.mode in ("RGBa", "La"):
+      mask = ImageChops.multiply(im.getchannel("a"), mask)
+    elif im.mode in ("RGBA", "LA"):
+      mask = ImageChops.multiply(im.getchannel("A"), mask)
+    else:
+      raise NotImplementedError(f"Unsupported mode: {im.mode}")  # P、PA
   im.putalpha(mask)
 
 
-def rounded_rectangle(im: Image.Image, radius: int, antialias: bool | float = True) -> None:
+def make_circle_mask(size: Size) -> Image.Image:
   """
-  为图片覆盖圆角矩形遮罩，原地修改图片，若图片已有 Alpha 通道则会与其叠加。
+  生成圆形或椭圆形遮罩。
+
+  :param size: 遮罩尺寸。
+  :return: L 模式遮罩。
+  """
+  surface = cairo.ImageSurface(cairo.Format.A8, size[0], size[1])
+  cr = cairo.Context(surface)
+  cr.scale(size[0], size[1])
+  cr.arc(0.5, 0.5, 0.5, 0.0, 2 * math.pi)
+  cr.set_source_rgb(1, 1, 1)
+  cr.fill()
+  return from_cairo(surface)
+
+
+def apply_circle_mask(im: Image.Image) -> None:
+  """
+  为图片覆盖圆形或椭圆形遮罩，详见 apply_mask 函数。
 
   :param im: 要覆盖遮罩的图片。
-  :param antialias: 通过创建大遮罩并缩小来达到抗锯齿的效果，True 代表 2 倍，也可传入自定义倍数。
   """
-  ratio = (2 if antialias else 1) if isinstance(antialias, bool) else antialias
-  if ratio > 1:
-    circle = Image.new("L", (round(radius * 2 * ratio), round(radius * 2 * ratio)))
-    draw = ImageDraw.Draw(circle)
-    draw.ellipse((0, 0, circle.width - 1, circle.height - 1), 255)
-    circle = circle.resize((radius * 2, radius * 2), get_scale_resample())
-  else:
-    circle = Image.new("L", (radius * 2, radius * 2))
-    draw = ImageDraw.Draw(circle)
-    draw.ellipse((0, 0, circle.width - 1, circle.height - 1), 255)
-  mask = Image.new("L", im.size)
-  mask.paste(
-    circle.crop((0, 0, radius, radius)),
-    (0, 0),
-  )
-  mask.paste(
-    circle.crop((radius, 0, radius * 2, radius)),
-    (mask.width - radius, 0),
-  )
-  mask.paste(
-    circle.crop((0, radius, radius, radius * 2)),
-    (0, mask.height - radius),
-  )
-  mask.paste(
-    circle.crop((radius, radius, radius * 2, radius * 2)),
-    (mask.width - radius, mask.height - radius),
-  )
-  draw = ImageDraw.Draw(mask)
-  draw.rectangle((radius, 0, mask.width - radius - 1, radius - 1), 255)
-  draw.rectangle((0, radius, mask.width - 1, mask.height - radius - 1), 255)
-  draw.rectangle((radius, mask.height - radius, mask.width - radius - 1, mask.height - 1), 255)
-  if "A" in im.getbands():
-    mask = ImageChops.multiply(im.getchannel("A"), mask)
-  im.putalpha(mask)
+  apply_mask(im, make_circle_mask(im.size))
 
 
-def center_pad(im: AnyImage, width: int, height: int) -> Image.Image:
+def make_rounded_rectangle_mask(size: Size, radius: float) -> Image.Image:
+  """
+  生成圆角矩形遮罩。
+
+  :param size: 遮罩尺寸。
+  :param radius: 圆角半径。
+  :return: L 模式遮罩。
+  """
+  radius = min(radius, size[0] / 2, size[1] / 2)
+  surface = cairo.ImageSurface(cairo.Format.A8, size[0], size[1])
+  cr = cairo.Context(surface)
+  cr.arc(radius, radius, radius, math.pi, math.pi * 1.5)
+  cr.arc(size[0] - radius, radius, radius, math.pi * 1.5, math.pi * 2)
+  cr.arc(size[0] - radius, size[1] - radius, radius, 0, math.pi * 0.5)
+  cr.arc(radius, size[1] - radius, radius, math.pi * 0.5, math.pi)
+  cr.set_source_rgb(1, 1, 1)
+  cr.fill()
+  return from_cairo(surface)
+
+
+def apply_rounded_rectangle_mask(im: Image.Image, radius: float) -> None:
+  """
+  为图片覆盖圆角矩形遮罩，详见 apply_mask 函数。
+
+  :param im: 要覆盖遮罩的图片。
+  :param radius: 圆角半径。
+  """
+  apply_mask(im, make_rounded_rectangle_mask(im.size, radius))
+
+
+def center_pad(
+  im: AnyImage,
+  size: Size,
+  center: Point = (0.5, 0.5),
+  bg: int | tuple[int, ...] | str = 0,
+) -> Image.Image:
   """
   若图片大于指定的画布大小，则缩小并居中图片；否则保持大小不变并居中图片。
 
@@ -323,16 +363,23 @@ def center_pad(im: AnyImage, width: int, height: int) -> Image.Image:
   :param height: 画布高度。
   :return: 居中后的图片。
   """
-  im = from_cairo(im) if isinstance(im, cairo.ImageSurface) else im
-  if im.width > width or im.height > height:
-    padded_im = ImageOps.pad(im, (width, height), get_scale_resample())
+  im = ensure_pil(im)
+  if im.width > size[0] or im.height > size[1]:
+    padded_im = ImageOps.pad(im, size, get_scale_resample(), bg, center)
   else:
-    padded_im = Image.new("RGBA", (width, height))
-    padded_im.paste(im, ((width - im.width) // 2, (height - im.height) // 2))
+    padded_im = Image.new(im.mode, size)
+    x = round((size[0] - im.width) * center[0])
+    y = round((size[1] - im.height) * center[1])
+    padded_im.paste(im, (x, y))
   return padded_im
 
 
-def resize_canvas(im: AnyImage, size: Size, center: Point = (0.5, 0.5)) -> Image.Image:
+def resize_canvas(
+  im: AnyImage,
+  size: Size,
+  center: Point = (0.5, 0.5),
+  bg: int | tuple[int, ...] | str = 0,
+) -> Image.Image:
   """
   保持图片大小不变，改变画布大小，根据需要裁剪图片或延展边缘。
 
@@ -341,14 +388,14 @@ def resize_canvas(im: AnyImage, size: Size, center: Point = (0.5, 0.5)) -> Image
   :param center: 图片在画布中的位置。
   :return: 改变画布大小后的图片。
   """
-  im = from_cairo(im) if isinstance(im, cairo.ImageSurface) else im
+  im = ensure_pil(im)
   x = size[0] - im.width
   y = size[1] - im.height
   l = int(center[0] * x)
   r = x - l
   t = int(center[1] * y)
   b = y - t
-  return ImageOps.expand(im, (t, l, r, b))
+  return ImageOps.expand(im, (t, l, r, b), bg)
 
 
 def square(im: AnyImage) -> Image.Image:
@@ -358,23 +405,23 @@ def square(im: AnyImage) -> Image.Image:
   :param im: 要裁剪的图片。
   :return: 裁剪后的图片。
   """
-  im = from_cairo(im) if isinstance(im, cairo.ImageSurface) else im
+  im = ensure_pil(im)
   length = min(im.width, im.height)
   x = (im.width - length) // 2
   y = (im.height - length) // 2
   return im.crop((x, y, x + length, y + length))
 
 
-def contain_down(im: AnyImage, width: int, height: int) -> Image.Image:
+def contain_down(im: AnyImage, size: Size) -> Image.Image:
   """
   若图片大于指定的尺寸，则保持比例缩小，否则保持不变。
 
   :param im: 要缩小的图片。
   :return: 缩小后的图片。
   """
-  im = from_cairo(im) if isinstance(im, cairo.ImageSurface) else im
-  if im.width > width or im.height > height:
-    return ImageOps.contain(im, (width, height), get_scale_resample())
+  im = ensure_pil(im)
+  if im.width > size[0] or im.height > size[1]:
+    return ImageOps.contain(im, size, get_scale_resample())
   return im
 
 
@@ -385,7 +432,7 @@ def resize_width(im: AnyImage, width: int) -> Image.Image:
   :param im: 要缩放的图片。
   :return: 缩放后的图片。
   """
-  im = from_cairo(im) if isinstance(im, cairo.ImageSurface) else im
+  im = ensure_pil(im)
   return ImageOps.contain(im, (width, 99999), get_scale_resample())
 
 
@@ -396,11 +443,11 @@ def resize_height(im: AnyImage, height: int) -> Image.Image:
   :param im: 要缩放的图片。
   :return: 缩放后的图片。
   """
-  im = from_cairo(im) if isinstance(im, cairo.ImageSurface) else im
+  im = ensure_pil(im)
   return ImageOps.contain(im, (99999, height), get_scale_resample())
 
 
-def flatten(im: AnyImage, bg: Color = (255, 255, 255)) -> Image.Image:
+def flatten(im: AnyImage, bg: Literal["black", "white"] = "white") -> Image.Image:
   """
   将图片与指定背景混合以去除图片的 Alpha 通道，不是简单地移除 Alpha 通道。
 
@@ -408,17 +455,30 @@ def flatten(im: AnyImage, bg: Color = (255, 255, 255)) -> Image.Image:
   :param bg: 要混合的背景。
   :return: 去除 Alpha 通道的图片。
   """
-  im = from_cairo(im) if isinstance(im, cairo.ImageSurface) else im
-  if im.mode == "P":
-    assert im.palette
-    if "A" in im.palette.mode:
-      im = im.convert(im.palette.mode)
-  if "A" in im.getbands():
-    bg = color.split_rgb(bg) if isinstance(bg, int) else bg
-    result = Image.new("RGB", im.size, bg)
-    result.paste(im, mask=im.getchannel("A"))
-    return result
-  return im.convert("RGB")
+  im = ensure_pil(im)
+  if im.has_transparency_data:
+    if im.palette:
+      # P with transparency info, P with RGBA palette, PA
+      im = im.convert("RGBA")
+      out = Image.new("RGB", im.size, bg)
+      out.paste(im, mask=im)
+      return out
+    if im.mode in ("RGBA", "RGBa"):
+      out = Image.new("RGB", im.size, bg)
+      out.paste(im, mask=im)
+      return out
+    if im.mode == "LA":
+      out = Image.new("L", im.size, bg)
+      out.paste(im, mask=im)
+      return out
+    if im.mode == "La":
+      # conversion from La to L not supported
+      im = im.convert("LA")
+      out = Image.new("L", im.size, bg)
+      out.paste(im, mask=im)
+      return out
+    raise NotImplementedError(f"Unsupported mode: {im.mode}")  # unreachable
+  return im
 
 
 def frames(im: Image.Image) -> Generator[Image.Image, None, None]:
@@ -465,7 +525,7 @@ def paste(
   dst: Image.Image,
   src: AnyImage | PasteColor,
   xy: Point = (0, 0),
-  anchor: Anchor = "lt",
+  anchor: Point = (0, 0),
 ) -> None:
   """
   将源图片的内容 Alpha 混合到目标图片的矩形区域。
@@ -484,18 +544,8 @@ def paste(
   else:
     paste_src, (width, height) = src
     paste_src = color.split_rgb(paste_src) if isinstance(paste_src, int) else paste_src
-  x1, y1 = xy
-  xa, ya = anchor
-  if xa == "m":
-    x1 -= width / 2
-  elif xa == "r":
-    x1 -= width
-  if ya == "m":
-    y1 -= height / 2
-  elif ya == "b":
-    y1 -= height
-  x1 = round(x1)
-  y1 = round(y1)
+  x = round(xy[0] - width * anchor[0])
+  y = round(xy[1] - height * anchor[1])
   if (
     dst.mode in ("RGBA", "LA")
     and isinstance(paste_src, Image.Image)
@@ -503,7 +553,7 @@ def paste(
   ):
     if paste_src.mode != dst.mode:
       paste_src = paste_src.convert(dst.mode)
-    dst.alpha_composite(paste_src, (x1, y1))
+    dst.alpha_composite(paste_src, (x, y))
   else:
     paste_mask = None
     if isinstance(paste_src, Image.Image):
@@ -515,14 +565,14 @@ def paste(
         paste_mask = paste_src
       elif paste_src.mode.endswith(("A", "a")):
         paste_mask = paste_src
-    dst.paste(paste_src, (x1, y1, x1 + width, y1 + height), paste_mask)
+    dst.paste(paste_src, (x, y, x + width, y + height), paste_mask)
 
 
 def replace(
   dst: Image.Image,
   src: AnyImage | PasteColor,
   xy: Point = (0, 0),
-  anchor: Anchor = "lt",
+  anchor: Point = (0.5, 0.5),
 ) -> None:
   """
   用源图片的内容替换目标图片的矩形区域，不是 Alpha 混合。
@@ -541,19 +591,9 @@ def replace(
   else:
     paste_src, (width, height) = src
     paste_src = color.split_rgb(paste_src) if isinstance(paste_src, int) else paste_src
-  x1, y1 = xy
-  xa, ya = anchor
-  if xa == "m":
-    x1 -= width / 2
-  elif xa == "r":
-    x1 -= width
-  if ya == "m":
-    y1 -= height / 2
-  elif ya == "b":
-    y1 -= height
-  x1 = round(x1)
-  y1 = round(y1)
-  dst.paste(paste_src, (x1, y1, x1 + width, y1 + height))
+  x = round(xy[0] - width * anchor[0])
+  y = round(xy[1] - height * anchor[1])
+  dst.paste(paste_src, (x, y, x + width, y + height))
 
 
 def _check_libimagequant() -> bool:
@@ -582,7 +622,7 @@ def quantize(im: AnyImage) -> Image.Image:
   :return: 量化后的图片。
   """
   config = CONFIG()
-  im = from_cairo(im) if isinstance(im, cairo.ImageSurface) else im
+  im = ensure_pil(im)
   if config.libimagequant is True and _check_libimagequant():
     # Image.new 在 RGB 模式下不带 color 参数会给隐藏的 Alpha 通道填充 0 而非 255
     # 也就是颜色实际上是 (0, 0, 0, 0) 而非 (0, 0, 0, 255)
@@ -821,7 +861,7 @@ def to_segment(
         duration = [im.info["duration"] for im in ImageSequence.Iterator(duration)]
       if isinstance(duration, list) and len(duration) != len(im):
         raise ValueError("Duration list length doesn't match frames count.")
-      frames = [from_cairo(x) if isinstance(x, cairo.ImageSurface) else x for x in im]
+      frames = [ensure_pil(x) for x in im]
       afmt = afmt.lower()
       if afmt == "gif":
         frames = [x if x.mode == "P" else quantize(x) for x in frames]

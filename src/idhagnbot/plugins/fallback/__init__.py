@@ -204,7 +204,7 @@ async def post_run(
       size = (max(header.width, content.width) + 64, header.height + content.height + 80)
       im = Image.new("RGB", size, (30, 30, 30))
       im.paste((205, 49, 49), (0, 32, im.width, 32 + header.height))
-      paste(im, header, (im.width // 2, 32), anchor="mt")
+      paste(im, header, (im.width // 2, 32), (0.5, 0))
       im.paste(content, (32, 48 + header.height), content)
       return to_segment(im)
 

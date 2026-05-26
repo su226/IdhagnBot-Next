@@ -66,18 +66,18 @@ async def _(scene_id: SceneId, sql: async_scoped_session) -> None:
     width = MARGIN * 2 + max(header_im.width, COLUMNS * IMAGE_SIZE + (COLUMNS - 1) * MARGIN)
     height = MARGIN * 2 + header_im.height + lines * (IMAGE_SIZE + GAP + TEXT_HEIGHT + MARGIN)
     im = Image.new("RGB", (width, height), (255, 255, 255))
-    paste(im, header_im, (width // 2, MARGIN), "mt")
+    paste(im, header_im, (width // 2, MARGIN), (0.5, 0))
     y = MARGIN * 2 + header_im.height
     image_dir = get_data_dir("idhagnbot") / "aspects"
     for line in batched(aspects, COLUMNS):
       x = MARGIN
       for aspect in line:
         aspect_im = Image.open(image_dir / str(aspect.id))
-        aspect_im = contain_down(aspect_im, IMAGE_SIZE, IMAGE_SIZE)
-        paste(im, aspect_im, (x + IMAGE_SIZE // 2, y + IMAGE_SIZE // 2), "mm")
+        aspect_im = contain_down(aspect_im, (IMAGE_SIZE, IMAGE_SIZE))
+        paste(im, aspect_im, (x + IMAGE_SIZE // 2, y + IMAGE_SIZE // 2), (0.5, 0.5))
         title_im = render(aspect.title, "sans", FONT_SIZE)
-        title_im = contain_down(title_im, IMAGE_SIZE, TEXT_HEIGHT)
-        paste(im, title_im, (x + IMAGE_SIZE // 2, y + IMAGE_SIZE + GAP), "mt")
+        title_im = contain_down(title_im, (IMAGE_SIZE, TEXT_HEIGHT))
+        paste(im, title_im, (x + IMAGE_SIZE // 2, y + IMAGE_SIZE + GAP), (0.5, 0))
         x += IMAGE_SIZE + MARGIN
       y += IMAGE_SIZE + GAP + TEXT_HEIGHT + MARGIN
     return to_segment(im)

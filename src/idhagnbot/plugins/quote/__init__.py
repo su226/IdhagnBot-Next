@@ -18,13 +18,13 @@ from idhagnbot.color import split_rgb
 from idhagnbot.command import CommandBuilder
 from idhagnbot.context import SceneId
 from idhagnbot.image import (
-  circle,
+  apply_circle_mask,
+  apply_rounded_rectangle_mask,
   contain_down,
   get_scale_resample,
   open_url,
   paste,
   replace,
-  rounded_rectangle,
   to_segment,
 )
 from idhagnbot.message import send_message, unimsg_load
@@ -86,14 +86,14 @@ class SentQuote(Model):
 
 def generate_avatar(info: UserInfo) -> Image.Image:
   im = Image.new("RGB", (64, 64), split_rgb(info.color.avatar))
-  text.paste(im, (32, 32), info.avatar[9:], "sans", 32, anchor="mm", color=0xFFFFFF)
-  circle(im)
+  text.paste(im, (32, 32), info.avatar[9:], "sans", 32, anchor=(0.5, 0.5), color=0xFFFFFF)
+  apply_circle_mask(im)
   return im
 
 
 def avatar_process(im: Image.Image) -> Image.Image:
   im = im.resize((64, 64), get_scale_resample())
-  circle(im)
+  apply_circle_mask(im)
   return im
 
 
@@ -156,7 +156,7 @@ def render_content(
   for segment in message:
     if isinstance(segment, ImageSeg):
       flush_buffer()
-      rows.append(contain_down(Image.open(BytesIO(segment.raw_bytes)), 640, 640))
+      rows.append(contain_down(Image.open(BytesIO(segment.raw_bytes)), (640, 640)))
     elif isinstance(segment, Text):
       buffer.append(segment.text)
       empty = False
@@ -178,7 +178,7 @@ def render_content(
   for im in rows:
     paste(out_im, im, (padding, y))
     y += im.height
-  rounded_rectangle(out_im, 32)
+  apply_rounded_rectangle_mask(out_im, 32)
   return out_im
 
 
@@ -221,7 +221,7 @@ async def render_chat(
       replace(out_im, im, (avatar_size + gap, y))
       y += im.height
       if i == len(messages) - 1 or messages[i + 1].user_id != message.user_id:
-        replace(out_im, avatars[message.user_id], (0, y), anchor="lb")
+        replace(out_im, avatars[message.user_id], (0, y), (0, 1))
         y += gap
       else:
         y += gap_small
