@@ -198,7 +198,7 @@ class SharedCache(Generic[TModel]):
     model: type[TModel],
     reloadable: Reloadable = Reloadable.LAZY,
   ) -> None:
-    self.__loader = SharedLoader("缓存", DATA_DIR / name, JsonDriver, model, reloadable)
+    self.__loader = SharedLoader("缓存", CACHE_DIR / name, JsonDriver, model, reloadable)
     self.all[name] = self
 
   @property
