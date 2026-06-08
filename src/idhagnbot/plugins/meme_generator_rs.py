@@ -16,7 +16,7 @@ from pydantic import BaseModel, HttpUrl, TypeAdapter
 
 from idhagnbot.asyncio import create_background_task, gather_seq
 from idhagnbot.command import CommandBuilder
-from idhagnbot.config import SharedConfig
+from idhagnbot.config import Reloadable, SharedConfig
 from idhagnbot.http import get_session
 from idhagnbot.meme_common import FetchError, MemeImage, MemeParam, handle_params
 from idhagnbot.message import send_image_or_animation
@@ -91,7 +91,7 @@ class StringOption(MemeOption):
   choices: list[str] | None
 
   def option(self) -> Option:
-    arg_type = Literal[tuple(self.choices)] if self.choices else str
+    arg_type = self.choices or str
     args = Args[self.name, arg_type, self.default] if self.default else Args[self.name, arg_type]
     return Option(
       name=self.names(),
@@ -170,13 +170,13 @@ class MemeInfo(BaseModel):
   date_modified: datetime
 
 
-CONFIG = SharedConfig("meme_generator_rs", Config, "eager")
+CONFIG = SharedConfig("meme_generator_rs", Config, Reloadable.EAGER)
 lock = anyio.Lock()
 matchers = list[type[Matcher]]()
 memes = dict[str, MemeInfo]()
 
 
-@CONFIG.onload()
+@CONFIG.onload
 def _(prev: Config | None, curr: Config) -> None:
   create_background_task(add_matchers())
 

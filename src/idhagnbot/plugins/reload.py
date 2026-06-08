@@ -1,7 +1,7 @@
 import nonebot
 
 from idhagnbot.command import CommandBuilder
-from idhagnbot.config import BaseConfig
+from idhagnbot.config import Reloadable, SharedCache, SharedConfig, SharedData
 from idhagnbot.permission import SUPERUSER
 
 nonebot.require("nonebot_plugin_alconna")
@@ -18,7 +18,13 @@ reload = (
 
 @reload.handle()
 async def _() -> None:
-  for config in BaseConfig.all:
-    if config.reloadable:
+  for config in SharedConfig.all.values():
+    if config.reloadable is not Reloadable.FALSE:
+      config.reload()
+  for config in SharedData.all.values():
+    if config.reloadable is not Reloadable.FALSE:
+      config.reload()
+  for config in SharedCache.all.values():
+    if config.reloadable is not Reloadable.FALSE:
       config.reload()
   await reload.finish("已重载所有配置")

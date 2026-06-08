@@ -1,4 +1,5 @@
 import re
+import warnings
 from contextlib import AsyncExitStack
 from contextvars import ContextVar
 from enum import Enum
@@ -34,7 +35,7 @@ def _raw_require(
   type: str,  # noqa: A002
   locale: str,
 ) -> str:
-  return lang._LangConfig__langs[locale][scope][type]  # pyright: ignore[reportAttributeAccessIssue]
+  return lang._LangConfig__langs[locale][scope][type]  # ty:ignore[unresolved-attribute]
 
 
 def get_name(locale: str) -> str | None:
@@ -106,11 +107,12 @@ def _require(
     except KeyError:
       locale = get_fallback(locale)
   identifier = f"{scope}:{type}"
-  raise ValueError(f"Locale {locale} missing key: {identifier!r}")
+  warnings.warn(f"Locale {locale} missing key: {identifier!r}", stacklevel=2)
+  return f"__{identifier}__"
 
 
-nonebot.message._check_matcher = _check_matcher  # pyright: ignore[reportPrivateUsage]
-lang.require = _require
+nonebot.message._check_matcher = _check_matcher  # ty:ignore[invalid-assignment]
+lang.require = _require  # ty:ignore[invalid-assignment]
 
 
 class BoundLang(Protocol):

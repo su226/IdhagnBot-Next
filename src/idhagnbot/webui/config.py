@@ -11,7 +11,7 @@ from nonebot.drivers import ASGIMixin, HTTPServerSetup, Request, Response
 from pydantic import BaseModel, ValidationError
 from yarl import URL
 
-from idhagnbot.config import BaseConfig, SessionConfig, SharedConfig
+from idhagnbot.config import Reloadable, SharedConfig
 from idhagnbot.webui.common import ResponseData, authenticate
 
 nonebot.require("nonebot_plugin_localstore")
@@ -22,7 +22,7 @@ CONFIG_DIR = Path(get_config_dir(None))
 
 class Config(BaseModel):
   path: str
-  type: Literal["shared", "session", "dotenv", "other"]
+  type: Literal["shared", "dotenv", "other"]
   description: str = ""
   exist: bool
 
@@ -51,38 +51,15 @@ async def handle_configs(request: Request) -> Response:
   if response := authenticate(request):
     return response
   configs = dict[str, Config]()
-  for config in BaseConfig.all:
-    if type(config) is SharedConfig:
-      path = CONFIG_DIR / "idhagnbot" / f"{config.name}.yaml"
-      path_str = str("config" / path.relative_to(CONFIG_DIR))
-      configs[path_str] = Config(
-        path=path_str,
-        type="shared",
-        description=config.model.__doc__ or "",
-        exist=await path.is_file(),
-      )
-    elif type(config) is SessionConfig:
-      path = CONFIG_DIR / "idhagnbot" / config.name
-      has_default = False
-      async for child in path.iterdir():
-        if child.suffix == ".yaml" and await child.is_file():
-          if child.stem == "default":
-            has_default = True
-          path_str = str("config" / child.relative_to(CONFIG_DIR))
-          configs[path_str] = Config(
-            path=path_str,
-            type="session",
-            description=config.model.__doc__ or "",
-            exist=True,
-          )
-      if not has_default:
-        path_str = str("config" / (path / "default.yaml").relative_to(CONFIG_DIR))
-        configs[path_str] = Config(
-          path=path_str,
-          type="session",
-          description=config.model.__doc__ or "",
-          exist=False,
-        )
+  for config in SharedConfig.all.values():
+    path = CONFIG_DIR / "idhagnbot" / f"{config.name}.yaml"
+    path_str = str("config" / path.relative_to(CONFIG_DIR))
+    configs[path_str] = Config(
+      path=path_str,
+      type="shared",
+      description=config.model.__doc__ or "",
+      exist=await path.is_file(),
+    )
   async for root, _, files in walk(CONFIG_DIR):
     path_root = Path(root).relative_to(CONFIG_DIR)
     for file in files:
@@ -126,12 +103,13 @@ async def handle_config_get(request: Request) -> Response:
     if not path.is_relative_to(CONFIG_DIR) or path == CONFIG_DIR:
       return ResponseData.res_error(400, "无效配置名")
     rel = path.relative_to(CONFIG_DIR)
-    if len(rel.parts) == 3 and rel.parts[0] == "idhagnbot" and rel.suffix == ".yaml":
-      if config := SessionConfig.by_name.get(rel.parts[1]):
-        schema = config.model.model_json_schema()
-    elif len(rel.parts) == 2 and rel.parts[0] == "idhagnbot" and rel.suffix == ".yaml":  # noqa: SIM102
-      if config := SharedConfig.by_name.get(rel.stem):
-        schema = config.model.model_json_schema()
+    if (
+      len(rel.parts) == 2
+      and rel.parts[0] == "idhagnbot"
+      and rel.suffix == ".yaml"
+      and (config := SharedConfig.all.get(rel.stem))
+    ):
+      schema = config.model.model_json_schema()
   else:
     path = await Path(name).resolve()
     cwd = await Path.cwd()
@@ -174,10 +152,8 @@ async def handle_config_set(request: Request) -> Response:
     if not path.is_relative_to(CONFIG_DIR) or path == CONFIG_DIR:
       return ResponseData.res_error(400, "无效配置名")
     rel = path.relative_to(CONFIG_DIR)
-    if len(rel.parts) == 3 and rel.parts[0] == "idhagnbot" and rel.suffix == ".yaml":
-      config = SessionConfig.by_name.get(rel.parts[1])
-    elif len(rel.parts) == 2 and rel.parts[0] == "idhagnbot" and rel.suffix == ".yaml":
-      config = SharedConfig.by_name.get(rel.stem)
+    if len(rel.parts) == 2 and rel.parts[0] == "idhagnbot" and rel.suffix == ".yaml":
+      config = SharedConfig.all.get(rel.stem)
   else:
     path = await Path(name).resolve()
     cwd = await Path.cwd()
@@ -186,7 +162,7 @@ async def handle_config_set(request: Request) -> Response:
   async with await path.open("w") as f:
     await f.write(data.config)
   reloaded = False
-  if config and config.reloadable:
+  if config and config.reloadable is not Reloadable.FALSE:
     reloaded = True
     config.reload()
   return ResponseData.res_success(ConfigSetDeleteResponseData(reloaded=reloaded))
@@ -202,10 +178,8 @@ async def handle_config_delete(request: Request) -> Response:
     if not path.is_relative_to(CONFIG_DIR) or path == CONFIG_DIR:
       return ResponseData.res_error(400, "无效配置名")
     rel = path.relative_to(CONFIG_DIR)
-    if len(rel.parts) == 3 and rel.parts[0] == "idhagnbot" and rel.suffix == ".yaml":
-      config = SessionConfig.by_name.get(rel.parts[1])
-    elif len(rel.parts) == 2 and rel.parts[0] == "idhagnbot" and rel.suffix == ".yaml":
-      config = SharedConfig.by_name.get(rel.stem)
+    if len(rel.parts) == 2 and rel.parts[0] == "idhagnbot" and rel.suffix == ".yaml":
+      config = SharedConfig.all.get(rel.stem)
   else:
     path = await Path(name).resolve()
     cwd = await Path.cwd()
@@ -213,7 +187,7 @@ async def handle_config_delete(request: Request) -> Response:
       return ResponseData.res_error(400, "无效配置名")
   await path.unlink(missing_ok=True)
   reloaded = False
-  if config and config.reloadable:
+  if config and config.reloadable is not Reloadable.FALSE:
     reloaded = True
     config.reload()
   return ResponseData.res_success(ConfigSetDeleteResponseData(reloaded=reloaded))

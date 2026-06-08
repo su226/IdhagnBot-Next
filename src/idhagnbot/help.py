@@ -106,7 +106,7 @@ SEPARATOR = "══════════"
 COMMAND_PREFIX = next(iter(nonebot.get_driver().config.command_start))
 
 
-@CONFIG.onload()
+@CONFIG.onload
 def onload(prev: Config | None, curr: Config) -> None:
   if prev:
     CategoryItem.ROOT.remove_user_items()
@@ -171,7 +171,7 @@ def pinyin_errors_handler(x: str) -> list[str]:
 
 def get_sort_key(title: str) -> list[str]:
   # 将没有拼音的字符转为大写，拼音保持小写，确保英文指令在中文指令前面
-  return lazy_pinyin(title, errors=cast(Any, pinyin_errors_handler))
+  return lazy_pinyin(title, errors=cast("Any", pinyin_errors_handler))
 
 
 class StringItem(Item):
@@ -267,7 +267,7 @@ class CommandItem(Item):
       prefix = self.data.format_prefix("{} | ")
       segments.append(f"「{prefix}{names[0]}」{apply_i18n(self.brief)}")
       segments.append(SEPARATOR)
-    usage = self.usage() if isinstance(self.usage, Callable) else self.usage
+    usage = self.usage if isinstance(self.usage, str) else self.usage()
     usage = apply_i18n(usage.replace("__cmd__", names[0]))
     segments.append(usage or L("usage_empty"))
     if len(names) > 1:

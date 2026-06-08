@@ -10,7 +10,7 @@ from nonebot import logger
 from pydantic import AliasChoices, BaseModel, Field
 from yarl import URL
 
-from idhagnbot.config import SharedData
+from idhagnbot.config import SharedCache
 from idhagnbot.http import get_session
 
 nonebot.require("nonebot_plugin_apscheduler")
@@ -66,13 +66,13 @@ class ClearURLsRules(BaseModel):
   providers: dict[str, ClearURLsRule]
 
 
-class Data(BaseModel):
+class Cache(BaseModel):
   tlds: set[str] = Field(default_factory=set)
   clearurls_rules: list[ClearURLsRule] = Field(default_factory=list)
   last_update: datetime = datetime(1, 1, 1, tzinfo=UTC)
 
 
-DATA = SharedData("url", Data)
+CACHE = SharedCache("url", Cache)
 URL_RE = re.compile(
   r"(?:https?://)?(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=-]*)?",
 )
@@ -80,7 +80,7 @@ driver = nonebot.get_driver()
 
 
 def extract_url(text: str) -> Generator[str, None, None]:
-  data = DATA()
+  data = CACHE()
   for match in URL_RE.finditer(text):
     if match[1].lower() in data.tlds:
       yield match[0]
@@ -92,12 +92,12 @@ def strip_url(text: str) -> str:
       return " "
     return match[0]
 
-  data = DATA()
+  data = CACHE()
   return URL_RE.sub(repl, text)
 
 
 def clear_url(url: str) -> str:
-  data = DATA()
+  data = CACHE()
   for rule in data.clearurls_rules:
     if rule.match(url):
       url = rule(url)
@@ -107,7 +107,7 @@ def clear_url(url: str) -> str:
 @scheduler.scheduled_job("interval", days=7)
 @driver.on_startup
 async def update_tlds() -> None:
-  data = DATA()
+  data = CACHE()
   now = datetime.now(UTC)
   if now - data.last_update < timedelta(7):
     return
@@ -120,7 +120,7 @@ async def update_tlds() -> None:
     rules = ClearURLsRules.model_validate(await response.json())
   data.clearurls_rules = list(rules.providers.values())
   data.last_update = now
-  DATA.dump()
+  CACHE.dump()
 
 
 def path_from_url(uri: str) -> Path:

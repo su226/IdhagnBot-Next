@@ -2,7 +2,7 @@ import json
 from collections.abc import Generator
 from importlib.util import find_spec
 from itertools import chain
-from typing import Any, ClassVar
+from typing import Any
 
 import nonebot
 from anyio.to_thread import run_sync
@@ -43,7 +43,7 @@ cv2_warned = False
 
 
 class LastState(Model):
-  __tablename__: ClassVar[Any] = "idhagnbot_link_parser_last_state"
+  __tablename__ = "idhagnbot_link_parser_last_state"
   scene: Mapped[str] = mapped_column(primary_key=True)
   last_state: Mapped[str]
 

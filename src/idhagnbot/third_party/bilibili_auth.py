@@ -25,7 +25,7 @@ def get_cookie() -> str:
   if config.cookie_type == "static":
     return config.cookie.get_secret_value()
   try:
-    import jsonc  # pyright: ignore[reportMissingTypeStubs]
+    import jsonc
   except ImportError:
     global jsonc_warned
     if not jsonc_warned:
@@ -62,7 +62,7 @@ class ApiError(Exception):
 
 
 def validate_result(result: dict[str, Any], data_type: type[TData]) -> TData:
-  parsed = TypeAdapter(ApiResult[data_type], config={"strict": True}).validate_python(result)
+  parsed = TypeAdapter(ApiResult[data_type], config={"strict": True}).validate_python(result)  # ty:ignore[invalid-type-form]
   if "data" not in parsed:
     raise ApiError(parsed["code"], parsed["message"])
   return parsed["data"]
@@ -86,7 +86,7 @@ BiligameApiResult = BiligameApiSuccess[TData] | BiligameApiError
 
 
 def validate_biligame_result(result: dict[str, Any], data_type: type[TData]) -> TData:
-  adapter = TypeAdapter(BiligameApiResult[data_type], config={"strict": True})
+  adapter = TypeAdapter(BiligameApiResult[data_type], config={"strict": True})  # ty:ignore[not-subscriptable]
   parsed = adapter.validate_python(result)
   if "data" not in parsed:
     raise ApiError(parsed["code"], parsed["message"])

@@ -13,7 +13,7 @@ from idhagnbot.config import SharedConfig
 gi.require_version("GLib", "2.0")
 gi.require_version("Pango", "1.0")
 gi.require_version("PangoCairo", "1.0")
-from gi.repository import GLib, Pango, PangoCairo  # pyright: ignore[reportMissingModuleSource]
+from gi.repository import GLib, Pango, PangoCairo
 
 CairoAntialias = Literal["default", "none", "fast", "good", "best", "gray", "subpixel"]
 CairoSubpixel = Literal["default", "rgb", "bgr", "vrgb", "vbgr"]
@@ -95,7 +95,7 @@ class ImageHolder:
       return
     x, y = cr.get_current_point()
     y += attr.ink_rect.y / Pango.SCALE
-    surface = self._images[cast(Any, attr.data)]
+    surface = self._images[cast("Any", attr.data)]
     cr.set_source_surface(surface, x, y)
     cr.rectangle(x, y, surface.get_width(), surface.get_height())
     cr.fill()
@@ -159,7 +159,7 @@ class RichText:
       rect.y = -im.height * Pango.SCALE
     rect.width = im.width * Pango.SCALE
     rect.height = im.height * Pango.SCALE
-    attr = Pango.AttrShape.new_with_data(rect, rect, cast(Any, image_id))
+    attr = Pango.AttrShape.new_with_data(rect, rect, cast("Any", image_id))
     attr.start_index = len(self._utf8)
     attr.end_index = len(self._utf8) + len(self._IMAGE_REPLACEMENT)
     self._utf8.extend(self._IMAGE_REPLACEMENT)

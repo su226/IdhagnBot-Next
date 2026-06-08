@@ -6,7 +6,7 @@ import nonebot
 from nonebot.params import Depends
 from nonebot.permission import Permission
 from pydantic import BaseModel, Field, PrivateAttr
-from pygtrie import StringTrie  # pyright: ignore[reportMissingTypeStubs]
+from pygtrie import StringTrie
 from typing_extensions import override
 
 from idhagnbot.config import SharedConfig
@@ -120,7 +120,7 @@ def check(node: Node, roles: set[str], default_grant_to: set[str]) -> bool:
       last = None
       for specificity, step in enumerate(rule.tree.walk_most(node)):
         if step.is_set:
-          last = (priority, specificity, cast(Entry, step.value).value)
+          last = (priority, specificity, cast("Entry", step.value).value)
       if last:
         values.append(last)
   value = max(values, key=lambda x: x[:2])[2] if values else "default"

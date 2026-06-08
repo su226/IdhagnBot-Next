@@ -4,11 +4,7 @@ from datetime import datetime, timedelta
 
 import nonebot
 from anyio import get_cancelled_exc_class
-from apscheduler.events import (  # pyright: ignore[reportMissingTypeStubs]
-  EVENT_JOB_ERROR,
-  EVENT_JOB_EXECUTED,
-  JobExecutionEvent,
-)
+from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, JobExecutionEvent
 from loguru import logger
 from nonebot.exception import ActionFailed, NetworkError
 
@@ -32,7 +28,7 @@ driver = nonebot.get_driver()
 queue = deque[common.User]()
 
 
-@common.CONFIG.onload()
+@common.CONFIG.onload
 def onload(prev: common.Config | None, curr: common.Config) -> None:
   global queue
   queue = deque[common.User]()

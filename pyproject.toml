@@ -45,37 +45,6 @@ jsonc = [
 requires = ["uv_build>=0.9.7,<0.10.0"]
 build-backend = "uv_build"
 
-[tool.pyright]
-typeCheckingMode = "strict"
-pythonVersion = "3.11"
-reportUnknownMemberType = false # NoneBot 类型不完善
-reportUnknownVariableType = false # NoneBot 类型不完善
-reportImplicitOverride = true
-reportImportCycles = true
-reportMissingSuperCall = true
-reportPropertyTypeMismatch = true
-reportUnnecessaryTypeIgnoreComment = true
-# reportCallInDefaultInitializer = true # 和 NoneBot 依赖注入冲突
-# reportImplicitStringConcatenation = true # 把一个字符串断开以避免行长度限制
-# reportUninitializedInstanceVariable = true # 和 SQLAlchemy 冲突
-# reportUnreachable = true # 和 if sys.version_info >= ... 冲突
-# reportUnusedCallResult = true # 和 () -> Self（可选链式调用）冲突
-
-# basedpyright
-reportIgnoreCommentWithoutRule = true
-reportPrivateLocalImportUsage = true
-reportImplicitRelativeImport = true
-reportInvalidCast = true
-reportUnsafeMultipleInheritance = true
-reportImplicitAbstractClass = true
-reportIncompatibleUnannotatedOverride = true
-reportUnannotatedClassAttribute = true
-reportInvalidAbstractMethod = true
-reportSelfClsDefault = true
-# reportAny = true # 没办法
-# reportExplicitAny = true # 同上
-# reportUnusedParameter = true # 为了符合装饰器 / Registry 等的类型需求
-
 [tool.ruff]
 line-length = 99
 indent-width = 2
@@ -84,7 +53,7 @@ indent-width = 2
 extend-select = ["ALL"]
 ignore = [
     "ANN401", # any-type
-    "ARG", # flake8-unused-arguments (让 Pyright 来吧)
+    "ARG", # flake8-unused-arguments
     "B008", # function-call-in-default-argument (干扰 NoneBot 依赖注入)
     "B010", # set-attr-with-constant
     "BLE001", # blind-except (自动忽略 logging.exception 但不忽略 loguru.exception)
@@ -94,7 +63,6 @@ ignore = [
     "E402", # module-import-not-at-top-of-file
     "E741", # ambiguous-variable-name
     "EM", # flake8-errmsg
-    "F401", # unused-import (让 Pyright 来吧)
     "FA100", # future-rewritable-type-annotation
     "FBT001", # boolean-type-hint-positional-argument
     "FBT002", # boolean-default-value-positional-argument
@@ -102,6 +70,7 @@ ignore = [
     "INP001", # implicit-namespace-package
     "N818", # error-suffix-on-exception-name
     "PERF203", # try-except-in-loop
+    "PLC0415", # import-outside-top-level
     "PLR0904", # too-many-public-methods
     "PLR0911", # too-many-return-statements
     "PLR0912", # too-many-branches
@@ -121,7 +90,6 @@ ignore = [
     "S607", # start-process-with-partial-path
     "SIM105", # suppressible-exception
     "SLF001", # private-member-access
-    "TC006", # runtime-cast-value
     "TD002", # missing-todo-author
     "TD003", # missing-todo-link
     "TRY003", # raise-vanilla-args
@@ -148,6 +116,7 @@ dev = [
 ]
 lint = [
     "ruff>=0.14.6",
+    "ty>=0.0.44",
 ]
 stubs = [
     "pygobject-stubs>=2.14.0",

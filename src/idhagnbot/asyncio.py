@@ -208,7 +208,7 @@ async def gather(
   *coros: Awaitable[_T],
   return_exceptions: Literal[True],
 ) -> tuple[_T | BaseException, ...]: ...
-async def gather(  # pyright: ignore[reportInconsistentOverload]
+async def gather(
   *coros: Awaitable[_T],
   return_exceptions: bool = False,
 ) -> tuple[_T, ...] | tuple[_T | BaseException, ...]:
@@ -227,7 +227,7 @@ async def gather(  # pyright: ignore[reportInconsistentOverload]
     for i, coro in enumerate(coros):
       tg.start_soon(wrapper, i, coro)
 
-  return cast(Any, tuple(results))
+  return cast("Any", tuple(results))
 
 
 @overload
@@ -244,7 +244,7 @@ async def gather_seq(
   coros: Iterable[Awaitable[_T]],
   return_exceptions: bool = False,
 ) -> tuple[_T, ...] | tuple[_T | BaseException, ...]:
-  return await gather(*coros, return_exceptions=return_exceptions)
+  return await gather(*coros, return_exceptions=return_exceptions)  # ty:ignore[no-matching-overload]
 
 
 @overload
@@ -276,7 +276,7 @@ async def gather_map(
     for k, coro in coros.items():
       tg.start_soon(wrapper, k, coro)
 
-  return cast(Any, results)
+  return cast("Any", results)
 
 
 TEnter_co = TypeVar("TEnter_co", covariant=True)

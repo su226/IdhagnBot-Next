@@ -10,7 +10,7 @@ from idhagnbot.webui.dashboard import setup as setup_dashboard
 try:
   from idhagnbot.webui import static_fastapi
 except ImportError:
-  static_fastapi = None
+  static_fastapi: None = None
 
 
 class AuthenticateResponseData(BaseModel):

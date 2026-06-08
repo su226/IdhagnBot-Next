@@ -1,197 +1,226 @@
-import re
 from collections.abc import Callable
-from dataclasses import dataclass
+from enum import Enum, auto
 from pathlib import Path
 from threading import Lock
-from typing import Any, ClassVar, Generic, Literal, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar
 
 import nonebot
 from nonebot import logger
 from pydantic import BaseModel
-from typing_extensions import TypeVarTuple, override
 
-from idhagnbot.config import json, yaml
 from idhagnbot.config.driver import Driver
+from idhagnbot.config.json import JsonDriver
+from idhagnbot.config.yaml import YamlDriver
 
 nonebot.require("nonebot_plugin_localstore")
 from nonebot_plugin_localstore import get_cache_dir, get_config_dir, get_data_dir
 
 TModel = TypeVar("TModel", bound=BaseModel)
-TParam = TypeVarTuple("TParam")
-LoadHandler = Callable[[TModel | None, TModel, *TParam], None]
-Reloadable = Literal[False, "eager", "lazy"]
+SharedLoaderCallback = Callable[[TModel | None, TModel], None]
 CONFIG_DIR = get_config_dir("idhagnbot")
 DATA_DIR = get_data_dir("idhagnbot")
 CACHE_DIR = get_cache_dir("idhagnbot")
-GROUP_ID_RE = re.compile(r"^(?P<platform>.+)__group__(?P<group>.+)$")
-GROUP_RE = re.compile(r"^(?P<platform>.+)__group$")
-PRIVATE_ID_RE = re.compile(r"^(?P<platform>.+)__private__(?P<user>.+)$")
-PRIVATE_RE = re.compile(r"^(?P<platform>.+)__private$")
 
 
-@dataclass
-class CacheItem(Generic[TModel]):
-  item: TModel
-  need_reload: bool = False
+class Reloadable(Enum):
+  FALSE = auto()
+  EAGER = auto()
+  LAZY = auto()
 
 
-class BaseConfig(Generic[TModel, *TParam]):
-  category: ClassVar[str] = "配置"
-  all: ClassVar[list["BaseConfig[Any, *tuple[Any, ...]]"]] = []
-  driver: ClassVar[Driver] = yaml
+class SharedLoader(Generic[TModel]):
+  __slots__ = (
+    "__cache",
+    "__callbacks",
+    "__category",
+    "__driver",
+    "__lock",
+    "__model",
+    "__path",
+    "__reloadable",
+  )
 
-  model: type[TModel]
-  cache: dict[tuple[*TParam], CacheItem[TModel]]
-  reloadable: Reloadable
-  handlers: list[LoadHandler[TModel, *TParam]]
-  lock: Lock
-
-  def __init__(self, model: type[TModel], reloadable: Reloadable = "lazy") -> None:
-    super().__init__()
-    self.model = model
-    self.cache = {}
-    self.reloadable = reloadable
-    self.handlers = []
-    self.lock = Lock()
-    self.all.append(self)
-
-  def get_file(self, *args: *TParam, fallback: bool = False) -> Path:
-    raise NotImplementedError
-
-  def __call__(self, *args: *TParam) -> TModel:
-    if args not in self.cache or self.cache[args].need_reload:
-      with self.lock:  # Nonebot 的 run_sync 不在主线程
-        if args not in self.cache or self.cache[args].need_reload:
-          self.load(*args)
-    return self.cache[args].item
-
-  def load(self, *args: *TParam) -> None:
-    file = self.get_file(*args, fallback=True)
-    if file.exists():
-      logger.info(f"加载{self.category}文件: {file}")
-      with file.open() as f:
-        new_config = self.driver.load(f, self.model)
-    else:
-      logger.info(f"{self.category}文件不存在: {file}")
-      new_config = self.model()
-    if args not in self.cache:
-      old_config = None
-      self.cache[args] = CacheItem(new_config)
-    else:
-      cache_item = self.cache[args]
-      old_config = cache_item.item
-      cache_item.item = new_config
-      cache_item.need_reload = False
-    for handler in self.handlers:
-      handler(old_config, new_config, *args)
-
-  def dump(self, *args: *TParam) -> None:
-    if args not in self.cache:
-      return
-    data = self.cache[args].item
-    file = self.get_file(*args)
-    file.parent.mkdir(parents=True, exist_ok=True)
-    with file.open("w") as f:
-      self.driver.dump(f, data)
-
-  def onload(
+  def __init__(
     self,
-  ) -> Callable[[LoadHandler[TModel, *TParam]], LoadHandler[TModel, *TParam]]:
-    def decorator(
-      handler: LoadHandler[TModel, *TParam],
-    ) -> LoadHandler[TModel, *TParam]:
-      self.handlers.append(handler)
-      return handler
+    category: str,
+    path: Path,
+    driver: Driver,
+    model: type[TModel],
+    reloadable: Reloadable,
+  ) -> None:
+    self.__category = category
+    self.__path = path
+    self.__driver = driver
+    self.__model = model
+    self.__lock = Lock()
+    self.__reloadable = reloadable
+    self.__cache: TModel | None = None
+    self.__callbacks = list[Callable[[TModel | None, TModel], None]]()
 
-    return decorator
+  @property
+  def path(self) -> Path:
+    return self.__path
+
+  @property
+  def model(self) -> type[TModel]:
+    return self.__model
+
+  @property
+  def reloadable(self) -> Reloadable:
+    return self.__reloadable
+
+  def __call__(self) -> TModel:
+    if self.__cache is None:
+      with self.__lock:  # Nonebot 的 run_sync 不在主线程
+        if self.__cache is None:
+          return self.__load()
+    return self.__cache
+
+  def __load(self) -> TModel:
+    path = self.__path.with_suffix(self.__driver.extension)
+    if path.exists():
+      logger.info(f"加载{self.__category}文件: {path}")
+      with path.open() as f:
+        new_config = self.__driver.load(f, self.__model)
+    else:
+      logger.info(f"{self.__category}文件不存在: {path}")
+      new_config = self.__model()
+    old_config = self.__cache
+    self.__cache = new_config
+    for callback in self.__callbacks:
+      callback(old_config, new_config)
+    return new_config
+
+  def dump(self) -> None:
+    path = self.__path.with_suffix(self.__driver.extension)
+    if self.__cache is None:
+      logger.info(f"{self.__category}数据未加载: {path}")
+      return
+    logger.info(f"保存{self.__category}文件: {path}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w") as f:
+      self.__driver.dump(f, self.__cache)
+
+  def onload(self, func: SharedLoaderCallback[TModel]) -> SharedLoaderCallback[TModel]:
+    self.__callbacks.append(func)
+    return func
 
   def reload(self) -> None:
-    if self.reloadable == "eager":
-      for key in self.cache:
-        self.load(*key)
-    elif self.reloadable == "lazy":
-      for v in self.cache.values():
-        v.need_reload = True
-    else:
+    if self.__reloadable is Reloadable.FALSE:
       raise ValueError(f"{self} 不可重载")
+    with self.__lock:
+      if self.__reloadable is Reloadable.EAGER:
+        self.__load()
+      else:
+        self.__cache = None
 
 
-class SharedConfig(BaseConfig[TModel]):
-  by_name: ClassVar[dict[str, "SharedConfig[Any]"]] = {}
-  base_dir: ClassVar[Path] = CONFIG_DIR
+class SharedConfig(Generic[TModel]):
+  all: ClassVar[dict[str, "SharedConfig[Any]"]] = {}
+  __slots__ = ("__loader",)
 
-  name: str
+  def __init__(
+    self,
+    name: str,
+    model: type[TModel],
+    reloadable: Reloadable = Reloadable.LAZY,
+  ) -> None:
+    self.__loader = SharedLoader("配置", CONFIG_DIR / name, YamlDriver, model, reloadable)
+    self.all[name] = self
 
-  def __init__(self, name: str, model: type[TModel], reloadable: Reloadable = "lazy") -> None:
-    super().__init__(model, reloadable)
-    self.name = name
-    self.by_name[name] = self
+  @property
+  def name(self) -> str:
+    return self.__loader.path.stem
 
-  @override
-  def get_file(self, *, fallback: bool = False) -> Path:
-    return self.base_dir / f"{self.name}.{self.driver.extension}"
+  @property
+  def model(self) -> type[TModel]:
+    return self.__loader.model
 
+  @property
+  def reloadable(self) -> Reloadable:
+    return self.__loader.reloadable
 
-class SharedData(SharedConfig[TModel]):
-  by_name: ClassVar[dict[str, "SharedData[Any]"]] = {}  # pyright: ignore[reportIncompatibleVariableOverride]
-  category: ClassVar[str] = "数据"
-  base_dir: ClassVar[Path] = DATA_DIR
-  driver: ClassVar[Driver] = json
+  def __call__(self) -> TModel:
+    return self.__loader()
 
+  def reload(self) -> None:
+    self.__loader.reload()
 
-class SharedCache(SharedConfig[TModel]):
-  by_name: ClassVar[dict[str, "SharedCache[Any]"]] = {}  # pyright: ignore[reportIncompatibleVariableOverride]
-  category: ClassVar[str] = "缓存"
-  base_dir: ClassVar[Path] = CACHE_DIR
-  driver: ClassVar[Driver] = json
-
-
-class SessionConfig(BaseConfig[TModel, str]):
-  by_name: ClassVar[dict[str, "SessionConfig[Any]"]] = {}
-  base_dir: ClassVar[Path] = CONFIG_DIR
-
-  name: str
-
-  def __init__(self, name: str, model: type[TModel], reloadable: Reloadable = "lazy") -> None:
-    super().__init__(model, reloadable)
-    self.name = name
-    self.by_name[name] = self
-
-  @override
-  def get_file(self, session: str, *, fallback: bool = False) -> Path:
-    file = self.base_dir / self.name / f"{session}.{self.driver.extension}"
-    if fallback and not file.exists():
-      fallback_session = self._get_fallback(session)
-      while fallback_session:
-        fallback_file = self.base_dir / self.name / f"{fallback_session}.{self.driver.extension}"
-        if fallback_file.exists():
-          return fallback_file
-        fallback_session = self._get_fallback(fallback_session)
-    return file
-
-  def _get_fallback(self, name: str) -> str | None:
-    if match := GROUP_ID_RE.match(name):
-      return f"{match['platform']}__group"
-    if match := GROUP_RE.match(name):
-      return match["platform"]
-    if match := PRIVATE_ID_RE.match(name):
-      return f"{match['platform']}__private"
-    if match := PRIVATE_RE.match(name):
-      return match["platform"]
-    if name == "default":
-      return None
-    return "default"
+  def onload(self, func: SharedLoaderCallback[TModel]) -> SharedLoaderCallback[TModel]:
+    return self.__loader.onload(func)
 
 
-class SessionData(SessionConfig[TModel]):
-  by_name: ClassVar[dict[str, "SessionData[Any]"]] = {}  # pyright: ignore[reportIncompatibleVariableOverride]
-  category: ClassVar[str] = "数据"
-  base_dir: ClassVar[Path] = DATA_DIR
-  driver: ClassVar[Driver] = json
+class SharedData(Generic[TModel]):
+  all: ClassVar[dict[str, "SharedData[Any]"]] = {}
+  __slots__ = ("__loader",)
+
+  def __init__(
+    self,
+    name: str,
+    model: type[TModel],
+    reloadable: Reloadable = Reloadable.LAZY,
+  ) -> None:
+    self.__loader = SharedLoader("数据", DATA_DIR / name, JsonDriver, model, reloadable)
+    self.all[name] = self
+
+  @property
+  def name(self) -> str:
+    return self.__loader.path.stem
+
+  @property
+  def model(self) -> type[TModel]:
+    return self.__loader.model
+
+  @property
+  def reloadable(self) -> Reloadable:
+    return self.__loader.reloadable
+
+  def __call__(self) -> TModel:
+    return self.__loader()
+
+  def dump(self) -> None:
+    self.__loader.dump()
+
+  def reload(self) -> None:
+    self.__loader.reload()
+
+  def onload(self, func: SharedLoaderCallback[TModel]) -> SharedLoaderCallback[TModel]:
+    return self.__loader.onload(func)
 
 
-class SessionCache(SessionConfig[TModel]):
-  by_name: ClassVar[dict[str, "SessionCache[Any]"]] = {}  # pyright: ignore[reportIncompatibleVariableOverride]
-  category: ClassVar[str] = "缓存"
-  base_dir: ClassVar[Path] = CACHE_DIR
-  driver: ClassVar[Driver] = json
+class SharedCache(Generic[TModel]):
+  all: ClassVar[dict[str, "SharedCache[Any]"]] = {}
+  __slots__ = ("__loader",)
+
+  def __init__(
+    self,
+    name: str,
+    model: type[TModel],
+    reloadable: Reloadable = Reloadable.LAZY,
+  ) -> None:
+    self.__loader = SharedLoader("缓存", DATA_DIR / name, JsonDriver, model, reloadable)
+    self.all[name] = self
+
+  @property
+  def name(self) -> str:
+    return self.__loader.path.stem
+
+  @property
+  def model(self) -> type[TModel]:
+    return self.__loader.model
+
+  @property
+  def reloadable(self) -> Reloadable:
+    return self.__loader.reloadable
+
+  def __call__(self) -> TModel:
+    return self.__loader()
+
+  def dump(self) -> None:
+    self.__loader.dump()
+
+  def reload(self) -> None:
+    self.__loader.reload()
+
+  def onload(self, func: SharedLoaderCallback[TModel]) -> SharedLoaderCallback[TModel]:
+    return self.__loader.onload(func)

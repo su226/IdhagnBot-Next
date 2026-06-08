@@ -2,7 +2,7 @@ from datetime import datetime, time, timedelta
 from itertools import chain
 
 import nonebot
-from apscheduler.job import Job  # pyright: ignore[reportMissingTypeStubs]
+from apscheduler.job import Job
 from nonebot import logger
 from nonebot.adapters import Bot
 from nonebot.exception import ActionFailed, NetworkError
@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from idhagnbot.asyncio import create_background_task, gather_map, gather_seq
 from idhagnbot.command import CommandBuilder
-from idhagnbot.config import SharedConfig, SharedData
+from idhagnbot.config import Reloadable, SharedCache, SharedConfig
 from idhagnbot.context import get_bot_id, get_target_id
 from idhagnbot.permission import CHANNEL_TYPES
 from idhagnbot.plugins.daily_push.module import (
@@ -62,12 +62,12 @@ class Config(BaseModel):
   grace_time: timedelta = timedelta(minutes=10)
 
 
-class Data(BaseModel):
+class Cache(BaseModel):
   last_check: dict[str, datetime] = Field(default_factory=dict)
 
 
-CONFIG = SharedConfig("daily_push", Config, "eager")
-DATA = SharedData("daily_push", Data)
+CONFIG = SharedConfig("daily_push", Config, Reloadable.EAGER)
+CACHE = SharedCache("daily_push", Cache)
 driver = nonebot.get_driver()
 jobs: list[Job] = []
 register("constant")(ConstantModule)
@@ -80,7 +80,7 @@ else:
   register("rank")(RankModule)
 
 
-@CONFIG.onload()
+@CONFIG.onload
 def _(prev: Config | None, curr: Config) -> None:
   for job in jobs:
     job.remove()
@@ -109,7 +109,7 @@ async def _() -> None:
 
 async def check_push(push_id: str) -> None:
   config = CONFIG()
-  data = DATA()
+  data = CACHE()
   push = config.pushes[push_id]
   now = datetime.now()
   send_datetime = datetime.combine(now, push.time)
@@ -123,7 +123,7 @@ async def check_push(push_id: str) -> None:
     logger.info(f"发送每日推送 {push_id}")
     await send_push(push)
   data.last_check[push_id] = now
-  DATA.dump()
+  CACHE.dump()
 
 
 async def format_one_target_aware(
@@ -191,7 +191,7 @@ async def format_all(
 
 async def get_bot_name(bot: Bot, target: Target) -> str:
   interface = get_interface(bot)
-  if not interface:
+  if interface is None:
     return "IdhagnBot"
   self_id = await get_bot_id(bot)
   if target.channel:

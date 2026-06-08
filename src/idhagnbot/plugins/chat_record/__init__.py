@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from functools import cached_property
-from typing import Any, ClassVar
 
 import nonebot
 from nonebot.adapters import Bot
@@ -23,7 +22,7 @@ from nonebot_plugin_orm import Model, get_session
 
 
 class Message(Model):
-  __tablename__: ClassVar[Any] = "idhagnbot_chat_record_message"
+  __tablename__ = "idhagnbot_chat_record_message"
   record_id: Mapped[int] = mapped_column(primary_key=True)
   time: Mapped[datetime]
   scene_id: Mapped[str]

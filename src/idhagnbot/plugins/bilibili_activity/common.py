@@ -4,7 +4,7 @@ from PIL import Image, ImageOps
 from pydantic import BaseModel, Field, PrivateAttr
 
 from idhagnbot.asyncio import gather_seq
-from idhagnbot.config import SharedConfig
+from idhagnbot.config import Reloadable, SharedConfig
 from idhagnbot.http import BROWSER_UA
 from idhagnbot.image import open_url
 from idhagnbot.target import TargetConfig
@@ -42,7 +42,7 @@ class Config(BaseModel):
   ignore_forward_lottery: bool = False
 
 
-CONFIG = SharedConfig("bilibili_activity", Config, "eager")
+CONFIG = SharedConfig("bilibili_activity", Config, Reloadable.EAGER)
 IMAGE_GAP = 10
 
 

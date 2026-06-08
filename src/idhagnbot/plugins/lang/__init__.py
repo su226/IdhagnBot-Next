@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Annotated, Any, ClassVar
+from typing import Annotated
 
 import nonebot
 from nonebot.message import event_preprocessor
@@ -24,14 +24,14 @@ from nonebot_plugin_uninfo import Uninfo
 
 
 class UserLocale(Model):
-  __tablename__: ClassVar[Any] = "idhagnbot_lang_user_locale"
+  __tablename__ = "idhagnbot_lang_user_locale"
   platform: Mapped[str] = mapped_column(primary_key=True)
   user_id: Mapped[str] = mapped_column(primary_key=True)
   locale: Mapped[str]
 
 
 class SceneLocale(Model):
-  __tablename__: ClassVar[Any] = "idhagnbot_lang_scene_locale"
+  __tablename__ = "idhagnbot_lang_scene_locale"
   scene_id: Mapped[str] = mapped_column(primary_key=True)
   locale: Mapped[str]
   force: Mapped[bool]

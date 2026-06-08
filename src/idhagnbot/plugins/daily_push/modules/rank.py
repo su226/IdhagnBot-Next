@@ -49,7 +49,7 @@ class RankModule(TargetAwareModule):
     result = list(result)
     bot = await target.select()
     interface = get_interface(bot)
-    if not interface:
+    if interface is None:
       return []
     lines = ["昨天最能水的成员："]
     if target.channel:

@@ -42,7 +42,7 @@ def clean_message_for_logging(message: UniMessage[Segment]) -> UniMessage[Segmen
     for i, segment in enumerate(message):
       if is_raw_media(segment):
         segment1 = copy(segment)
-        segment1.raw = cast(Any, ...)
+        segment1.raw = cast("Any", ...)
         message[i] = segment1
   return message
 

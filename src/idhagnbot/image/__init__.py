@@ -26,7 +26,7 @@ from nonebot_plugin_alconna.uniseg import Image as ImageSeg
 try:
   from nonebot.adapters.satori import Bot as SatoriBot
 except ImportError:
-  SatoriBot = None
+  SatoriBot: None = None
 
 __all__ = [
   "AnyImage",
@@ -604,7 +604,7 @@ def _check_libimagequant() -> bool:
   """
   global _libimagequant_available, _libimagequant_warned
   if _libimagequant_available is None:
-    _libimagequant_available = cast(bool, features.check("libimagequant"))
+    _libimagequant_available = features.check("libimagequant") or False
   if not _libimagequant_available and not _libimagequant_warned:
     logger.warning(
       "已启用 libimagequant，但没有安装 libimagequant 或者 Pillow 没有编译 libimagequant 支持，"
@@ -722,7 +722,7 @@ class RemapTransform:
     a = np.array(matrix)
     b = np.array(old_plane).reshape(8)
     res_ = np.linalg.inv(a.T @ a) @ a.T @ b
-    return cast(PerspectiveData, tuple(res_))
+    return cast("PerspectiveData", tuple(res_))
 
 
 class PixelAccess(Protocol[T]):
@@ -773,7 +773,7 @@ def load(im: Image.Image, _type: type[T]) -> PixelAccess[T]:
   :param _type: 像素的类型，对于 L 模式的图片为 int，对于 RGB 模式的图片为 tuple[int, int, int]，对
     于 RGBA 模式的图片为 tuple[int, int, int, int]，以此类推。
   """
-  return cast(Any, im.load())
+  return cast("Any", im.load())
 
 
 def normalize_url(url: str, bot: Bot) -> str:
@@ -787,7 +787,7 @@ def normalize_url(url: str, bot: Bot) -> str:
   """
   return (
     str(bot.info.api_base / "proxy" / url)
-    if url.startswith("internal:") and SatoriBot and isinstance(bot, SatoriBot)
+    if url.startswith("internal:") and SatoriBot is not None and isinstance(bot, SatoriBot)
     else url
   )
 
@@ -855,7 +855,7 @@ def to_segment(
   :return: Image 消息段，filename 为 `image.拓展名`，带有 mimetype。
   """
   f = BytesIO()
-  if isinstance(im, Sequence):
+  if not isinstance(im, AnyImage):
     if len(im) > 1:
       if isinstance(duration, Image.Image):
         duration = [im.info["duration"] for im in ImageSequence.Iterator(duration)]

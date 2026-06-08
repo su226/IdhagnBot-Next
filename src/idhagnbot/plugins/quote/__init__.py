@@ -2,7 +2,6 @@ import random
 from collections.abc import Awaitable, Sequence
 from io import BytesIO
 from itertools import dropwhile, islice
-from typing import Any, ClassVar
 from uuid import UUID, uuid4
 
 import nonebot
@@ -78,7 +77,7 @@ else:
 
 
 class SentQuote(Model):
-  __tablename__: ClassVar[Any] = "idhagnbot_quote_sent_quote"
+  __tablename__ = "idhagnbot_quote_sent_quote"
   scene_id: Mapped[str] = mapped_column(primary_key=True)
   message_id: Mapped[str] = mapped_column(primary_key=True)
   quote_id: Mapped[UUID]

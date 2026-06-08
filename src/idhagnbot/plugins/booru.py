@@ -286,7 +286,7 @@ driver = nonebot.get_driver()
 matchers = list[type[Matcher]]()
 
 
-@CONFIG.onload()
+@CONFIG.onload
 def _(prev: Config | None, curr: Config) -> None:
   for matcher in matchers:
     matcher.destroy()

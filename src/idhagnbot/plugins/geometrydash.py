@@ -304,7 +304,7 @@ async def _(*, no_cache: bool, state: T_State) -> None:
   else:
     await cache.ensure()
   _, level = cache.get()
-  message = UniMessage(Text(level.format()))
+  message = UniMessage[Segment](Text(level.format()))
   if level.has_image:
     message += Image(path=cache.image_path)
   await message.send()

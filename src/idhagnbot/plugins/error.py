@@ -5,10 +5,7 @@ from traceback import format_exception_only, format_tb
 from typing import cast
 
 import nonebot
-from apscheduler.events import (  # pyright: ignore[reportMissingTypeStubs]
-  EVENT_JOB_ERROR,
-  JobExecutionEvent,
-)
+from apscheduler.events import EVENT_JOB_ERROR, JobExecutionEvent
 from nonebot import logger
 from nonebot.exception import ActionFailed, NetworkError
 from nonebot.matcher import Matcher
@@ -125,8 +122,8 @@ async def send_error(module_id: str, description: str, exception: BaseException 
 
 
 def on_job_error(event: JobExecutionEvent) -> None:
-  exception = "".join(format_exception_only(cast(BaseException, event.exception)))
-  exception += cast(str, event.traceback).removesuffix("\n")
+  exception = "".join(format_exception_only(cast("BaseException", event.exception)))
+  exception += cast("str", event.traceback).removesuffix("\n")
   create_background_task(send_error("scheduler", f"定时任务 {event.job_id} 失败", exception))
 
 

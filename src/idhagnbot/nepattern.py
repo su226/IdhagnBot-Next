@@ -1,12 +1,13 @@
-from typing import Any, Literal, final
+from typing import TYPE_CHECKING, Any, Literal, final
 
-from nepattern import (  # pyright: ignore[reportMissingTypeStubs]
-  BasePattern,
-  MatchFailed,
-  MatchMode,
-)
+from nepattern import BasePattern, MatchFailed, MatchMode
 from tarina import lang
 from typing_extensions import override
+
+if TYPE_CHECKING:
+  from ty_extensions import JustFloat
+else:
+  JustFloat = float
 
 
 @final
@@ -54,17 +55,17 @@ class RangeInt(BasePattern[int, Any, Literal[MatchMode.TYPE_CONVERT]]):
 
 
 @final
-class RangeFloat(BasePattern[float, Any, Literal[MatchMode.TYPE_CONVERT]]):
+class RangeFloat(BasePattern[JustFloat, Any, Literal[MatchMode.TYPE_CONVERT]]):
   minimum: float | None
   maximum: float | None
 
   def __init__(self, minimum: float | None, maximum: float | None) -> None:
     self.minimum = minimum
     self.maximum = maximum
-    super().__init__(mode=MatchMode.TYPE_CONVERT, origin=int, alias="int")
+    super().__init__(mode=MatchMode.TYPE_CONVERT, origin=float, alias="float")
 
   @override
-  def match(self, input_: Any) -> float:
+  def match(self, input_: Any) -> JustFloat:
     if not isinstance(input_, float):
       try:
         input_ = float(input_)

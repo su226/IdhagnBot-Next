@@ -7,7 +7,7 @@ if find_spec("psutil") is None:
     "未安装 psutil，无法使用 /idhagnfetch。如需安装，请将 idhagnbot[psutil] 添加到依赖中。",
   )
 else:
-  import idhagnbot.plugins.idhagnfetch.main as _
+  import idhagnbot.plugins.idhagnfetch.main  # noqa: F401
   from idhagnbot.plugins.idhagnfetch.webui import register_all
 
   register_all()

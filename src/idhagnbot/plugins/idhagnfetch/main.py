@@ -4,7 +4,7 @@ import time
 from collections.abc import Awaitable, Callable, Generator, Iterable, Mapping, Sequence
 from datetime import timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Literal
 
 import anyio
 import nonebot
@@ -25,7 +25,7 @@ from idhagnbot.plugins.idhagnfetch.gpu import get_gpu_info
 from idhagnbot.text import escape, render
 
 if TYPE_CHECKING:
-  from psutil._ntuples import sbattery, sdiskpart
+  from psutil._ntuples import sdiskpart
 
 nonebot.require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import Alconna, CommandMeta
@@ -83,14 +83,14 @@ class Config(BaseModel):
       "nonebot",
       "bot_uptime",
     ],
-  )
+  )  # ty:ignore[invalid-assignment]
   bar_items: list[BarItems] = Field(
     default_factory=lambda: [
       "cpu",
       "memory",
       "swap",
     ],
-  )
+  )  # ty:ignore[invalid-assignment]
   columns: int = 3
   ignore_loop_device: bool = True
   ignore_bind_mount: bool = True
@@ -195,12 +195,14 @@ PYTHON_VER = (
 IDHAGNBOT_VER = _get_idhagnbot_ver()
 del _get_idhagnbot_ver
 BOT_START_TIME = time.time()
-T = TypeVar("T")
 
 
-def simple(fn: Callable[[], T]) -> Callable[[Bot], Awaitable[list[T]]]:
-  async def get_simple(bot: Bot) -> list[T]:
-    return [fn()]
+def simple(
+  fn: Callable[[], tuple[str, str | None]],
+) -> Callable[[Bot], Awaitable[list[tuple[str, str]]]]:
+  async def get_simple(bot: Bot) -> list[tuple[str, str]]:
+    name, value = fn()
+    return [(name, value)] if value else []
 
   return get_simple
 
@@ -326,7 +328,7 @@ async def get_disks_aggregate_bar(bot: Bot) -> list[BarItem]:
 
 
 async def get_battery(bot: Bot) -> list[Item]:
-  battery_info = cast("sbattery | None", psutil.sensors_battery())
+  battery_info = psutil.sensors_battery()
   if not battery_info:
     return []
   percent = round(battery_info.percent, 1)
@@ -338,7 +340,7 @@ async def get_battery(bot: Bot) -> list[Item]:
 
 
 async def get_battery_bar(bot: Bot) -> list[BarItem]:
-  battery_info = cast("sbattery | None", psutil.sensors_battery())
+  battery_info = psutil.sensors_battery()
   if not battery_info:
     return []
   percent = round(battery_info.percent, 1)

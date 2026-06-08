@@ -9,15 +9,15 @@ from idhagnbot.plugins.offline_warn.common import queue_message, send_queued_mes
 nonebot.require("nonebot_plugin_apscheduler")
 nonebot.require("nonebot_plugin_localstore")
 from nonebot_plugin_apscheduler import scheduler
-from nonebot_plugin_localstore import get_data_file
+from nonebot_plugin_localstore import get_cache_file
 
 try:
-  import idhagnbot.plugins.offline_warn.onebot as _
+  import idhagnbot.plugins.offline_warn.onebot  # noqa: F401
 except ImportError:
   pass
 
 
-FILENAME = get_data_file("idhagnbot", "poweroff_warn.txt")
+FILENAME = get_cache_file("idhagnbot", "poweroff_warn.txt")
 driver = nonebot.get_driver()
 shutting_down = False
 

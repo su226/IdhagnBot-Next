@@ -1,7 +1,6 @@
 import re
 from collections.abc import Generator
 from datetime import datetime, timedelta
-from typing import Any, ClassVar
 
 import nonebot
 from nonebot.adapters import Event
@@ -12,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from idhagnbot.command import COMMAND_LIKE_KEY, CommandBuilder
-from idhagnbot.config import SharedConfig
+from idhagnbot.config import Reloadable, SharedConfig
 from idhagnbot.context import SceneId, SceneIdRaw, get_scene
 from idhagnbot.datetime import DATE_ARGS_USAGE, parse_date_range
 from idhagnbot.message import EventTime, UniMsg
@@ -39,7 +38,7 @@ class Config(BaseModel):
 
 
 class Counted(Model):
-  __tablename__: ClassVar[Any] = "idhagnbot_regex_counter_counted"
+  __tablename__ = "idhagnbot_regex_counter_counted"
   id: Mapped[int] = mapped_column(primary_key=True)
   time: Mapped[datetime]
   scene_id: Mapped[str]
@@ -48,7 +47,7 @@ class Counted(Model):
   match: Mapped[str]
 
 
-CONFIG = SharedConfig("regex_counter", Config, "eager")
+CONFIG = SharedConfig("regex_counter", Config, Reloadable.EAGER)
 matchers = list[type[Matcher]]()
 driver = nonebot.get_driver()
 
@@ -58,7 +57,7 @@ async def _() -> None:
   CONFIG()
 
 
-@CONFIG.onload()
+@CONFIG.onload
 def _(prev: Config | None, curr: Config) -> None:
   for matcher in matchers:
     matcher.destroy()

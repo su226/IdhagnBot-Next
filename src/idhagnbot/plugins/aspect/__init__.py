@@ -1,5 +1,4 @@
 import math
-from typing import Any, ClassVar
 from uuid import UUID, uuid4
 
 import nonebot
@@ -28,11 +27,11 @@ from nonebot_plugin_orm import Model, async_scoped_session
 
 
 class Aspect(Model):
-  __tablename__: ClassVar[Any] = "idhagnbot_aspect_aspect"
+  __tablename__ = "idhagnbot_aspect_aspect"
   id: Mapped[UUID] = mapped_column(primary_key=True)
   scene_id: Mapped[str]
   title: Mapped[str]
-  __table_args__: ClassVar[Any] = (UniqueConstraint("scene_id", "title"),)
+  __table_args__ = (UniqueConstraint("scene_id", "title"),)
 
 
 COLUMNS = 5

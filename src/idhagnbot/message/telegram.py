@@ -60,7 +60,9 @@ async def merged_msg(
   msg: UniMessage[Segment],
 ) -> UniMessage[Segment] | None:
   if len(events) > 1 and _is_message_events(events):
-    chained = chain.from_iterable(cast(Message[MessageSegment], event.message) for event in events)
+    chained = chain.from_iterable(
+      cast("Message[MessageSegment]", event.message) for event in events
+    )
     return unimsg_of(Message(chained), bot)
   return msg
 
@@ -72,7 +74,7 @@ async def orig_merged_msg(
 ) -> UniMessage[Segment] | None:
   if len(events) > 1 and _is_message_events(events):
     chained = chain.from_iterable(
-      cast(Message[MessageSegment], event.original_message) for event in events
+      cast("Message[MessageSegment]", event.original_message) for event in events
     )
     return unimsg_of(Message(chained), bot)
   return msg
@@ -105,7 +107,7 @@ async def reply_info(bot: Bot, event: Event, reply: Reply) -> ReplyInfo | None:
     reply.id,
     datetime.fromtimestamp(reply.origin.date),
     str(sender.id),
-    unimsg_of(cast(Message[MessageSegment], reply.msg), bot),
+    unimsg_of(cast("Message[MessageSegment]", reply.msg), bot),
   )
 
 

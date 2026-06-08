@@ -33,7 +33,7 @@ def update_command(scene_id: str, event: Event) -> None:
   keep_pos = 0
   while True:
     seg: Entity = message[keep_pos]
-    seg_text = cast(str, seg.data["text"])
+    seg_text = cast("str", seg.data["text"])
     if len(seg_text) > remove_len:
       # 当前 Entity 的文本足够 remove_len，只删除前面的一部分
       seg.data["text"] = seg_text[remove_len:]

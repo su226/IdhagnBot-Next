@@ -1,7 +1,7 @@
 import random
 import time
 from datetime import datetime, timedelta
-from typing import Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Literal
 
 import nonebot
 from arclet.alconna import AllParam
@@ -69,7 +69,7 @@ def extract_nickname(session: Session) -> str:
 
 
 class History(Model):
-  __tablename__: ClassVar[Any] = "idhagnbot_openai_history"
+  __tablename__ = "idhagnbot_openai_history"
   id: Mapped[int] = mapped_column(primary_key=True)
   scene: Mapped[str]
   role: Mapped[Literal["user", "assistant"]]
@@ -81,7 +81,7 @@ class History(Model):
 
 
 class Ignore(Model):
-  __tablename__: ClassVar[Any] = "idhagnbot_openai_ignore"
+  __tablename__ = "idhagnbot_openai_ignore"
   scene: Mapped[str] = mapped_column(primary_key=True)
   time: Mapped[datetime]
 
@@ -171,7 +171,7 @@ async def handle_ai(
   config = CONFIG()
   now = datetime.now()
   if no_context:
-    history = []
+    history = list[History]()
   else:
     ignore_time = await sql.get(Ignore, scene_id)
     min_time = now - config.history_time
@@ -225,6 +225,9 @@ async def handle_ai(
   time_end = time.perf_counter()
   timer = time_end - time_start
   if "error" in data:
+    if TYPE_CHECKING:
+      # TODO: 等 ty 支持 TypedDict 的 closed 参数之后去掉 assert
+      assert type(data) is ResDataError
     error = data["error"]
     raise OpenAIException(error["code"], error["message"])
   content = data["choices"][0]["message"]["content"]

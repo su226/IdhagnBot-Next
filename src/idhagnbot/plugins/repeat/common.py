@@ -4,7 +4,6 @@ from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from functools import cached_property
-from typing import Any, ClassVar
 
 import nonebot
 from nonebot.adapters import Bot, Event
@@ -31,7 +30,7 @@ class Config(BaseModel):
 
 
 class LastMessage(Model):
-  __tablename__: ClassVar[Any] = "idhagnbot_repeat_last_message"
+  __tablename__ = "idhagnbot_repeat_last_message"
   scene_id: Mapped[str] = mapped_column(primary_key=True)
   run_id: Mapped[int]
   message: Mapped[str]

@@ -21,15 +21,15 @@ from nonebot_plugin_alconna.uniseg import (
 from nonebot_plugin_uninfo import QryItrface, SupportAdapter, Uninfo
 
 try:
-  import idhagnbot.plugins.help.discord as _
+  import idhagnbot.plugins.help.discord
 except ImportError:
   pass
 try:
-  import idhagnbot.plugins.help.satori as _
+  import idhagnbot.plugins.help.satori
 except ImportError:
   pass
 try:
-  import idhagnbot.plugins.help.telegram as _
+  import idhagnbot.plugins.help.telegram  # noqa: F401
 except ImportError:
   pass
 

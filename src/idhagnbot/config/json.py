@@ -1,14 +1,19 @@
-from typing import TextIO, TypeVar
+from typing import ClassVar, TextIO, TypeVar
 
 from pydantic import BaseModel
 
-extension = "json"
+from idhagnbot.config.driver import Driver
+
 TModel = TypeVar("TModel", bound=BaseModel)
 
 
-def load(f: TextIO, model: type[TModel]) -> TModel:
-  return model.model_validate_json(f.read())
+class JsonDriver(Driver):
+  extension: ClassVar[str] = ".json"
 
+  @staticmethod
+  def load(f: TextIO, model: type[TModel]) -> TModel:
+    return model.model_validate_json(f.read())
 
-def dump(f: TextIO, model: BaseModel) -> None:
-  f.write(model.model_dump_json())
+  @staticmethod
+  def dump(f: TextIO, model: BaseModel) -> None:
+    f.write(model.model_dump_json())

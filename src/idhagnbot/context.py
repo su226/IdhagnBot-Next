@@ -19,7 +19,7 @@ from nonebot_plugin_uninfo import Member, QryItrface, Scene, SceneType, Uninfo, 
 try:
   from nonebot.adapters.satori import Bot as SatoriBot
 except ImportError:
-  SatoriBot = None
+  SatoriBot: None = None
 
 
 class Context(BaseModel):
@@ -90,7 +90,8 @@ UserId = Annotated[str, Depends(get_user_id)]
 async def get_target_id(target: Target) -> str:
   bot = await target.select()
   interface = get_interface(bot)
-  assert interface
+  if interface is None:
+    raise NotImplementedError("不支持的平台")
   scope = interface.basic_info()["scope"]._name_
   if message_thread_id := target.extra.get("message_thread_id"):
     return f"{scope}:guild:{target.id}:channel:{message_thread_id}"
@@ -154,7 +155,8 @@ async def get_scene(scene_id: str) -> Scene | None:
   platform, scene_type, current_id, parent_id = unpack_scene_id(scene_id)
   bot = await get_bot(predicate=_uninfo_predicate(platform), rand=True)
   interface = get_interface(bot)
-  assert interface
+  if interface is None:
+    return None
   return await interface.get_scene(scene_type, current_id, parent_scene_id=parent_id)
 
 
@@ -171,7 +173,7 @@ def in_scene(scene_id: str, scene_ids: set[str]) -> bool:
 
 
 async def get_bot_id(bot: Bot) -> str:
-  if SatoriBot and isinstance(bot, SatoriBot):
+  if SatoriBot is not None and isinstance(bot, SatoriBot):
     return bot.get_self_id()
   return bot.self_id
 

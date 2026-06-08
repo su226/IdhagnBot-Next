@@ -2,7 +2,7 @@ import re
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, ClassVar, Literal, TypeVar
+from typing import Any, Literal, TypeVar
 
 import nonebot
 from aiohttp import ClientError
@@ -15,7 +15,7 @@ from nonebot.message import event_postprocessor, run_postprocessor, run_preproce
 from nonebot.typing import T_State
 from PIL import Image
 from pydantic import BaseModel, Field, PrivateAttr, RootModel
-from pygtrie import Trie  # pyright: ignore[reportMissingTypeStubs]
+from pygtrie import Trie
 from sqlalchemy.orm import Mapped, mapped_column
 
 from idhagnbot.command import COMMAND_LIKE_KEY, CommandBuilder
@@ -106,13 +106,13 @@ class Config(BaseModel):
 
 
 class ImBotSuppressedUser(Model):
-  __tablename__: ClassVar[Any] = "idhagnbot_fallback_im_bot_suppressed_user"
+  __tablename__ = "idhagnbot_fallback_im_bot_suppressed_user"
   platform: Mapped[str] = mapped_column(primary_key=True)
   user_id: Mapped[str] = mapped_column(primary_key=True)
 
 
 class ExceptionSuppressedScene(Model):
-  __tablename__: ClassVar[Any] = "idhagnbot_fallback_exception_suppressed_scene"
+  __tablename__ = "idhagnbot_fallback_exception_suppressed_scene"
   scene_id: Mapped[str] = mapped_column(primary_key=True)
   until: Mapped[datetime]
 

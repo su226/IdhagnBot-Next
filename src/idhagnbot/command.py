@@ -95,7 +95,7 @@ class CommandBuilder:
     item = CommandItem(
       names,
       parser.meta.description,
-      cast(Any, parser.formatter.format_node),
+      cast("Any", parser.formatter.format_node),
       CommonData(
         node=self.__node,
         default_grant_to=self.__default_grant_to,
@@ -118,7 +118,7 @@ class CommandBuilder:
       item.remove_self()
       matcher.clean()
 
-    matcher.destroy = destroy
+    matcher.destroy = destroy  # ty:ignore[invalid-assignment]
     if self.__auto_reject:
       matcher.handle()(send_output)
     return matcher

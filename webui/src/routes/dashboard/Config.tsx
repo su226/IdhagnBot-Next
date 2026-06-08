@@ -35,7 +35,7 @@ import classes from "./Config.module.css";
 
 const ConfigFile = z.object({
   path: z.string(),
-  type: z.literal(["shared", "session", "dotenv", "other"]),
+  type: z.literal(["shared", "dotenv", "other"]),
   description: z.string(),
   exist: z.boolean(),
 });

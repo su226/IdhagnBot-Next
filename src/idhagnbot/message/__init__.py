@@ -25,10 +25,10 @@ try:
   from nonebot.adapters.telegram import Message as TGMessage
   from nonebot.adapters.telegram.message import File as TGFile
 except ImportError:
-  TGBot = None
-  TGEvent = None
-  TGMessage = None
-  TGFile = None
+  TGBot: None = None
+  TGEvent: None = None
+  TGMessage: None = None
+  TGFile: None = None
 
 __all__ = [
   "EventTime",
