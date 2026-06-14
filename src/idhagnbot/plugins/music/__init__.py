@@ -9,7 +9,7 @@ from PIL import Image
 from idhagnbot.command import CommandBuilder
 from idhagnbot.http import BROWSER_UA, get_session
 from idhagnbot.image import to_segment
-from idhagnbot.image.table import StripeBorder, Table
+from idhagnbot.image.table import Table
 from idhagnbot.itertools import atake
 from idhagnbot.plugins.music.sources.base import Music
 from idhagnbot.plugins.music.sources.netease import NeteaseMusic
