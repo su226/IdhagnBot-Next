@@ -1,7 +1,7 @@
 import random
 import time
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import nonebot
 from arclet.alconna import AllParam
@@ -94,7 +94,7 @@ class ResChoice(TypedDict):
   message: ResMessage
 
 
-class ResDataSuccess(TypedDict):
+class ResDataSuccess(TypedDict, closed=True):
   created: int
   choices: list[ResChoice]
 
@@ -104,7 +104,7 @@ class ResError(TypedDict):
   message: str
 
 
-class ResDataError(TypedDict):
+class ResDataError(TypedDict, closed=True):
   error: ResError
 
 
@@ -225,9 +225,6 @@ async def handle_ai(
   time_end = time.perf_counter()
   timer = time_end - time_start
   if "error" in data:
-    if TYPE_CHECKING:
-      # TODO: 等 ty 支持 TypedDict 的 closed 参数之后去掉 assert
-      assert type(data) is ResDataError
     error = data["error"]
     raise OpenAIException(error["code"], error["message"])
   content = data["choices"][0]["message"]["content"]
