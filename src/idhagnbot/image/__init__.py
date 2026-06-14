@@ -572,7 +572,7 @@ def replace(
   dst: Image.Image,
   src: AnyImage | PasteColor,
   xy: Point = (0, 0),
-  anchor: Point = (0.5, 0.5),
+  anchor: Point = (0, 0),
 ) -> None:
   """
   用源图片的内容替换目标图片的矩形区域，不是 Alpha 混合。

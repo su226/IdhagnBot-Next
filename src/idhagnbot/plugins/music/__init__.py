@@ -2,12 +2,14 @@ from collections.abc import Callable, Sequence
 from typing import Literal, TypeVar
 
 import nonebot
+from anyio.to_thread import run_sync
 from nonebot.adapters import Bot, Event
+from PIL import Image
 
 from idhagnbot.command import CommandBuilder
 from idhagnbot.http import BROWSER_UA, get_session
 from idhagnbot.image import to_segment
-from idhagnbot.image.table import make_table
+from idhagnbot.image.table import StripeBorder, Table
 from idhagnbot.itertools import atake
 from idhagnbot.plugins.music.sources.base import Music
 from idhagnbot.plugins.music.sources.netease import NeteaseMusic
@@ -59,37 +61,40 @@ def register(key: str, aliases: Sequence[str]) -> Callable[[type[TMusic]], type[
   return do_register
 
 
-def format_cell(text: str, unavailable: bool) -> str:
-  markup = escape(text)
-  return f"<s>{markup}</s>" if unavailable else markup
+def render_cell(text: str, unavailable: bool) -> Image.Image:
+  if unavailable:
+    return render(f"<s>{escape(text)}</s>", "sans", 32, markup=True)
+  return render(text, "sans", 32)
 
 
-async def format_page(choices: Sequence[Music], count: int) -> UniMessage[Segment]:
+def format_page(choices: Sequence[Music], count: int) -> UniMessage[Segment]:
   table = [
     [
-      render("序号", "sans", 32),
-      render("歌名", "sans", 32),
-      render("歌手", "sans", 32),
-      render("专辑", "sans", 32),
+      render("序号", "sans bold", 32),
+      render("歌名", "sans bold", 32),
+      render("歌手", "sans bold", 32),
+      render("专辑", "sans bold", 32),
     ],
   ]
-  for i, music in enumerate(choices[-PAGE_SIZE:], len(choices) - PAGE_SIZE + 1):
+  start_idx = (len(choices) - 1) // PAGE_SIZE * PAGE_SIZE
+  for i, music in enumerate(choices[start_idx:], start_idx + 1):
     table.append(
       [
-        render(format_cell(str(i), music.unavailable), "sans", 32, markup=True),
-        render(format_cell(music.name, music.unavailable), "sans", 32, markup=True),
-        render(format_cell(" / ".join(music.artists), music.unavailable), "sans", 32, markup=True),
-        render(format_cell(music.album, music.unavailable), "sans", 32, markup=True),
+        render_cell(str(i), music.unavailable),
+        render_cell(music.name, music.unavailable),
+        render_cell(" / ".join(music.artists), music.unavailable),
+        render_cell(music.album, music.unavailable),
       ],
     )
-  table_im = make_table(table, margin=32)
+  table = Table(table)
+  table.margin = 32
   info = ["发送序号选歌"]
   if any(x.unavailable for x in choices):
     info.append("部分歌曲不可用")
   if len(choices) < count:
     info.append("发送“下一页”加载下一页")
   info.append("发送“取消”放弃点歌")
-  return UniMessage([to_segment(table_im), Text("，".join(info))])
+  return UniMessage([to_segment(table.render()), Text("，".join(info))])
 
 
 async def prompt_music(music_t: type[TMusic], keyword: str) -> TMusic | None:
@@ -98,7 +103,7 @@ async def prompt_music(music_t: type[TMusic], keyword: str) -> TMusic | None:
     await UniMessage("搜索结果为空").send()
     return None
   choices = [x async for x in atake(result.musics, PAGE_SIZE)]
-  message = await format_page(choices, result.count)
+  message = await run_sync(format_page, choices, result.count)
   await message.send()
   while True:
     choice = await prompt()
@@ -112,7 +117,7 @@ async def prompt_music(music_t: type[TMusic], keyword: str) -> TMusic | None:
       return None
     if choice_text == "下一页":
       choices.extend([x async for x in atake(result.musics, PAGE_SIZE)])
-      message = await format_page(choices, result.count)
+      message = await run_sync(format_page, choices, result.count)
       await message.send()
       continue
     try:
