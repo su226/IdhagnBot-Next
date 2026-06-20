@@ -1,10 +1,11 @@
 import time
 
+import anyio
 import nonebot
 from nonebot import logger
 from nonebot.adapters import Bot
 
-from idhagnbot.plugins.offline_warn.common import queue_message, send_queued_messages
+from idhagnbot.plugins.offline_warn.common import CONFIG, queue_message, send_queued_messages
 
 nonebot.require("nonebot_plugin_apscheduler")
 nonebot.require("nonebot_plugin_localstore")
@@ -57,7 +58,13 @@ driver.on_bot_connect(send_queued_messages)
 async def on_bot_disconnect(bot: Bot) -> None:
   if shutting_down:
     return
+  config = CONFIG()
   now_str = time.strftime("%Y-%m-%d %H:%M:%S")
   prefix = f"后端 {bot.adapter.get_name()} {bot.self_id} 在 {now_str} 左右断开"
-  logger.warning(prefix + "，将发送警告！")
-  await queue_message(prefix + "，请注意！")
+  seconds = config.disconnect_grace_time.total_seconds()
+  logger.warning(f"{prefix}，将在 {seconds} 秒后发送警告！")
+  await anyio.sleep(seconds)
+  try:
+    nonebot.get_bot(bot.self_id)
+  except Exception:
+    await queue_message(f"{prefix}，请注意！")

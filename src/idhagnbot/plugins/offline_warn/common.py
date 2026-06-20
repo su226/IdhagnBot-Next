@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import timedelta
 
 import anyio
 import nonebot
@@ -18,6 +19,7 @@ from nonebot_plugin_alconna import SerializeFailed, Target, UniMessage
 
 class Config(BaseModel):
   targets: list[TargetConfig] = Field(default_factory=list)
+  disconnect_grace_time: timedelta = timedelta(seconds=10)
 
 
 @dataclass
