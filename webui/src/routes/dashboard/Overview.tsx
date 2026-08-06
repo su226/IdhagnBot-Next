@@ -15,7 +15,7 @@ import {
 import { useMemo, useState, type FC } from "react";
 import z from "zod";
 import { useQuery } from "@tanstack/react-query";
-import { Result } from "../../utils/response";
+import { CODE_SUCCESS, Result } from "../../utils/response";
 import { AccessTime, Extension, Memory, Message } from "@mui/icons-material";
 
 const OverviewBase = z.object({
@@ -148,7 +148,7 @@ export default function Dashboard() {
         },
       });
       const result = Result.parse(await response.json());
-      if (!result.success) {
+      if (result.code !== CODE_SUCCESS) {
         throw Error(result.message);
       }
       return OverviewData.parse(result.data);

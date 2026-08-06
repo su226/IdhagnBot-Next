@@ -1,72 +1,65 @@
 """Pillow 图像处理配方。"""
 
+import asyncio
 import math
 import mimetypes
 from collections.abc import Callable, Generator, Sequence
 from io import BytesIO
-from typing import Any, Literal, Protocol, TypeVar, cast, overload
+from pathlib import Path
+from typing import Any, Literal, Protocol, cast, overload
 
 import cairo
-import nonebot
 from aiohttp.typedefs import LooseHeaders
-from anyio.to_thread import run_sync
-from nonebot import logger
-from nonebot.adapters import Bot
+from arclet.entari import Image as ImageSeg
+from arclet.entari import metadata, plugin_config
+from loguru import logger
 from PIL import Image, ImageChops, ImageFile, ImageOps, ImageSequence, features
 from pydantic import BaseModel
 
 from idhagnbot import color
-from idhagnbot.config import SharedConfig
 from idhagnbot.http import get_session
-from idhagnbot.url import path_from_url
-
-nonebot.require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna.uniseg import Image as ImageSeg
-
-try:
-  from nonebot.adapters.satori import Bot as SatoriBot
-except ImportError:
-  SatoriBot: None = None
 
 __all__ = [
-  "AnyImage",
-  "Color",
-  "PasteColor",
-  "PerspectiveData",
-  "PixelAccess",
-  "Plane",
-  "Point",
-  "Quantize",
-  "RemapTransform",
-  "Resample",
-  "ScaleResample",
-  "Size",
-  "apply_circle_mask",
-  "apply_mask",
-  "apply_rounded_rectangle_mask",
-  "center_pad",
-  "contain_down",
-  "ensure_mode",
-  "ensure_pil",
-  "flatten",
-  "frames",
-  "from_cairo",
-  "get_resample",
-  "get_scale_resample",
-  "load",
-  "make_circle_mask",
-  "make_rounded_rectangle_mask",
-  "open_url",
-  "paste",
-  "quantize",
-  "replace",
-  "resize_canvas",
-  "resize_height",
-  "resize_width",
-  "sample_frames",
-  "square",
-  "to_cairo",
-  "to_segment",
+    "RESAMPLE",
+    "SCALE_RESAMPLE",
+    "AnyImage",
+    "Color",
+    "PasteColor",
+    "PerspectiveData",
+    "PixelAccess",
+    "Plane",
+    "Point",
+    "Quantize",
+    "RemapTransform",
+    "Resample",
+    "ScaleResample",
+    "Size",
+    "apply_circle_mask",
+    "apply_mask",
+    "apply_rounded_rectangle_mask",
+    "center_pad",
+    "contain_down",
+    "ensure_mode",
+    "ensure_pil",
+    "flatten",
+    "frames",
+    "from_cairo",
+    "get_resample",
+    "get_scale_resample",
+    "load",
+    "make_circle_mask",
+    "make_rounded_rectangle_mask",
+    "open_url",
+    "paste",
+    "quantize",
+    "replace",
+    "resize_canvas",
+    "resize_height",
+    "resize_width",
+    "sample_frames",
+    "square",
+    "to_cairo",
+    "to_segment",
 ]
 
 
@@ -80,44 +73,46 @@ Quantize = Literal["mediancut", "maxcoverage", "fastoctree"]
 """配置文件中使用的，可用于 RGB 图像的量化方式，不包括 libimagequant。"""
 
 
-class Config(BaseModel, use_attribute_docstrings=True):
-  """图像处理全局配置"""
+class Config(BaseModel):
+    """图像处理全局配置"""
 
-  resample: Resample = "bicubic"
-  """
-  变换（rotate、transform）时采用的采样方式。
-  详见：https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-filters
-  可选，默认为 "bicubic"。
-  """
+    resample: Resample = "bicubic"
+    """
+    变换（rotate、transform）时采用的采样方式。
+    详见：https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-filters
+    可选，默认为 "bicubic"。
+    """
 
-  scale_resample: ScaleResample = "bicubic"
-  """
-  缩放（resize、thumbnail）时采用的采样方式。
-  详见：https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-filters
-  可选，默认为 "bicubic"。
-  """
+    scale_resample: ScaleResample = "bicubic"
+    """
+    缩放（resize、thumbnail）时采用的采样方式。
+    详见：https://pillow.readthedocs.io/en/stable/handbook/concepts.html#concept-filters
+    可选，默认为 "bicubic"。
+    """
 
-  libimagequant: bool = False
-  """
-  优先使用 libimagequant 量化图像，使用 libimagequant 时始终应用抖动仿色。
-  若 libimagequant 不可用，则回退到 Pillow 的量化算法并发出警告。
-  可选，默认为 false。
-  """
+    libimagequant: bool = False
+    """
+    优先使用 libimagequant 量化图像，使用 libimagequant 时始终应用抖动仿色。
+    若 libimagequant 不可用，则回退到 Pillow 的量化算法并发出警告。
+    可选，默认为 false。
+    """
 
-  quantize: Quantize = "mediancut"
-  """
-  量化方式，在编码 GIF 时会用到。只对 RGB 图片生效，RGBA 图片始终采用 fastoctree 量化方式。
-  可选，默认为 "mediancut"。
-  """
+    quantize: Quantize = "mediancut"
+    """
+    量化方式，在编码 GIF 时会用到。只对 RGB 图片生效，RGBA 图片始终采用 fastoctree
+    量化方式。
+    可选，默认为 "mediancut"。
+    """
 
-  dither: bool = True
-  """
-  量化时是否应用抖动仿色。
-  可选，默认为 true。
-  """
+    dither: bool = True
+    """
+    量化时是否应用抖动仿色。
+    可选，默认为 true。
+    """
 
 
-CONFIG = SharedConfig("image", Config)
+metadata("", config=Config)
+CONFIG = plugin_config(Config)
 """图像处理全局配置"""
 
 Size = tuple[int, int]
@@ -141,682 +136,695 @@ PasteColor = tuple[Color, Size]
 AnyImage = Image.Image | cairo.ImageSurface
 """任何支持的图像，目前包括 Pillow 和 PyCairo 的图像。"""
 
-T = TypeVar("T")
-
 _libimagequant_available: bool | None = None
 """libimagequant 是否可用，None 代表尚未检测。"""
 
 _libimagequant_warned: bool = False
 """libimagequant 不可用时，是否已发出警告。"""
 
+RESAMPLE = Image.Resampling[CONFIG.resample.upper()]
+"""全局配置的变换（rotate、transform）采样。"""
 
-def get_resample() -> Image.Resampling:
-  """
-  获取全局配置的变换（rotate、transform）采样。
-  :return: Image.Resamping 枚举值。
-  """
-  return Image.Resampling[CONFIG().resample.upper()]
-
-
-def get_scale_resample() -> Image.Resampling:
-  """
-  获取全局配置的缩放（resize、thumbnail）采样。
-  :return: Image.Resamping 枚举值。
-  """
-  return Image.Resampling[CONFIG().scale_resample.upper()]
+SCALE_RESAMPLE = Image.Resampling[CONFIG.scale_resample.upper()]
+"""全局配置的缩放（resize、thumbnail）采样。"""
 
 
 # TODO: 将 from_cairo 和 to_cairo 替换为 Rust 实现 https://github.com/su226/pil-cairo
 def from_cairo(surface: cairo.ImageSurface) -> Image.Image:
-  """
-  将 PyCairo 的 ImageSurface 转换为 Pillow 的 Image，模式对应如下：
+    """
+    将 PyCairo 的 ImageSurface 转换为 Pillow 的 Image，模式对应如下：
 
-  | Pillow | PyCairo |
-  | ------ | ------- |
-  | 1      | A1      |
-  | L      | A8      |
-  | RGB    | RGB24   |
-  | RGBA   | ARGB32  |
+    | Pillow | PyCairo |
+    | ------ | ------- |
+    | 1      | A1      |
+    | L      | A8      |
+    | RGB    | RGB24   |
+    | RGBA   | ARGB32  |
 
-  :param surface: PyCairo 的 ImageSurface。
-  :return: 转换后的 Pillow Image。
-  """
-  w = surface.get_width()
-  h = surface.get_height()
-  data = surface.get_data()
-  stride = surface.get_stride()
-  surface_format = surface.get_format()
-  if surface_format == cairo.Format.A1:
-    # Format.A1 的转换很慢
-    if not data:
-      return Image.new("1", (w, h))
-    data_w = math.ceil(w / 32) * 32
-    im = Image.frombuffer("1", (data_w, h), data.tobytes())
-    for x in range(0, w, 8):
-      im.paste(im.crop((x, 0, x + 8, h)).transpose(Image.Transpose.FLIP_LEFT_RIGHT), (x, 0))
-    return im.crop((0, 0, w, h))
-  if surface_format == cairo.Format.A8:
-    if not data:
-      return Image.new("L", (w, h))
-    return Image.frombuffer("L", (w, h), data.tobytes(), "raw", "L", stride, 1)
-  if surface_format == cairo.Format.RGB24:
-    if not data:
-      return Image.new("RGB", (w, h))
-    return Image.frombuffer("RGB", (w, h), data.tobytes(), "raw", "BGRX", stride)
-  if surface_format == cairo.Format.ARGB32:
-    if not data:
-      return Image.new("RGBA", (w, h))
-    return Image.frombuffer("RGBA", (w, h), data.tobytes(), "raw", "BGRa", stride)
-  raise NotImplementedError(f"Unsupported format: {surface_format}")
+    :param surface: PyCairo 的 ImageSurface。
+    :return: 转换后的 Pillow Image。
+    """
+    w = surface.get_width()
+    h = surface.get_height()
+    data = surface.get_data()
+    stride = surface.get_stride()
+    surface_format = surface.get_format()
+    if surface_format == cairo.Format.A1:
+        # Format.A1 的转换很慢
+        if not data:
+            return Image.new("1", (w, h))
+        data_w = math.ceil(w / 32) * 32
+        im = Image.frombuffer("1", (data_w, h), data.tobytes())
+        for x in range(0, w, 8):
+            im.paste(
+                im.crop((x, 0, x + 8, h)).transpose(Image.Transpose.FLIP_LEFT_RIGHT),
+                (x, 0),
+            )
+        return im.crop((0, 0, w, h))
+    if surface_format == cairo.Format.A8:
+        if not data:
+            return Image.new("L", (w, h))
+        return Image.frombuffer("L", (w, h), data.tobytes(), "raw", "L", stride, 1)
+    if surface_format == cairo.Format.RGB24:
+        if not data:
+            return Image.new("RGB", (w, h))
+        return Image.frombuffer("RGB", (w, h), data.tobytes(), "raw", "BGRX", stride)
+    if surface_format == cairo.Format.ARGB32:
+        if not data:
+            return Image.new("RGBA", (w, h))
+        return Image.frombuffer("RGBA", (w, h), data.tobytes(), "raw", "BGRa", stride)
+    raise NotImplementedError(f"Unsupported format: {surface_format}")
 
 
 def to_cairo(im: Image.Image) -> cairo.ImageSurface:
-  """
-  将 Pillow 的 Image 转换为 PyCairo 的 ImageSurface，模式对应如下：
+    """
+    将 Pillow 的 Image 转换为 PyCairo 的 ImageSurface，模式对应如下：
 
-  | Pillow | PyCairo |
-  | ------ | ------- |
-  | 1      | A1      |
-  | L      | A8      |
-  | RGB    | RGB24   |
-  | RGBA   | ARGB32  |
+    | Pillow | PyCairo |
+    | ------ | ------- |
+    | 1      | A1      |
+    | L      | A8      |
+    | RGB    | RGB24   |
+    | RGBA   | ARGB32  |
 
-  :param im: Pillow 的 Image。
-  :return: 转换后的 PyCairo ImageSurface。
-  """
-  if im.mode == "1":
-    # 1 模式的转换很慢
-    w, h = im.size
-    data_w = math.ceil(w / 32) * 32
-    im = ImageOps.expand(im, (0, 0, data_w - w, 0))
-    for x in range(0, data_w, 8):
-      im.paste(im.crop((x, 0, x + 8, h)).transpose(Image.Transpose.FLIP_LEFT_RIGHT), (x, 0))
-    data = bytearray(im.tobytes())
-    return cairo.ImageSurface.create_for_data(data, cairo.FORMAT_A1, w, h)
-  if im.mode == "L":
-    stride = cairo.Format.A8.stride_for_width(im.width)
-    data = bytearray(im.tobytes("raw", "L", stride))
-    return cairo.ImageSurface.create_for_data(data, cairo.FORMAT_A8, im.width, im.height)
-  if im.mode == "RGB":
-    stride = cairo.Format.RGB24.stride_for_width(im.width)
-    data = bytearray(im.tobytes("raw", "BGRX", stride))
-    return cairo.ImageSurface.create_for_data(data, cairo.FORMAT_RGB24, im.width, im.height)
-  if im.mode == "RGBA":
-    stride = cairo.Format.ARGB32.stride_for_width(im.width)
-    data = bytearray(im.tobytes("raw", "BGRa", stride))
-    return cairo.ImageSurface.create_for_data(data, cairo.FORMAT_ARGB32, im.width, im.height)
-  raise NotImplementedError(f"Unsupported mode: {im.mode}")
+    :param im: Pillow 的 Image。
+    :return: 转换后的 PyCairo ImageSurface。
+    """
+    if im.mode == "1":
+        # 1 模式的转换很慢
+        w, h = im.size
+        data_w = math.ceil(w / 32) * 32
+        im = ImageOps.expand(im, (0, 0, data_w - w, 0))
+        for x in range(0, data_w, 8):
+            im.paste(
+                im.crop((x, 0, x + 8, h)).transpose(Image.Transpose.FLIP_LEFT_RIGHT),
+                (x, 0),
+            )
+        data = bytearray(im.tobytes())
+        return cairo.ImageSurface.create_for_data(data, cairo.FORMAT_A1, w, h)
+    if im.mode == "L":
+        stride = cairo.Format.A8.stride_for_width(im.width)
+        data = bytearray(im.tobytes("raw", "L", stride))
+        return cairo.ImageSurface.create_for_data(
+            data,
+            cairo.FORMAT_A8,
+            im.width,
+            im.height,
+        )
+    if im.mode == "RGB":
+        stride = cairo.Format.RGB24.stride_for_width(im.width)
+        data = bytearray(im.tobytes("raw", "BGRX", stride))
+        return cairo.ImageSurface.create_for_data(
+            data,
+            cairo.FORMAT_RGB24,
+            im.width,
+            im.height,
+        )
+    if im.mode == "RGBA":
+        stride = cairo.Format.ARGB32.stride_for_width(im.width)
+        data = bytearray(im.tobytes("raw", "BGRa", stride))
+        return cairo.ImageSurface.create_for_data(
+            data,
+            cairo.FORMAT_ARGB32,
+            im.width,
+            im.height,
+        )
+    raise NotImplementedError(f"Unsupported mode: {im.mode}")
 
 
 def ensure_pil(im: AnyImage) -> Image.Image:
-  """
-  将支持的图片转换为 Pillow 的 Image，若已经是 Pillow 的 Image 则直接返回。
+    """
+    将支持的图片转换为 Pillow 的 Image，若已经是 Pillow 的 Image 则直接返回。
 
-  :param im: 要转换的图片。
-  :return: 转换后的图片。
-  """
-  if isinstance(im, cairo.ImageSurface):
-    return from_cairo(im)
-  return im
+    :param im: 要转换的图片。
+    :return: 转换后的图片。
+    """
+    if isinstance(im, cairo.ImageSurface):
+        return from_cairo(im)
+    return im
 
 
 def ensure_mode(im: AnyImage, mode: str) -> Image.Image:
-  """
-  确保图片的模式与指定模式相同，相同时直接返回（不拷贝图片）。
+    """
+    确保图片的模式与指定模式相同，相同时直接返回（不拷贝图片）。
 
-  :param im: 要转换模式的图片。
-  :param mode: 目标模式。
-  :return: 转换模式后的图片。
-  """
-  im = ensure_pil(im)
-  if im.mode == mode:
-    return im
-  return im.convert(mode)
+    :param im: 要转换模式的图片。
+    :param mode: 目标模式。
+    :return: 转换模式后的图片。
+    """
+    im = ensure_pil(im)
+    if im.mode == mode:
+        return im
+    return im.convert(mode)
 
 
 def apply_mask(im: Image.Image, mask: Image.Image) -> None:
-  """
-  为图片应用遮罩，遮罩的模式为 1 或 L，尺寸与图片相同。
-  原地修改图片，若图片已有 Alpha 通道则会与其叠加。
-  非 RGBA、LA 将会被原地转换，包括预乘 Alpha 模式 RGBa 和 La。
-  由于可能的问题，不支持 P 或 PA 类型的图片，请先转换为 RGBA。
+    """
+    为图片应用遮罩，遮罩的模式为 1 或 L，尺寸与图片相同。
+    原地修改图片，若图片已有 Alpha 通道则会与其叠加。
+    非 RGBA、LA 将会被原地转换，包括预乘 Alpha 模式 RGBa 和 La。
+    由于可能的问题，不支持 P 或 PA 类型的图片，请先转换为 RGBA。
 
-  :param im: 要覆盖遮罩的图片。
-  :param mask: 遮罩。
-  """
-  if im.has_transparency_data:
-    if im.mode in ("RGBa", "La"):
-      mask = ImageChops.multiply(im.getchannel("a"), mask)
-    elif im.mode in ("RGBA", "LA"):
-      mask = ImageChops.multiply(im.getchannel("A"), mask)
-    else:
-      raise NotImplementedError(f"Unsupported mode: {im.mode}")  # P、PA
-  im.putalpha(mask)
+    :param im: 要覆盖遮罩的图片。
+    :param mask: 遮罩。
+    """
+    if im.has_transparency_data:
+        if im.mode in ("RGBa", "La"):
+            mask = ImageChops.multiply(im.getchannel("a"), mask)
+        elif im.mode in ("RGBA", "LA"):
+            mask = ImageChops.multiply(im.getchannel("A"), mask)
+        else:
+            raise NotImplementedError(f"Unsupported mode: {im.mode}")  # P、PA
+    im.putalpha(mask)
 
 
 def make_circle_mask(size: Size) -> Image.Image:
-  """
-  生成圆形或椭圆形遮罩。
+    """
+    生成圆形或椭圆形遮罩。
 
-  :param size: 遮罩尺寸。
-  :return: L 模式遮罩。
-  """
-  surface = cairo.ImageSurface(cairo.Format.A8, size[0], size[1])
-  cr = cairo.Context(surface)
-  cr.scale(size[0], size[1])
-  cr.arc(0.5, 0.5, 0.5, 0.0, 2 * math.pi)
-  cr.set_source_rgb(1, 1, 1)
-  cr.fill()
-  return from_cairo(surface)
+    :param size: 遮罩尺寸。
+    :return: L 模式遮罩。
+    """
+    surface = cairo.ImageSurface(cairo.Format.A8, size[0], size[1])
+    cr = cairo.Context(surface)
+    cr.scale(size[0], size[1])
+    cr.arc(0.5, 0.5, 0.5, 0.0, 2 * math.pi)
+    cr.set_source_rgb(1, 1, 1)
+    cr.fill()
+    return from_cairo(surface)
 
 
 def apply_circle_mask(im: Image.Image) -> None:
-  """
-  为图片覆盖圆形或椭圆形遮罩，详见 apply_mask 函数。
+    """
+    为图片覆盖圆形或椭圆形遮罩，详见 apply_mask 函数。
 
-  :param im: 要覆盖遮罩的图片。
-  """
-  apply_mask(im, make_circle_mask(im.size))
+    :param im: 要覆盖遮罩的图片。
+    """
+    apply_mask(im, make_circle_mask(im.size))
 
 
 def make_rounded_rectangle_mask(size: Size, radius: float) -> Image.Image:
-  """
-  生成圆角矩形遮罩。
+    """
+    生成圆角矩形遮罩。
 
-  :param size: 遮罩尺寸。
-  :param radius: 圆角半径。
-  :return: L 模式遮罩。
-  """
-  radius = min(radius, size[0] / 2, size[1] / 2)
-  surface = cairo.ImageSurface(cairo.Format.A8, size[0], size[1])
-  cr = cairo.Context(surface)
-  cr.arc(radius, radius, radius, math.pi, math.pi * 1.5)
-  cr.arc(size[0] - radius, radius, radius, math.pi * 1.5, math.pi * 2)
-  cr.arc(size[0] - radius, size[1] - radius, radius, 0, math.pi * 0.5)
-  cr.arc(radius, size[1] - radius, radius, math.pi * 0.5, math.pi)
-  cr.set_source_rgb(1, 1, 1)
-  cr.fill()
-  return from_cairo(surface)
+    :param size: 遮罩尺寸。
+    :param radius: 圆角半径。
+    :return: L 模式遮罩。
+    """
+    radius = min(radius, size[0] / 2, size[1] / 2)
+    surface = cairo.ImageSurface(cairo.Format.A8, size[0], size[1])
+    cr = cairo.Context(surface)
+    cr.arc(radius, radius, radius, math.pi, math.pi * 1.5)
+    cr.arc(size[0] - radius, radius, radius, math.pi * 1.5, math.pi * 2)
+    cr.arc(size[0] - radius, size[1] - radius, radius, 0, math.pi * 0.5)
+    cr.arc(radius, size[1] - radius, radius, math.pi * 0.5, math.pi)
+    cr.set_source_rgb(1, 1, 1)
+    cr.fill()
+    return from_cairo(surface)
 
 
 def apply_rounded_rectangle_mask(im: Image.Image, radius: float) -> None:
-  """
-  为图片覆盖圆角矩形遮罩，详见 apply_mask 函数。
+    """
+    为图片覆盖圆角矩形遮罩，详见 apply_mask 函数。
 
-  :param im: 要覆盖遮罩的图片。
-  :param radius: 圆角半径。
-  """
-  apply_mask(im, make_rounded_rectangle_mask(im.size, radius))
+    :param im: 要覆盖遮罩的图片。
+    :param radius: 圆角半径。
+    """
+    apply_mask(im, make_rounded_rectangle_mask(im.size, radius))
 
 
 def center_pad(
-  im: AnyImage,
-  size: Size,
-  center: Point = (0.5, 0.5),
-  bg: int | tuple[int, ...] | str = 0,
+    im: AnyImage,
+    size: Size,
+    center: Point = (0.5, 0.5),
+    bg: int | tuple[int, ...] | str = 0,
 ) -> Image.Image:
-  """
-  若图片大于指定的画布大小，则缩小并居中图片；否则保持大小不变并居中图片。
+    """
+    若图片大于指定的画布大小，则缩小并居中图片；否则保持大小不变并居中图片。
 
-  :param im: 要居中的图片。
-  :param width: 画布宽度。
-  :param height: 画布高度。
-  :return: 居中后的图片。
-  """
-  im = ensure_pil(im)
-  if im.width > size[0] or im.height > size[1]:
-    padded_im = ImageOps.pad(im, size, get_scale_resample(), bg, center)
-  else:
-    padded_im = Image.new(im.mode, size)
-    x = round((size[0] - im.width) * center[0])
-    y = round((size[1] - im.height) * center[1])
-    padded_im.paste(im, (x, y))
-  return padded_im
+    :param im: 要居中的图片。
+    :param width: 画布宽度。
+    :param height: 画布高度。
+    :return: 居中后的图片。
+    """
+    im = ensure_pil(im)
+    if im.width > size[0] or im.height > size[1]:
+        padded_im = ImageOps.pad(im, size, SCALE_RESAMPLE, bg, center)
+    else:
+        padded_im = Image.new(im.mode, size)
+        x = round((size[0] - im.width) * center[0])
+        y = round((size[1] - im.height) * center[1])
+        padded_im.paste(im, (x, y))
+    return padded_im
 
 
 def resize_canvas(
-  im: AnyImage,
-  size: Size,
-  center: Point = (0.5, 0.5),
-  bg: int | tuple[int, ...] | str = 0,
+    im: AnyImage,
+    size: Size,
+    center: Point = (0.5, 0.5),
+    bg: int | tuple[int, ...] | str = 0,
 ) -> Image.Image:
-  """
-  保持图片大小不变，改变画布大小，根据需要裁剪图片或延展边缘。
+    """
+    保持图片大小不变，改变画布大小，根据需要裁剪图片或延展边缘。
 
-  :param im: 要改变画布大小的图片。
-  :param width: 画布大小。
-  :param center: 图片在画布中的位置。
-  :return: 改变画布大小后的图片。
-  """
-  im = ensure_pil(im)
-  x = size[0] - im.width
-  y = size[1] - im.height
-  l = int(center[0] * x)
-  r = x - l
-  t = int(center[1] * y)
-  b = y - t
-  return ImageOps.expand(im, (t, l, r, b), bg)
+    :param im: 要改变画布大小的图片。
+    :param width: 画布大小。
+    :param center: 图片在画布中的位置。
+    :return: 改变画布大小后的图片。
+    """
+    im = ensure_pil(im)
+    x = size[0] - im.width
+    y = size[1] - im.height
+    l = int(center[0] * x)
+    r = x - l
+    t = int(center[1] * y)
+    b = y - t
+    return ImageOps.expand(im, (t, l, r, b), bg)
 
 
 def square(im: AnyImage) -> Image.Image:
-  """
-  将图片裁剪为方形。
+    """
+    将图片裁剪为方形。
 
-  :param im: 要裁剪的图片。
-  :return: 裁剪后的图片。
-  """
-  im = ensure_pil(im)
-  length = min(im.width, im.height)
-  x = (im.width - length) // 2
-  y = (im.height - length) // 2
-  return im.crop((x, y, x + length, y + length))
+    :param im: 要裁剪的图片。
+    :return: 裁剪后的图片。
+    """
+    im = ensure_pil(im)
+    length = min(im.width, im.height)
+    x = (im.width - length) // 2
+    y = (im.height - length) // 2
+    return im.crop((x, y, x + length, y + length))
 
 
 def contain_down(im: AnyImage, size: Size) -> Image.Image:
-  """
-  若图片大于指定的尺寸，则保持比例缩小，否则保持不变。
+    """
+    若图片大于指定的尺寸，则保持比例缩小，否则保持不变。
 
-  :param im: 要缩小的图片。
-  :return: 缩小后的图片。
-  """
-  im = ensure_pil(im)
-  if im.width > size[0] or im.height > size[1]:
-    return ImageOps.contain(im, size, get_scale_resample())
-  return im
+    :param im: 要缩小的图片。
+    :return: 缩小后的图片。
+    """
+    im = ensure_pil(im)
+    if im.width > size[0] or im.height > size[1]:
+        return ImageOps.contain(im, size, SCALE_RESAMPLE)
+    return im
 
 
 def resize_width(im: AnyImage, width: int) -> Image.Image:
-  """
-  保持比例调整图片宽度。
+    """
+    保持比例调整图片宽度。
 
-  :param im: 要缩放的图片。
-  :return: 缩放后的图片。
-  """
-  im = ensure_pil(im)
-  return ImageOps.contain(im, (width, 99999), get_scale_resample())
+    :param im: 要缩放的图片。
+    :return: 缩放后的图片。
+    """
+    im = ensure_pil(im)
+    return ImageOps.contain(im, (width, 99999), SCALE_RESAMPLE)
 
 
 def resize_height(im: AnyImage, height: int) -> Image.Image:
-  """
-  保持比例调整图片高度。
+    """
+    保持比例调整图片高度。
 
-  :param im: 要缩放的图片。
-  :return: 缩放后的图片。
-  """
-  im = ensure_pil(im)
-  return ImageOps.contain(im, (99999, height), get_scale_resample())
+    :param im: 要缩放的图片。
+    :return: 缩放后的图片。
+    """
+    im = ensure_pil(im)
+    return ImageOps.contain(im, (99999, height), SCALE_RESAMPLE)
 
 
 def flatten(im: AnyImage, bg: Literal["black", "white"] = "white") -> Image.Image:
-  """
-  将图片与指定背景混合以去除图片的 Alpha 通道，不是简单地移除 Alpha 通道。
+    """
+    将图片与指定背景混合以去除图片的 Alpha 通道，不是简单地移除 Alpha 通道。
 
-  :param im: 要去除 Alpha 通道的图片。
-  :param bg: 要混合的背景。
-  :return: 去除 Alpha 通道的图片。
-  """
-  im = ensure_pil(im)
-  if im.has_transparency_data:
-    if im.palette:
-      # P with transparency info, P with RGBA palette, PA
-      im = im.convert("RGBA")
-      out = Image.new("RGB", im.size, bg)
-      out.paste(im, mask=im)
-      return out
-    if im.mode in ("RGBA", "RGBa"):
-      out = Image.new("RGB", im.size, bg)
-      out.paste(im, mask=im)
-      return out
-    if im.mode == "LA":
-      out = Image.new("L", im.size, bg)
-      out.paste(im, mask=im)
-      return out
-    if im.mode == "La":
-      # conversion from La to L not supported
-      im = im.convert("LA")
-      out = Image.new("L", im.size, bg)
-      out.paste(im, mask=im)
-      return out
-    raise NotImplementedError(f"Unsupported mode: {im.mode}")  # unreachable
-  return im
-
-
-def frames(im: Image.Image) -> Generator[Image.Image, None, None]:
-  """
-  迭代动图的每一帧，与 ImageSequence.Iterator 不同的是，若不是动图也会返回一帧。
-
-  :param im: 要迭代的动图。
-  :return: 帧迭代器。
-  """
-  if not getattr(im, "is_animated", False):
-    yield im
-    return
-  yield from ImageSequence.Iterator(im)
+    :param im: 要去除 Alpha 通道的图片。
+    :param bg: 要混合的背景。
+    :return: 去除 Alpha 通道的图片。
+    """
+    im = ensure_pil(im)
+    if im.has_transparency_data:
+        if im.palette:
+            # P with transparency info, P with RGBA palette, PA
+            im = im.convert("RGBA")
+            out = Image.new("RGB", im.size, bg)
+            out.paste(im, mask=im)
+            return out
+        if im.mode in ("RGBA", "RGBa"):
+            out = Image.new("RGB", im.size, bg)
+            out.paste(im, mask=im)
+            return out
+        if im.mode == "LA":
+            out = Image.new("L", im.size, bg)
+            out.paste(im, mask=im)
+            return out
+        if im.mode == "La":
+            # conversion from La to L not supported
+            im = im.convert("LA")
+            out = Image.new("L", im.size, bg)
+            out.paste(im, mask=im)
+            return out
+        raise NotImplementedError(f"Unsupported mode: {im.mode}")  # unreachable
+    return im
 
 
-def sample_frames(im: Image.Image, frametime: int) -> Generator[Image.Image, None, None]:
-  """
-  在时域上循环采样一张动图，若不是动图则循环输出该图片。返回一个无穷迭代器，通常配合 zip 使用。
+def frames(im: Image.Image) -> Generator[Image.Image]:
+    """
+    迭代动图的每一帧，与 ImageSequence.Iterator 不同的是，若不是动图也会返回一帧。
 
-  :param im: 要采样的动图。
-  :param frametime: 每隔几毫秒采样一次。
-  :return: 采样迭代器。
-  """
-  if not getattr(im, "is_animated", False):
+    :param im: 要迭代的动图。
+    :return: 帧迭代器。
+    """
+    if not getattr(im, "is_animated", False):
+        yield im
+        return
+    yield from ImageSequence.Iterator(im)
+
+
+def sample_frames(
+    im: Image.Image,
+    frametime: int,
+) -> Generator[Image.Image]:
+    """
+    在时域上循环采样一张动图，若不是动图则循环输出该图片。返回一个无穷迭代器，通常配合
+    zip 使用。
+
+    :param im: 要采样的动图。
+    :param frametime: 每隔几毫秒采样一次。
+    :return: 采样迭代器。
+    """
+    if not getattr(im, "is_animated", False):
+        while True:
+            yield im
+    n_frames = getattr(im, "n_frames", 1)
+    main_pos = 0
+    sample_pos = 0
+    i = 0
     while True:
-      yield im
-  n_frames = getattr(im, "n_frames", 1)
-  main_pos = 0
-  sample_pos = 0
-  i = 0
-  while True:
-    duration = im.info["duration"]
-    while sample_pos <= main_pos < sample_pos + duration:
-      yield im
-      main_pos += frametime
-    sample_pos += duration
-    i += 1
-    if i == n_frames:
-      i = 0
-    im.seek(i)
+        duration = im.info["duration"]
+        while sample_pos <= main_pos < sample_pos + duration:
+            yield im
+            main_pos += frametime
+        sample_pos += duration
+        i += 1
+        if i == n_frames:
+            i = 0
+        im.seek(i)
 
 
 def paste(
-  dst: Image.Image,
-  src: AnyImage | PasteColor,
-  xy: Point = (0, 0),
-  anchor: Point = (0, 0),
+    dst: Image.Image,
+    src: AnyImage | PasteColor,
+    xy: Point = (0, 0),
+    anchor: Point = (0, 0),
 ) -> None:
-  """
-  将源图片的内容 Alpha 混合到目标图片的矩形区域。
+    """
+    将源图片的内容 Alpha 混合到目标图片的矩形区域。
 
-  :param dst: 目标图片。
-  :param src: 源图片。
-  :param xy: 矩形的位置。
-  :param anchor: 矩形的对齐方式。
-  """
-  if isinstance(src, cairo.ImageSurface):
-    paste_src = from_cairo(src)
-    width, height = paste_src.size
-  elif isinstance(src, Image.Image):
-    paste_src = src
-    width, height = paste_src.size
-  else:
-    paste_src, (width, height) = src
-    paste_src = color.split_rgb(paste_src) if isinstance(paste_src, int) else paste_src
-  x = round(xy[0] - width * anchor[0])
-  y = round(xy[1] - height * anchor[1])
-  if (
-    dst.mode in ("RGBA", "LA")
-    and isinstance(paste_src, Image.Image)
-    and paste_src.has_transparency_data
-  ):
-    if paste_src.mode != dst.mode:
-      paste_src = paste_src.convert(dst.mode)
-    dst.alpha_composite(paste_src, (x, y))
-  else:
-    paste_mask = None
-    if isinstance(paste_src, Image.Image):
-      if "transparency" in paste_src.info:
-        paste_src = paste_src.copy()
-        paste_src.apply_transparency()
-      if paste_src.palette and paste_src.palette.mode.endswith("A"):
-        paste_src = paste_src.convert(paste_src.palette.mode)
-        paste_mask = paste_src
-      elif paste_src.mode.endswith(("A", "a")):
-        paste_mask = paste_src
-    dst.paste(paste_src, (x, y, x + width, y + height), paste_mask)
+    :param dst: 目标图片。
+    :param src: 源图片。
+    :param xy: 矩形的位置。
+    :param anchor: 矩形的对齐方式。
+    """
+    if isinstance(src, cairo.ImageSurface):
+        paste_src = from_cairo(src)
+        width, height = paste_src.size
+    elif isinstance(src, Image.Image):
+        paste_src = src
+        width, height = paste_src.size
+    else:
+        paste_src, (width, height) = src
+        paste_src = (
+            color.split_rgb(paste_src) if isinstance(paste_src, int) else paste_src
+        )
+    x = round(xy[0] - width * anchor[0])
+    y = round(xy[1] - height * anchor[1])
+    if (
+        dst.mode in ("RGBA", "LA")
+        and isinstance(paste_src, Image.Image)
+        and paste_src.has_transparency_data
+    ):
+        if paste_src.mode != dst.mode:
+            paste_src = paste_src.convert(dst.mode)
+        dst.alpha_composite(paste_src, (x, y))
+    else:
+        paste_mask = None
+        if isinstance(paste_src, Image.Image):
+            if "transparency" in paste_src.info:
+                paste_src = paste_src.copy()
+                paste_src.apply_transparency()
+            if paste_src.palette and paste_src.palette.mode.endswith("A"):
+                paste_src = paste_src.convert(paste_src.palette.mode)
+                paste_mask = paste_src
+            elif paste_src.mode.endswith(("A", "a")):
+                paste_mask = paste_src
+        dst.paste(paste_src, (x, y, x + width, y + height), paste_mask)
 
 
 def replace(
-  dst: Image.Image,
-  src: AnyImage | PasteColor,
-  xy: Point = (0, 0),
-  anchor: Point = (0, 0),
+    dst: Image.Image,
+    src: AnyImage | PasteColor,
+    xy: Point = (0, 0),
+    anchor: Point = (0, 0),
 ) -> None:
-  """
-  用源图片的内容替换目标图片的矩形区域，不是 Alpha 混合。
+    """
+    用源图片的内容替换目标图片的矩形区域，不是 Alpha 混合。
 
-  :param dst: 目标图片。
-  :param src: 源图片。
-  :param xy: 矩形的位置。
-  :param anchor: 矩形的对齐方式。
-  """
-  if isinstance(src, cairo.ImageSurface):
-    paste_src = from_cairo(src)
-    width, height = paste_src.size
-  elif isinstance(src, Image.Image):
-    paste_src = src
-    width, height = paste_src.size
-  else:
-    paste_src, (width, height) = src
-    paste_src = color.split_rgb(paste_src) if isinstance(paste_src, int) else paste_src
-  x = round(xy[0] - width * anchor[0])
-  y = round(xy[1] - height * anchor[1])
-  dst.paste(paste_src, (x, y, x + width, y + height))
+    :param dst: 目标图片。
+    :param src: 源图片。
+    :param xy: 矩形的位置。
+    :param anchor: 矩形的对齐方式。
+    """
+    if isinstance(src, cairo.ImageSurface):
+        paste_src = from_cairo(src)
+        width, height = paste_src.size
+    elif isinstance(src, Image.Image):
+        paste_src = src
+        width, height = paste_src.size
+    else:
+        paste_src, (width, height) = src
+        paste_src = (
+            color.split_rgb(paste_src) if isinstance(paste_src, int) else paste_src
+        )
+    x = round(xy[0] - width * anchor[0])
+    y = round(xy[1] - height * anchor[1])
+    dst.paste(paste_src, (x, y, x + width, y + height))
 
 
 def _check_libimagequant() -> bool:
-  """
-  检查 libimagequant 是否可用，若不可用则在日志中发出一次警告。
+    """
+    检查 libimagequant 是否可用，若不可用则在日志中发出一次警告。
 
-  :return: libimagequant 是否可用。
-  """
-  global _libimagequant_available, _libimagequant_warned
-  if _libimagequant_available is None:
-    _libimagequant_available = features.check("libimagequant") or False
-  if not _libimagequant_available and not _libimagequant_warned:
-    logger.warning(
-      "已启用 libimagequant，但没有安装 libimagequant 或者 Pillow 没有编译 libimagequant 支持，"
-      "请参考 Pillow 和 IdhagnBot 的文档获取帮助。这条警告只会出现一次。",
-    )
-    _libimagequant_warned = True
-  return _libimagequant_available
+    :return: libimagequant 是否可用。
+    """
+    global _libimagequant_available, _libimagequant_warned
+    if _libimagequant_available is None:
+        _libimagequant_available = features.check("libimagequant") or False
+    if not _libimagequant_available and not _libimagequant_warned:
+        logger.warning(
+            "已启用 libimagequant，但没有安装 libimagequant 或者 Pillow 没有编译 "
+            "libimagequant 支持，请参考 Pillow 和 IdhagnBot 的文档获取帮助。"
+            "这条警告只会出现一次。",
+        )
+        _libimagequant_warned = True
+    return _libimagequant_available
 
 
 def quantize(im: AnyImage) -> Image.Image:
-  """
-  量化图片到 P 模式，通常用于 GIF 编码。
+    """
+    量化图片到 P 模式，通常用于 GIF 编码。
 
-  :param im: 要量化的图片。
-  :return: 量化后的图片。
-  """
-  config = CONFIG()
-  im = ensure_pil(im)
-  if config.libimagequant is True and _check_libimagequant():
-    # Image.new 在 RGB 模式下不带 color 参数会给隐藏的 Alpha 通道填充 0 而非 255
-    # 也就是颜色实际上是 (0, 0, 0, 0) 而非 (0, 0, 0, 255)
-    # 这会导致 libimagequant 产生的图片变绿（新版 libimagequant 似乎已经修复了这个问题）
-    # 所以要么给所有的 Image.new 都显式加上 (0, 0, 0) 作为 color 参数
-    # 要么 quantize 前先转换成 RGBA
-    p = im.quantize(method=Image.Quantize.LIBIMAGEQUANT)
-    assert p.palette
-    if p.palette.mode != "RGBA":
-      return p
-    for i in range(0, len(p.palette.palette), 4):
-      if p.palette.palette[i + 3] == 0:
-        p.info["transparency"] = i // 4
-        break
-    return p
-  method = Image.Quantize[config.quantize.upper()]
-  if im.mode == "RGBA":
-    # RGBA 图片的 quantize 方法不能用 palette 参数，使用内部 API 强行量化有奇怪的问题
-    # 我们手搓一个
-    a = ImageChops.invert(im.getchannel("A").convert("1"))
-    rgb = flatten(im)
-    if config.dither:
-      palette = rgb.quantize(255, method=method)
-      p = rgb.quantize(method=method, palette=palette)
-    else:
-      p = rgb.quantize(255, method=method, dither=Image.Dither.NONE)
-    assert p.palette
-    palette_data = p.palette.tobytes()
-    pos = len(palette_data) // 3
-    p.palette.palette = palette_data + b"\0\0\0"
-    p.info["transparency"] = pos
-    p.paste(pos, mask=a)
-    return p
-  # 必须要量化两次才有抖动仿色（除非用 libimagequant）
-  # 参见 https://github.com/python-pillow/Pillow/issues/5836
-  palette = im.quantize(method=method)
-  if not config.dither:
-    return palette
-  return im.quantize(method=method, palette=palette)
+    :param im: 要量化的图片。
+    :return: 量化后的图片。
+    """
+    im = ensure_pil(im)
+    if CONFIG.libimagequant is True and _check_libimagequant():
+        # Image.new 在 RGB 模式下不带 color 参数会给隐藏的 Alpha 通道填充 0 而非 255
+        # 也就是颜色实际上是 (0, 0, 0, 0) 而非 (0, 0, 0, 255)
+        # 这会导致 libimagequant 产生的图片变绿
+        # （新版 libimagequant 似乎已经修复了这个问题）
+        # 所以要么给所有的 Image.new 都显式加上 (0, 0, 0) 作为 color 参数
+        # 要么 quantize 前先转换成 RGBA
+        p = im.quantize(method=Image.Quantize.LIBIMAGEQUANT)
+        assert p.palette
+        if p.palette.mode != "RGBA":
+            return p
+        for i in range(0, len(p.palette.palette), 4):
+            if p.palette.palette[i + 3] == 0:
+                p.info["transparency"] = i // 4
+                break
+        return p
+    method = Image.Quantize[CONFIG.quantize.upper()]
+    if im.mode == "RGBA":
+        # RGBA 图片的 quantize 方法不能用 palette 参数，
+        # 使用内部 API 强行量化有奇怪的问题，我们手搓一个。
+        a = ImageChops.invert(im.getchannel("A").convert("1"))
+        rgb = flatten(im)
+        if CONFIG.dither:
+            palette = rgb.quantize(255, method=method)
+            p = rgb.quantize(method=method, palette=palette)
+        else:
+            p = rgb.quantize(255, method=method, dither=Image.Dither.NONE)
+        assert p.palette
+        palette_data = p.palette.tobytes()
+        pos = len(palette_data) // 3
+        p.palette.palette = palette_data + b"\0\0\0"
+        p.info["transparency"] = pos
+        p.paste(pos, mask=a)
+        return p
+    # 必须要量化两次才有抖动仿色（除非用 libimagequant）
+    # 参见 https://github.com/python-pillow/Pillow/issues/5836
+    palette = im.quantize(method=method)
+    if not CONFIG.dither:
+        return palette
+    return im.quantize(method=method, palette=palette)
 
 
 class RemapTransform:
-  """
-  将一个凸四边形映射到另一个凸四边形的变换（超出部分不会裁剪），使用 NumPy 计算系数。
-  使用 Image.transform(RemapTransform(...)) 应用变换。
-  """
-
-  old_size: Size
-  """变换前的尺寸。"""
-
-  new_size: Size
-  """变换后的尺寸。"""
-
-  data: PerspectiveData
-  """计算出的系数。"""
-
-  def __init__(self, old_size: Size, new_plane: Plane, old_plane: Plane | None = None) -> None:
     """
-    初始化一个四边形映射变换。
-
-    :param old_size: 变换前的尺寸。
-    :param new_plane: 变换后的四边形。
-    :param old_plane: 变换前的四边形，若为 None，则覆盖整个 old_size。
+    将一个凸四边形映射到另一个凸四边形的变换（超出部分不会裁剪），使用 NumPy 计算系数。
+    使用 Image.transform(RemapTransform(...)) 应用变换。
     """
-    super().__init__()
-    widths = [point[0] for point in new_plane]
-    heights = [point[1] for point in new_plane]
-    self.old_size = old_size
-    self.new_size = (math.ceil(max(widths)), math.ceil(max(heights)))
-    if old_plane is None:
-      old_plane = ((0, 0), (old_size[0], 0), (old_size[0], old_size[1]), (0, old_size[1]))
-    self.data = self._find_coefficients(old_plane, new_plane)
 
-  def getdata(self) -> tuple[int, PerspectiveData]:
+    old_size: Size
+    """变换前的尺寸。"""
+
+    new_size: Size
+    """变换后的尺寸。"""
+
+    data: PerspectiveData
+    """计算出的系数。"""
+
+    def __init__(
+        self,
+        old_size: Size,
+        new_plane: Plane,
+        old_plane: Plane | None = None,
+    ) -> None:
+        """
+        初始化一个四边形映射变换。
+
+        :param old_size: 变换前的尺寸。
+        :param new_plane: 变换后的四边形。
+        :param old_plane: 变换前的四边形，若为 None，则覆盖整个 old_size。
+        """
+        super().__init__()
+        widths = [point[0] for point in new_plane]
+        heights = [point[1] for point in new_plane]
+        self.old_size = old_size
+        self.new_size = (math.ceil(max(widths)), math.ceil(max(heights)))
+        if old_plane is None:
+            old_plane = (
+                (0, 0),
+                (old_size[0], 0),
+                (old_size[0], old_size[1]),
+                (0, old_size[1]),
+            )
+        self.data = self._find_coefficients(old_plane, new_plane)
+
+    def getdata(self) -> tuple[int, PerspectiveData]:
+        """
+        Image.transform 获取变换方法和变换系数时调用的方法。
+
+        :return: 二元组 (变换方法, 变换系数)。
+        """
+        return Image.Transform.PERSPECTIVE, self.data
+
+    @staticmethod
+    def _find_coefficients(old_plane: Plane, new_plane: Plane) -> PerspectiveData:
+        """
+        计算四边形映射变换的系数。
+
+        :param old_plane: 变换前的四边形。
+        :param new_plane: 变换后的四边形。
+        :return: 透视变换矩阵。
+        """
+        import numpy as np
+
+        matrix: list[list[float]] = []
+        for p1, p2 in zip(old_plane, new_plane, strict=True):
+            matrix.append([p2[0], p2[1], 1, 0, 0, 0, -p1[0] * p2[0], -p1[0] * p2[1]])
+            matrix.append([0, 0, 0, p2[0], p2[1], 1, -p1[1] * p2[0], -p1[1] * p2[1]])
+        a = np.array(matrix)
+        b = np.array(old_plane).reshape(8)
+        res_ = np.linalg.inv(a.T @ a) @ a.T @ b
+        return cast("PerspectiveData", tuple(res_))
+
+
+class PixelAccess[T](Protocol):
+    """Image.load 返回的，用于访问或设置图片像素的接口（泛型版本，参见 load 函数）。"""
+
+    def __setitem__(self, xy: tuple[int, int], color: T, /) -> None:
+        """
+        设置指定坐标的像素。
+
+        :param xy: 二元组 (x, y) 形式的坐标。
+        :param color: 像素数据。
+        """
+        ...
+
+    def __getitem__(self, xy: tuple[int, int], /) -> T:
+        """
+        访问指定坐标的像素。
+
+        :param xy: 二元组 (x, y) 形式的坐标。
+        :return: 像素数据。
+        """
+        ...
+
+    def putpixel(self, xy: tuple[int, int], color: T, /) -> None:
+        """
+        设置指定坐标的像素。
+
+        :param xy: 二元组 (x, y) 形式的坐标。
+        :param color: 像素数据。
+        """
+        ...
+
+    def getpixel(self, xy: tuple[int, int], /) -> T:
+        """
+        访问指定坐标的像素。
+
+        :param xy: 二元组 (x, y) 形式的坐标。
+        :return: 像素数据。
+        """
+        ...
+
+
+def load[T](im: Image.Image, _type: type[T]) -> PixelAccess[T]:
     """
-    Image.transform 获取变换方法和变换系数时调用的方法。
+    带类型的 Image.load，不会实际校验像素的类型，仅起到类型标注的作用。
 
-    :return: 二元组 (变换方法, 变换系数)。
+    :param im: 要加载的图片
+    :param _type: 像素的类型，对于 L 模式的图片为 int，对于 RGB 模式的图片为
+    tuple[int, int, int]，对 于 RGBA 模式的图片为 tuple[int, int, int, int]，以此类推。
     """
-    return Image.Transform.PERSPECTIVE, self.data
-
-  @staticmethod
-  def _find_coefficients(old_plane: Plane, new_plane: Plane) -> PerspectiveData:
-    """
-    计算四边形映射变换的系数。
-
-    :param old_plane: 变换前的四边形。
-    :param new_plane: 变换后的四边形。
-    :return: 透视变换矩阵。
-    """
-    import numpy as np
-
-    matrix: list[list[float]] = []
-    for p1, p2 in zip(old_plane, new_plane, strict=True):
-      matrix.append([p2[0], p2[1], 1, 0, 0, 0, -p1[0] * p2[0], -p1[0] * p2[1]])
-      matrix.append([0, 0, 0, p2[0], p2[1], 1, -p1[1] * p2[0], -p1[1] * p2[1]])
-    a = np.array(matrix)
-    b = np.array(old_plane).reshape(8)
-    res_ = np.linalg.inv(a.T @ a) @ a.T @ b
-    return cast("PerspectiveData", tuple(res_))
-
-
-class PixelAccess(Protocol[T]):
-  """Image.load 返回的，用于访问或设置图片像素的接口（泛型版本，参见 load 函数）。"""
-
-  def __setitem__(self, xy: tuple[int, int], color: T, /) -> None:
-    """
-    设置指定坐标的像素。
-
-    :param xy: 二元组 (x, y) 形式的坐标。
-    :param color: 像素数据。
-    """
-    ...
-
-  def __getitem__(self, xy: tuple[int, int], /) -> T:
-    """
-    访问指定坐标的像素。
-
-    :param xy: 二元组 (x, y) 形式的坐标。
-    :return: 像素数据。
-    """
-    ...
-
-  def putpixel(self, xy: tuple[int, int], color: T, /) -> None:
-    """
-    设置指定坐标的像素。
-
-    :param xy: 二元组 (x, y) 形式的坐标。
-    :param color: 像素数据。
-    """
-    ...
-
-  def getpixel(self, xy: tuple[int, int], /) -> T:
-    """
-    访问指定坐标的像素。
-
-    :param xy: 二元组 (x, y) 形式的坐标。
-    :return: 像素数据。
-    """
-    ...
-
-
-def load(im: Image.Image, _type: type[T]) -> PixelAccess[T]:
-  """
-  带类型的 Image.load，不会实际校验像素的类型，仅起到类型标注的作用。
-
-  :param im: 要加载的图片
-  :param _type: 像素的类型，对于 L 模式的图片为 int，对于 RGB 模式的图片为 tuple[int, int, int]，对
-    于 RGBA 模式的图片为 tuple[int, int, int, int]，以此类推。
-  """
-  return cast("Any", im.load())
-
-
-def normalize_url(url: str, bot: Bot) -> str:
-  """
-  标准化 Bot 返回的图片 URL。
-  目前只会将对应 Satori Bot 的 internal: 链接转化为 http(s):// 链接，其他 Bot 的链接保持不变。
-
-  :param url: 要标准化的图片 URL。
-  :param bot: 返回该 URL 的 Bot。
-  :return: 标准化后的 URL。
-  """
-  return (
-    str(bot.info.api_base / "proxy" / url)
-    if url.startswith("internal:") and SatoriBot is not None and isinstance(bot, SatoriBot)
-    else url
-  )
+    return cast("Any", im.load())
 
 
 async def open_url(
-  url: str,
-  process: Callable[[Image.Image], Image.Image] | None = None,
-  headers: LooseHeaders | None = None,
+    url: str,
+    process: Callable[[Image.Image], Image.Image] | None = None,
+    headers: LooseHeaders | None = None,
 ) -> Image.Image:
-  """
-  异步地打开图片 URL，支持 file:// 和 http(s)://，可选对图片进行同步处理。
-  不支持 Satori 的 internal: URL，请先使用 normalize_url 将其转化为 http:// URL。
+    """
+    异步地打开图片 URL，支持 file:// 和 http(s)://，可选对图片进行同步处理。
+    不支持 Satori 的 internal: URL，请先将其转化为 http:// URL。
 
-  :param url: 要打开的图片 URL。
-  :param process: 处理图片的同步函数。
-  :param headers: 额外的 HTTP 头。
-  """
-  if url.startswith("file://"):
-    path = path_from_url(url)
-    if process:
-      return await run_sync(lambda: process(Image.open(path)))
-    return await run_sync(lambda: Image.open(path))
-  async with get_session().get(url, headers=headers) as response:
-    parser = ImageFile.Parser()
-    async for chunk in response.content.iter_chunked(65536):
-      await run_sync(parser.feed, chunk)
-    if process:
-      return await run_sync(lambda: process(parser.close()))
-    return await run_sync(parser.close)
+    :param url: 要打开的图片 URL。
+    :param process: 处理图片的同步函数。
+    :param headers: 额外的 HTTP 头。
+    """
+    if url.startswith("file://"):
+        path = Path.from_uri(url)
+        if process:
+            return await asyncio.to_thread(lambda: process(Image.open(path)))
+        return await asyncio.to_thread(lambda: Image.open(path))
+    http = get_session()
+    async with http.get(url, headers=headers) as response:
+        parser = ImageFile.Parser()
+        async for chunk in response.content.iter_chunked(65536):
+            await asyncio.to_thread(parser.feed, chunk)
+        if process:
+            return await asyncio.to_thread(lambda: process(parser.close()))
+        return await asyncio.to_thread(parser.close)
 
 
 @overload
@@ -825,69 +833,72 @@ def to_segment(im: AnyImage, *, fmt: str = ..., **kw: Any) -> ImageSeg: ...
 
 @overload
 def to_segment(
-  im: Sequence[AnyImage],
-  duration: list[int] | int | Image.Image,
-  *,
-  fmt: str = ...,
-  afmt: str = ...,
-  **kw: Any,
+    im: Sequence[AnyImage],
+    duration: list[int] | int | Image.Image,
+    *,
+    fmt: str = ...,
+    afmt: str = ...,
+    **kw: Any,
 ) -> ImageSeg: ...
 
 
 def to_segment(
-  im: AnyImage | Sequence[AnyImage],
-  duration: list[int] | int | Image.Image = 0,
-  *,
-  fmt: str = "png",
-  afmt: str = "gif",
-  **kw: Any,
+    im: AnyImage | Sequence[AnyImage],
+    duration: list[int] | int | Image.Image = 0,
+    *,
+    fmt: str = "png",
+    afmt: str = "gif",
+    **kw: Any,
 ) -> ImageSeg:
-  """
-  将图片编码为 nonebot-plugin-alconna 的 Image 消息段。
+    """
+    将图片编码为 nonebot-plugin-alconna 的 Image 消息段。
 
-  :param im: 单张图片或图片列表。
-  :param duration: 以毫秒为单位的帧时长，传入单个 int 表示所有帧的时长相同，传入 int 列表表示每一帧
-    使用不同的时长（长度必须与 im 列表相等），传入 Image 表示每一帧的时长与该图片的对应帧相等（总帧
-    数必须和 im 列表的长度相等）。
-  :param fmt: 编码静态图（单张图片或长度为 1 的图片列表）的格式。
-  :param afmt: 编码动态图（长度大于 1 的图片列表）的格式。
-  :param kw: 传递给编码器的其他参数。
-  :return: Image 消息段，filename 为 `image.拓展名`，带有 mimetype。
-  """
-  f = BytesIO()
-  if not isinstance(im, AnyImage):
-    if len(im) > 1:
-      if isinstance(duration, Image.Image):
-        duration = [im.info["duration"] for im in ImageSequence.Iterator(duration)]
-      if isinstance(duration, list) and len(duration) != len(im):
-        raise ValueError("Duration list length doesn't match frames count.")
-      frames = [ensure_pil(x) for x in im]
-      afmt = afmt.lower()
-      if afmt == "gif":
-        frames = [x if x.mode == "P" else quantize(x) for x in frames]
-        # 只对透明图片使用 disposal，防止不透明图片有鬼影
-        disposal = 2 if any("transparency" in x.info for x in frames) else 0
-        frames[0].save(
-          f,
-          "GIF",
-          append_images=frames[1:],
-          save_all=True,
-          loop=0,
-          disposal=disposal,
-          duration=duration,
-          **kw,
-        )
-      else:
-        frames[0].save(f, afmt, append_images=frames[1:], duration=duration)
-      mime = mimetypes.suffix_map.get(f".{afmt}", "image/gif")
-      return ImageSeg(raw=f, name=f"image.{afmt}", mimetype=mime)
-    im = im[0]
-  fmt = fmt.lower()
-  if isinstance(im, cairo.ImageSurface):
-    if fmt == "png":
-      im.write_to_png(f)
-      return ImageSeg(raw=f, name="image.png", mimetype="image/png")
-    im = from_cairo(im)
-  im.save(f, fmt, **kw)
-  mime = mimetypes.suffix_map.get(f".{fmt}", "image/png")
-  return ImageSeg(raw=f, name=f"image.{fmt}", mimetype=mime)
+    :param im: 单张图片或图片列表。
+    :param duration: 以毫秒为单位的帧时长，传入单个 int 表示所有帧的时长相同，传入 int
+                     列表表示每一帧使用不同的时长（长度必须与 im 列表相等），传入 Image
+                     表示每一帧的时长与该图片的对应帧相等（总帧数必须和 im 列表的长度相
+                     等）。
+    :param fmt: 编码静态图（单张图片或长度为 1 的图片列表）的格式。
+    :param afmt: 编码动态图（长度大于 1 的图片列表）的格式。
+    :param kw: 传递给编码器的其他参数。
+    :return: Image 消息段，filename 为 `image.拓展名`，带有 mimetype。
+    """
+    f = BytesIO()
+    if not isinstance(im, AnyImage):
+        if len(im) > 1:
+            if isinstance(duration, Image.Image):
+                duration = [
+                    im.info["duration"] for im in ImageSequence.Iterator(duration)
+                ]
+            if isinstance(duration, list) and len(duration) != len(im):
+                raise ValueError("Duration list length doesn't match frames count.")
+            frames = [ensure_pil(x) for x in im]
+            afmt = afmt.lower()
+            if afmt == "gif":
+                frames = [x if x.mode == "P" else quantize(x) for x in frames]
+                # 只对透明图片使用 disposal，防止不透明图片有鬼影
+                disposal = 2 if any("transparency" in x.info for x in frames) else 0
+                frames[0].save(
+                    f,
+                    "GIF",
+                    append_images=frames[1:],
+                    save_all=True,
+                    loop=0,
+                    disposal=disposal,
+                    duration=duration,
+                    **kw,
+                )
+            else:
+                frames[0].save(f, afmt, append_images=frames[1:], duration=duration)
+            mime = mimetypes.suffix_map.get(f".{afmt}", "image/gif")
+            return ImageSeg.of(raw=f, name=f"image.{afmt}", mimetype=mime)
+        im = im[0]
+    fmt = fmt.lower()
+    if isinstance(im, cairo.ImageSurface):
+        if fmt == "png":
+            im.write_to_png(f)
+            return ImageSeg.of(raw=f, name="image.png", mimetype="image/png")
+        im = from_cairo(im)
+    im.save(f, fmt, **kw)
+    mime = mimetypes.suffix_map.get(f".{fmt}", "image/png")
+    return ImageSeg.of(raw=f, name=f"image.{fmt}", mimetype=mime)

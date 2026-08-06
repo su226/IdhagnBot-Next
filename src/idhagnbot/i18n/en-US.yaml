@@ -1,73 +1,94 @@
 idhagnbot:
-  lang_name: "English (US)"
+    lang_name: "English (US)"
 
 idhagnbot_booru:
-  invalid_page_size: "Invalid page size, must between 1 and {max}."
-  invalid_page: "Invalid page, must greater than 0."
-  posts_empty: "No posts."
+    invalid_page_size: "Invalid page size, must between 1 and {max}."
+    invalid_page: "Invalid page, must greater than 0."
+    posts_empty: "No posts."
 
 idhagnbot_fallback:
-  error_markup_header: "<span weight='heavy' size='150%'>Something really bad happens. Panic!</span>"
-  error_markup_content: |-
-    <b>IdhagnBot Next has encountered an internal error.</b>
-    <span color='#f5f543'>Possible reason: </span>{reason}
-  error_markup_group: "<span color='#29b8db'>Hint: </span>Group admins can send \"{COMMAND_PREFIX}suppress true\" to suppress errors in this group temporarily."
-  error_plain_content: |-
-    IdhagnBot Next has encountered an internal error.
-    Possible reason: 
-  error_plain_group: "Hint: Group admins can send \"{COMMAND_PREFIX}suppress true\" to suppress errors in this group temporarily."
-  error_type_unknown: |-
-    Unknown
-    There might be a design flaw in IdhagnBot Next, ask the developer for help.
-  error_type_network: |-
-    Network error
-    Maybe the online API used by the command is unstable, or there's a issue with the network of bot server.
-  error_type_manual: |-
-    Manually triggered by admins
-    If you are not an admin, safely ignore this.
-  error_type_large_image: |-
-    Image too large
-    Image(s) in message or link are too large.
-  error_type_bilibili: |-
-    Bilibili API error
-    There's a change in Bilibili API or being banned.
-  bad_command: "Command not exists, insufficient permission or unapplicable context."
-  bad_command_suggestion: "Are you looking for: "
-  im_a_bot: |-
-    I'm a bot. Send {prefix}help for available commands (may without mention).
-    Send {prefix}禁用提示 to disable this hint for you.
-  im_a_bot_suppressed: "You have suppressed \"I'm a bot\" hint. Send {prefix}禁用提示 again to restore."
-  im_a_bot_restored: "You have restored \"I'm a bot\" hint."
-  error_suppressed: "Error reports in this group have been suppressed for 24 hours."
-  error_restored: "Error reports in this group have been restored."
-  error_suppress_usage: |-
-    {prefix}suppress true - Suppress error reports in this group temporarily.
-    {prefix}suppress false - Restore error reports in this group.
-  error_raise_usage: "{prefix}raise confirm - Manually raise an error."
-  command_brief_suppress_exception: "Suppress error reports temporarily."
-  command_brief_raise_exception: "Manually raise an error."
+    error_markup_header: "<span weight='heavy' size='150%'>Something really bad happens. Panic!</span>"
+    error_markup_content: |-
+        <b>IdhagnBot has encountered an internal error.</b>
+        <span color='#f5f543'>Possible reason: </span>{reason}
+    error_markup_group: "<span color='#29b8db'>Hint: </span>Group admins can send \"{COMMAND_PREFIX}suppress true\" to suppress errors in this group temporarily."
+    error_plain_content: |-
+        IdhagnBot has encountered an internal error.
+        Possible reason: 
+    error_plain_group: "Hint: Group admins can send \"{COMMAND_PREFIX}suppress true\" to suppress errors in this group temporarily."
+    error_type_unknown: |-
+        Unknown
+        There might be a design flaw in IdhagnBot, ask the developer for help.
+    error_type_network: |-
+        Network error
+        Maybe the online API used by the command is unstable, or there's a issue with the network of bot server.
+    error_type_manual: |-
+        Manually triggered by admins
+        If you are not an admin, safely ignore this.
+    error_type_large_image: |-
+        Image too large
+        Image(s) in message or link are too large.
+    error_type_bilibili: |-
+        Bilibili API error
+        There's a change in Bilibili API or being banned.
+    bad_command: "Command not exists, insufficient permission or unapplicable context."
+    bad_command_suggestion: "Are you looking for: "
+    im_a_bot: |-
+        I'm a bot. Send {prefix}help for available commands (may without mention).
+        Send {prefix}禁用提示 to disable this hint for you.
+    im_a_bot_suppressed: "You have suppressed \"I'm a bot\" hint. Send {prefix}禁用提示 again to restore."
+    im_a_bot_restored: "You have restored \"I'm a bot\" hint."
+    error_suppressed: "Error reports in this group have been suppressed for 24 hours."
+    error_restored: "Error reports in this group have been restored."
+    error_suppress_usage: |-
+        {prefix}suppress true - Suppress error reports in this group temporarily.
+        {prefix}suppress false - Restore error reports in this group.
+    error_raise_usage: "{prefix}raise confirm - Manually raise an error."
+    command_brief_suppress_exception: "Suppress error reports temporarily."
+    command_brief_raise_exception: "Manually raise an error."
 
 idhagnbot_help:
-  prefix_admin: "Admin"
-  prefix_owner: "Owner"
-  prefix_superuser: "Superuser"
-  prefix_other: "Other"
-  usage_empty: "No usage info available."
-  category_empty: "Category is empty."
-  alias_prefix: "Alias(es) available:"
-  alias_separator: ", "
-  header_command: "ℹ Items starts with \"{prefix}\" are commands, send \"{prefix}help <COMMAND_NAME>\" to get help. For example there's \"{prefix}some_command\", send \"{prefix}help some_command\"."
-  header_category: "ℹ Items starts with folder emoji 📁 are categories, send \"{prefix}help <CATEGORY_NAME>\" to view children. For example there's \"📁some_category\", send \"{prefix}help some_category\"."
-  not_available: "Command or category not exists, insufficient permission or unapplicable context."
-  paginator: "Page {page} / {total}"
-  command_brief_help: "View all help."
+    prefix_admin: "Admin"
+    prefix_owner: "Owner"
+    prefix_superuser: "Superuser"
+    prefix_other: "Other"
+    usage_empty: "No usage info available."
+    category_empty: "Category is empty."
+    alias_prefix: "Alias(es) available:"
+    alias_separator: ", "
+    header_command: "ℹ Items starts with \"{prefix}\" are commands, send \"{prefix}help <COMMAND_NAME>\" to get help. For example there's \"{prefix}some_command\", send \"{prefix}help some_command\"."
+    header_category: "ℹ Items starts with folder emoji 📁 are categories, send \"{prefix}help <CATEGORY_NAME>\" to view children. For example there's \"📁some_category\", send \"{prefix}help some_category\"."
+    not_available: "Command or category not exists, insufficient permission or unapplicable context."
+    paginator: "Page {page} / {total}"
+    command_brief_help: "View all help."
 
-idhagnbot_lang:
-  locale_get: "Current locale is {lang}."
-  locale_get_unset: "Current locale is unset."
-  locale_get_force: "Current locale is {lang} (force apply)."
-  locale_set: "Current locale is set to {lang}."
-  locale_set_force: "Current locale is set to {lang} (force apply)."
-  locale_set_invalid: "Locale {lang} is invalid."
-  locale_set_reset: "Current locale is set to default."
-  command_brief_scene_locale: "Set default (or force apply) locale in group."
+idhagnbot_i18n:
+    locale_get: "Current locale is {lang}."
+    locale_get_unset: "Current locale is unset."
+    locale_get_force: "Current locale is {lang} (apply to everyone)."
+    locale_get_guild: "Current guild applied locale {lang} to everyone, unable to set personal locale."
+    locale_set: "Current locale is set to {lang}."
+    locale_set_force: "Current locale is set to {lang} (apply to everyone)."
+    locale_set_invalid: "Locale {lang} is invalid."
+    locale_set_reset: "Current locale is set to default."
+    command_brief_scene_locale: "Set default (or everyone's) locale in group."
+
+idhagnbot_redirect:
+    current_direct: "Currently not redirected."
+    current_guild: "Currently redirected to guild {guild}."
+    current_channel: "Currently redirected to channel {channel} in guild {guild}."
+    redirect_direct: "Cancelled redirection."
+    redirect_guild: "Redirected to guild {guild}."
+    redirect_channel: "Redirected to channel {channel} in guild {guild}."
+    error_no_user: "User not bound to target platform."
+    error_no_bot: "No bots on target platform."
+    error_no_guild: "Target guild not exist."
+    error_no_channel: "Target channel not exist or unrecorded, try send a message in it?"
+    error_not_public: "Cannot redirect to direct channel."
+    error_not_guild_member: "You are not a member of target guild."
+    error_not_channel_member: "You are not a member of the guild of target channel."
+    name_unknown: "unknown"
+    command_brief_redirect: "Change where bot execute commands."
+
+idhagnbot_telegram_start:
+    start: "Welcome to IdhagnBot, send {prefix}help for help."

@@ -10,11 +10,11 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "re
 import { useLocation, useNavigate } from "react-router";
 import PrimaryText from "../components/PrimaryH2";
 import EmptyContainer from "../components/EmptyContainer";
-import { Result } from "../utils/response";
+import { CODE_SUCCESS, Result } from "../utils/response";
 import z from "zod";
 
 const LoginData = z.object({
-  plugins: z.array(z.string()),
+  modules: z.array(z.string()),
 });
 
 type LoginData = z.infer<typeof LoginData>;
@@ -23,19 +23,19 @@ type LoginResult = { success: boolean; message: string };
 
 async function login(token: string): Promise<LoginResult> {
   try { 
-    const response = await fetch("/idhagnbot-api/authenticate", {
+    const response = await fetch("/idhagnbot-api/authorize", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${token}`
       },
     });
     const result = Result.parse(await response.json());
-    if (!result.success) {
+    if (result.code !== CODE_SUCCESS) {
       return { success: false, message: result.message };
     }
     const data = LoginData.parse(result.data);
     sessionStorage.token = token;
-    sessionStorage.plugins = JSON.stringify(data.plugins);
+    sessionStorage.plugins = JSON.stringify(data.modules);
     return { success: true, message: "" };
   } catch (e) {
     return { success: false, message: String(e) };
@@ -87,7 +87,7 @@ export default function Login() {
     // 手动登录时，先清除保存的 Token，否则本次未记住 Token 而之前记住了 Token 时之前记住的 Token
     // 不会被清除。
     delete localStorage.token;
-    login(rememberedToken).then(result => {
+    login(token).then(result => {
       // 登录成功后再记住 Token。
       if (result.success && remember) {
         localStorage.token = token;

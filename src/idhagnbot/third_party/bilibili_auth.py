@@ -1,93 +1,98 @@
 from pathlib import Path
-from typing import Any, Generic, Literal, NotRequired, TypeVar
+from typing import Any, Literal, NotRequired, TypeVar, override
 
-from nonebot import logger
+from arclet.entari import metadata, plugin_config
+from loguru import logger
 from pydantic import BaseModel, SecretStr, TypeAdapter
-from typing_extensions import TypedDict, override
-
-from idhagnbot.config import SharedConfig
+from typing_extensions import TypedDict
 
 
 class Config(BaseModel):
-  cookie_type: Literal["static", "bilibilitool"] = "static"
-  cookie: SecretStr = SecretStr("")
-  bilibilitool_cookies_file: Path = Path()
-  bilibilitool_cookies_index: int = 0
+    cookie_type: Literal["static", "bilibilitool"] = "static"
+    cookie: SecretStr = SecretStr("")
+    bilibilitool_cookies_file: Path = Path()
+    bilibilitool_cookies_index: int = 0
 
 
-CONFIG = SharedConfig("bilibili_auth", Config)
+metadata("", config=Config)
+CONFIG = plugin_config(Config)
 TData = TypeVar("TData")
 jsonc_warned = False
 
 
 def get_cookie() -> str:
-  config = CONFIG()
-  if config.cookie_type == "static":
-    return config.cookie.get_secret_value()
-  try:
-    import jsonc
-  except ImportError:
-    global jsonc_warned
-    if not jsonc_warned:
-      logger.warning(
-        "未安装 json-with-comments，无法使用 BilibiliTool 的 Cookie。"
-        "如需安装，请将 idhagnbot[jsonc] 添加到依赖中。",
-      )
-      jsonc_warned = True
-    return ""
-  with config.bilibilitool_cookies_file.open() as f:
-    data = jsonc.load(f)
-  return data["BiliBiliCookies"][config.bilibilitool_cookies_index]
+    if CONFIG.cookie_type == "static":
+        return CONFIG.cookie.get_secret_value()
+    try:
+        import jsonc
+    except ImportError:
+        global jsonc_warned
+        if not jsonc_warned:
+            logger.warning(
+                "未安装 json-with-comments，无法使用 BilibiliTool 的 Cookie。"
+                "如需安装，请将 idhagnbot[jsonc] 添加到依赖中。",
+            )
+            jsonc_warned = True
+        return ""
+    with CONFIG.bilibilitool_cookies_file.open() as f:
+        data = jsonc.load(f)
+    return data["BiliBiliCookies"][CONFIG.bilibilitool_cookies_index]
 
 
-class ApiResult(TypedDict, Generic[TData]):
-  code: int
-  message: str
-  ttl: int
-  data: NotRequired[TData]
+class ApiResult[TData](TypedDict):
+    code: int
+    message: str
+    ttl: int
+    data: NotRequired[TData]
 
 
 class ApiError(Exception):
-  code: int
-  message: str
+    code: int
+    message: str
 
-  def __init__(self, code: int, message: str) -> None:
-    super().__init__(f"{code}: {message}")
-    self.code = code
-    self.message = message
+    def __init__(self, code: int, message: str) -> None:
+        super().__init__(f"{code}: {message}")
+        self.code = code
+        self.message = message
 
-  @override
-  def __repr__(self) -> str:
-    return f"ApiError(code={self.code!r}, message={self.message!r})"
-
-
-def validate_result(result: dict[str, Any], data_type: type[TData]) -> TData:
-  parsed = TypeAdapter(ApiResult[data_type], config={"strict": True}).validate_python(result)  # ty:ignore[invalid-type-form]
-  if "data" not in parsed:
-    raise ApiError(parsed["code"], parsed["message"])
-  return parsed["data"]
+    @override
+    def __repr__(self) -> str:
+        return f"ApiError(code={self.code!r}, message={self.message!r})"
 
 
-class BiligameApiSuccess(TypedDict, Generic[TData]):
-  code: Literal[0]
-  data: TData
-  ts: int
-  request_id: str
+def validate_result[TData](result: dict[str, Any], data_type: type[TData]) -> TData:
+    parsed = TypeAdapter(
+        ApiResult[data_type],  # ty:ignore[invalid-type-form]
+        config={"strict": True},
+    ).validate_python(result)
+    if "data" not in parsed:
+        raise ApiError(parsed["code"], parsed["message"])
+    return parsed["data"]
+
+
+class BiligameApiSuccess[TData](TypedDict):
+    code: Literal[0]
+    data: TData
+    ts: int
+    request_id: str
 
 
 class BiligameApiError(TypedDict):
-  code: int
-  message: str
-  ts: int
-  request_id: str
+    code: int
+    message: str
+    ts: int
+    request_id: str
 
 
-BiligameApiResult = BiligameApiSuccess[TData] | BiligameApiError
+type BiligameApiResult[TData] = BiligameApiSuccess[TData] | BiligameApiError
 
 
-def validate_biligame_result(result: dict[str, Any], data_type: type[TData]) -> TData:
-  adapter = TypeAdapter(BiligameApiResult[data_type], config={"strict": True})  # ty:ignore[not-subscriptable]
-  parsed = adapter.validate_python(result)
-  if "data" not in parsed:
-    raise ApiError(parsed["code"], parsed["message"])
-  return parsed["data"]
+def validate_biligame_result[TData](
+    result: dict[str, Any],
+    data_type: type[TData],
+) -> TData:
+    adapter = TypeAdapter(BiligameApiResult[data_type], config={"strict": True})  # ty:ignore[invalid-type-form]
+    parsed = adapter.validate_python(result)
+    if "data" not in parsed:
+        raise ApiError(parsed["code"], parsed["message"])
+    return parsed["data"]

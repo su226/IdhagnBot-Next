@@ -1,68 +1,82 @@
 from datetime import date, timedelta
+from typing import override
 
-import nonebot
-from sqlalchemy import desc, func, select
-from typing_extensions import override
+from arclet.entari import MessageChain, Text
+from entari_plugin_database import AsyncSession, get_session  # entari: plugin
+from sqlalchemy import func, select
 
-from idhagnbot.asyncio import gather_seq
-from idhagnbot.context import get_target_id
-from idhagnbot.plugins.daily_push.module import TargetAwareModule
-
-nonebot.require("nonebot_plugin_alconna")
-nonebot.require("nonebot_plugin_orm")
-nonebot.require("nonebot_plugin_uninfo")
-nonebot.require("idhagnbot.plugins.chat_record")
-from nonebot_plugin_alconna import Segment, Target, Text, UniMessage
-from nonebot_plugin_orm import get_session
-from nonebot_plugin_uninfo import SceneType, get_interface
-
-from idhagnbot.plugins.chat_record import Message
+from idhagnbot.plugins.daily_push.module import Target, TargetAwareModule
+from idhagnbot.plugins.record import Channel, Member, Message, MessageRevision, User
+from idhagnbot.support import get_bot_on
 
 EMOJIS = ["🥇", "🥈", "🥉"]
 
 
+async def get_member_nick(
+    db: AsyncSession,
+    platform: str,
+    guild_id: str,
+    user_id: str,
+) -> str:
+    member = await db.get(Member, (platform, guild_id, user_id))
+    if member and member.nick:
+        return member.nick
+    user = await db.get(User, (platform, user_id))
+    if user:
+        return user.nick or user.name or user.id
+    return user_id
+
+
 class RankModule(TargetAwareModule):
-  @override
-  async def format(self, target: Target) -> list[UniMessage[Segment]]:
-    if target.private:
-      return []
-    scene_id = await get_target_id(target)
-    today = date.today()
-    yesterday = today - timedelta(1)
-    async with get_session() as sql:
-      result = await sql.execute(
-        select(
-          Message.user_id,
-          count_func := func.count(Message.user_id),
-        )
-        .where(
-          Message.scene_id == scene_id,
-          Message.time >= yesterday,
-          Message.time < today,
-        )
-        .group_by(Message.user_id)
-        .order_by(desc(count_func))
-        .limit(10),
-      )
-    if not result:
-      return []
-    result = list(result)
-    bot = await target.select()
-    interface = get_interface(bot)
-    if interface is None:
-      return []
-    lines = ["昨天最能水的成员："]
-    if target.channel:
-      scene_type = SceneType.GUILD
-      scene_id = target.parent_id
-    else:
-      scene_type = SceneType.GROUP
-      scene_id = target.id
-    infos = await gather_seq(
-      interface.get_member(scene_type, scene_id, user_id) for user_id, _ in result
-    )
-    for i, ((user_id, count), info) in enumerate(zip(result, infos, strict=True)):
-      prefix = EMOJIS[i] if i < len(EMOJIS) else f"{i + 1}."
-      nickname = info.nick or info.user.nick or info.user.name or info.user.id if info else user_id
-      lines.append(f"{prefix} {nickname} - {count} 条")
-    return [UniMessage(Text("\n".join(lines)))]
+    type = "rank"
+
+    @override
+    async def format(self, target: Target) -> list[MessageChain]:
+        if target.guild_id is None:
+            return []
+        bot = get_bot_on(target.platform)
+        if bot is None:
+            return []
+        today = date.today()
+        yesterday = today - timedelta(1)
+        async with get_session() as db:
+            result = await db.execute(
+                select(
+                    Message.user_id,
+                    count_func := func.count(Message.id),
+                )
+                .join(
+                    MessageRevision,
+                    (Message.platform == MessageRevision.platform)
+                    & (Message.channel_id == MessageRevision.channel_id)
+                    & (Message.id == MessageRevision.message_id)
+                    & (MessageRevision.revision == 1),
+                )
+                .join(
+                    Channel,
+                    (Message.platform == Channel.platform)
+                    & (Message.channel_id == Channel.id),
+                )
+                .where(
+                    Channel.platform == target.platform,
+                    Channel.guild_id == target.guild_id,
+                    MessageRevision.created_at >= yesterday,
+                    MessageRevision.created_at < today,
+                    ~Message.outgoing,
+                )
+                .group_by(Message.user_id)
+                .order_by(count_func.desc())
+                .limit(10),
+            )
+            result = list(result)
+            if not result:
+                return []
+            nicks = [
+                await get_member_nick(db, target.platform, target.guild_id, user_id)
+                for user_id, _ in result
+            ]
+        lines = ["昨天最能水的成员："]
+        for i, (nick, (_, count)) in enumerate(zip(nicks, result, strict=True)):
+            prefix = EMOJIS[i] if i < len(EMOJIS) else f"{i + 1}."
+            lines.append(f"{prefix} {nick} - {count} 条")
+        return [MessageChain(Text("\n".join(lines)))]

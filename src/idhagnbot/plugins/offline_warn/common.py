@@ -1,74 +1,55 @@
+import asyncio
 from dataclasses import dataclass
 from datetime import timedelta
 
-import anyio
-import nonebot
-from nonebot import logger
-from nonebot.adapters import Bot
-from nonebot.exception import ActionFailed, NetworkError
+from arclet.entari import Text, metadata, plugin_config
+from loguru import logger
 from pydantic import BaseModel, Field
+from satori.exception import ActionFailed
 
-from idhagnbot.config import SharedConfig
-from idhagnbot.target import TargetConfig
-
-nonebot.require("nonebot_plugin_alconna")
-nonebot.require("nonebot_plugin_apscheduler")
-nonebot.require("nonebot_plugin_localstore")
-from nonebot_plugin_alconna import SerializeFailed, Target, UniMessage
+from idhagnbot.support import get_bot_on
 
 
 class Config(BaseModel):
-  targets: list[TargetConfig] = Field(default_factory=list)
-  disconnect_grace_time: timedelta = timedelta(seconds=10)
+    targets: list[str] = Field(default_factory=list)
+    disconnect_grace_time: timedelta = timedelta(seconds=10)
 
 
 @dataclass
 class QueuedMessage:
-  message: str
-  targets: list[TargetConfig]
+    message: str
+    targets: list[str]
 
 
-CONFIG = SharedConfig("offline_warn", Config)
-queued_messages = list[QueuedMessage]()
-lock = anyio.Lock()  # 防止多个机器人同时上线时出错（尤其是启动时）
+metadata("", config=Config)
+CONFIG = plugin_config(Config)
+queued_messages: list[QueuedMessage] = []
+lock = asyncio.Lock()  # 防止多个机器人同时上线时出错（尤其是启动时）
 
 
 async def queue_message(message: str) -> None:
-  config = CONFIG()
-  queued_messages.append(QueuedMessage(message, config.targets.copy()))
-  await send_queued_messages()
-
-
-async def select_bot(target: Target) -> Bot:
-  if target.self_id:
-    try:
-      return nonebot.get_bot(target.self_id)
-    except Exception as e:
-      raise SerializeFailed("当前机器人不在线") from e
-  try:
-    return await target.select()
-  except Exception as e:
-    raise SerializeFailed("选择机器人失败") from e
+    queued_messages.append(QueuedMessage(message, CONFIG.targets.copy()))
+    await send_queued_messages()
 
 
 async def send_queued_messages() -> None:
-  async with lock:
-    hit_messages = list[QueuedMessage]()
-    for message in queued_messages:
-      hit_targets = list[TargetConfig]()
-      for target in message.targets:
-        try:
-          bot = await select_bot(target.target)
-        except SerializeFailed:
-          continue
-        hit_targets.append(target)
-        try:
-          await UniMessage(message.message).send(target.target, bot)
-        except (ActionFailed, NetworkError):
-          logger.exception(f"消息发送失败：{bot} {message.message}")
-      for target in hit_targets:
-        message.targets.remove(target)
-      if not message.targets:
-        hit_messages.append(message)
-    for message in hit_messages:
-      queued_messages.remove(message)
+    async with lock:
+        hit_messages = list[QueuedMessage]()
+        for message in queued_messages:
+            hit_targets = list[str]()
+            for target in message.targets:
+                platform, channel_id = target.split(":", maxsplit=1)
+                bot = get_bot_on(platform)
+                if bot is None:
+                    continue
+                hit_targets.append(target)
+                try:
+                    await bot.send_message(channel_id, [Text(message.message)])
+                except ActionFailed:
+                    logger.exception(f"消息发送失败：{bot} {message.message}")
+            for target in hit_targets:
+                message.targets.remove(target)
+            if not message.targets:
+                hit_messages.append(message)
+        for message in hit_messages:
+            queued_messages.remove(message)

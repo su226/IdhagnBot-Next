@@ -1,33 +1,56 @@
 from collections.abc import Callable
-from typing import TypeVar
+from dataclasses import dataclass
+from typing import ClassVar
 
-import nonebot
+from arclet.entari import MessageChain
 from pydantic import BaseModel
 
-nonebot.require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import Target
-from nonebot_plugin_alconna.uniseg import Segment, UniMessage
+
+@dataclass(frozen=True)
+class Target:
+    platform: str
+    guild_id: str | None
+    channel_id: str
 
 
 class SimpleModule(BaseModel):
-  async def format(self) -> list[UniMessage[Segment]]:
-    raise NotImplementedError
+    type: ClassVar[str]
+
+    async def format(self) -> list[MessageChain]:
+        raise NotImplementedError
 
 
 class TargetAwareModule(BaseModel):
-  async def format(self, target: Target) -> list[UniMessage[Segment]]:
-    raise NotImplementedError
+    type: ClassVar[str]
+
+    async def format(self, target: Target) -> list[MessageChain]:
+        raise NotImplementedError
 
 
-MODULE_REGISTRY: dict[str, type[SimpleModule | TargetAwareModule]] = {}
-T = TypeVar("T", bound=SimpleModule | TargetAwareModule)
+class ComplexModule(BaseModel):
+    type: ClassVar[str]
+
+    async def format(self, targets: list[Target]) -> dict[Target, list[MessageChain]]:
+        raise NotImplementedError
 
 
-def register(name: str) -> Callable[[type[T]], type[T]]:
-  def decorator(config_type: type[T]) -> type[T]:
-    if name in MODULE_REGISTRY:
-      raise ValueError(f"已有类型为 {name} 的模块")
-    MODULE_REGISTRY[name] = config_type
-    return config_type
+type Module = SimpleModule | TargetAwareModule | ComplexModule
+MODULE_REGISTRY: dict[str, type[Module]] = {}
 
-  return decorator
+
+def register[T: Module](config_type: type[T]) -> Callable[[], None]:
+    if config_type.type in MODULE_REGISTRY:
+        raise ValueError(f"已有类型为 {config_type.type} 的模块")
+    MODULE_REGISTRY[config_type.type] = config_type
+
+    def dispose() -> None:
+        MODULE_REGISTRY.pop(config_type.type, None)
+
+    return dispose
+
+
+class ModuleConfig(BaseModel, extra="allow"):
+    type: str
+
+    def to_module(self) -> Module:
+        return MODULE_REGISTRY[self.type].model_validate(self.model_extra)

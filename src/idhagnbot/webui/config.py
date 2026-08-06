@@ -1,228 +1,298 @@
-import os
-import stat
-from collections.abc import AsyncGenerator
-from typing import Any, Literal
+import asyncio
+from dataclasses import asdict
+from typing import TYPE_CHECKING, Any
 
-import nonebot
 from anyio import Path
-from anyio.to_thread import run_sync
-from nonebot.config import Config as NonebotConfig
-from nonebot.drivers import ASGIMixin, HTTPServerSetup, Request, Response
-from pydantic import BaseModel, ValidationError
-from yarl import URL
+from arclet.entari.config import EntariConfig, config_model_schema
+from arclet.entari.config.model import BasicConfig
+from arclet.entari.event.config import ConfigReload
+from arclet.entari.plugin import (
+    Plugin,
+    find_plugin,
+    get_plugins,
+    load_plugin,
+    plugin_service,
+    unload_plugin_async,
+)
+from arclet.letoderea import post, publish
+from creart import it
+from fastapi import APIRouter, Depends, FastAPI, Response
+from launart import Launart
+from loguru import logger
+from pydantic import BaseModel
 
-from idhagnbot.config import Reloadable, SharedConfig
-from idhagnbot.webui.common import ResponseData, authenticate
+from idhagnbot.webui.common import ResponseData, authorize
 
-nonebot.require("nonebot_plugin_localstore")
-from nonebot_plugin_localstore import get_config_dir
-
-CONFIG_DIR = Path(get_config_dir(None))
-
-
-class Config(BaseModel):
-  path: str
-  type: Literal["shared", "dotenv", "other"]
-  description: str = ""
-  exist: bool
-
-
-class ConfigsResponseData(BaseModel):
-  configs: list[Config]
-
-
-async def walk(top: os.PathLike[str]) -> AsyncGenerator[tuple[str, list[str], list[str]]]:
-  it = await run_sync(os.walk, top)
-
-  def _gen() -> tuple[str, list[str], list[str]] | None:
-    try:
-      return next(it)
-    except StopIteration:
-      return None
-
-  while True:
-    value = await run_sync(_gen)
-    if value is None:
-      break
-    yield value
-
-
-async def handle_configs(request: Request) -> Response:
-  if response := authenticate(request):
-    return response
-  configs = dict[str, Config]()
-  for config in SharedConfig.all.values():
-    path = CONFIG_DIR / "idhagnbot" / f"{config.name}.yaml"
-    path_str = str("config" / path.relative_to(CONFIG_DIR))
-    configs[path_str] = Config(
-      path=path_str,
-      type="shared",
-      description=config.model.__doc__ or "",
-      exist=await path.is_file(),
-    )
-  async for root, _, files in walk(CONFIG_DIR):
-    path_root = Path(root).relative_to(CONFIG_DIR)
-    for file in files:
-      path_str = str("config" / path_root / file)
-      if path_str not in configs:
-        configs[path_str] = Config(path=path_str, type="other", exist=True)
-  has_default = False
-  has_dev = False
-  has_prod = False
-  cwd = await Path.cwd()
-  async for child in cwd.iterdir():
-    if (child.name == ".env" or child.name.startswith(".env.")) and await child.is_file():
-      if child.name == ".env":
-        has_default = True
-      if child.name == ".env.dev":
-        has_dev = True
-      if child.name == ".env.prod":
-        has_prod = True
-      configs[child.name] = Config(path=child.name, type="dotenv", exist=True)
-  if not has_default:
-    configs[".env"] = Config(path=".env", type="dotenv", exist=False)
-  if not has_dev:
-    configs[".env.dev"] = Config(path=".env.dev", type="dotenv", exist=False)
-  if not has_prod:
-    configs[".env.prod"] = Config(path=".env.prod", type="dotenv", exist=False)
-  return ResponseData.res_success(ConfigsResponseData(configs=list(configs.values())))
+if TYPE_CHECKING:
+    from arclet.entari.builtins.auto_reload import Watcher
 
 
 class ConfigGetResponseData(BaseModel):
-  config: str
-  schema: Any
+    config: str
+    schema: dict[str, Any]
 
 
-async def handle_config_get(request: Request) -> Response:
-  if response := authenticate(request):
-    return response
-  name = request.url.query.get("name", "")
-  schema = {}
-  if name.startswith("config/"):
-    path = Path(await run_sync(os.path.abspath, CONFIG_DIR / name[7:]))
-    if not path.is_relative_to(CONFIG_DIR) or path == CONFIG_DIR:
-      return ResponseData.res_error(400, "无效配置名")
-    rel = path.relative_to(CONFIG_DIR)
-    if (
-      len(rel.parts) == 2
-      and rel.parts[0] == "idhagnbot"
-      and rel.suffix == ".yaml"
-      and (config := SharedConfig.all.get(rel.stem))
-    ):
-      schema = config.model.model_json_schema()
-  else:
-    path = await Path(name).resolve()
-    cwd = await Path.cwd()
-    if not (path.name == ".env" or path.name.startswith(".env.")) or path.parent != cwd:
-      return ResponseData.res_error(400, "无效配置名")
-    schema = NonebotConfig.model_json_schema()
-  try:
-    st = await path.stat()
-  except FileNotFoundError:
-    st = None
-  if st is not None and not stat.S_ISREG(st.st_mode):
-    return ResponseData.res_error(400, "不是文件")
-  if st is None:
-    content = ""
-  else:
-    async with await path.open("r", errors="replace") as file:
-      content = await file.read()
-  return ResponseData.res_success(ConfigGetResponseData(config=content, schema=schema))
+def generate_plugin_schema(plugin: Plugin, ref_root: str) -> dict[str, Any]:
+    properties = {
+        "$disable": {
+            "type": "string",
+            "description": "Expression for whether disable this plugin",
+        },
+        "$priority": {
+            "type": "integer",
+            "description": "Plugin loading priority, lower value means higher priority (default: 16)",
+        },
+        "$filter": {
+            "type": "string",
+            "description": "Plugin filter expression, which will be evaluated in the context of the plugin",
+        },
+    }
+    for subplugin_id in plugin.subplugins:
+        key = subplugin_id.removeprefix(plugin.id)
+        properties[key] = generate_plugin_schema(
+            plugin_service.plugins[subplugin_id],
+            f"{ref_root}properties/{key}/",
+        )
+    if plugin.metadata is None:
+        return {
+            "type": "object",
+            "description": "No configuration required",
+            "additionalProperties": True,
+            "properties": properties,
+        }
+    if plugin.metadata.config:
+        schema = config_model_schema(plugin.metadata.config, ref_root)
+        schema["properties"].update(properties)
+        return schema
+    return {
+        "type": "object",
+        "description": f"{plugin.metadata.description or plugin.metadata.name}; no configuration required",
+        "additionalProperties": True,
+        "properties": properties,
+    }
 
 
-class ConfigSetRequestData(BaseModel):
-  config: str
+def generate_schema_with_subplugins() -> dict[str, Any]:
+    plugin_schemas = {}
+    for plugin in get_plugins():
+        plugin_schemas[plugin._config_key] = generate_plugin_schema(
+            plugin,
+            f"/properties/plugins/properties/{plugin._config_key}/",
+        )
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+            "basic": config_model_schema(BasicConfig, ref_root="/properties/basic/"),
+            "plugins": {
+                "type": "object",
+                "description": "Plugin configurations",
+                "properties": {
+                    "$prefix": {
+                        "description": "List of prefix config",
+                        "items": {
+                            "properties": {
+                                "key": {
+                                    "description": "Prefix key",
+                                    "title": "Key",
+                                    "type": "string",
+                                },
+                                "plugins": {
+                                    "anyOf": [
+                                        {"type": "string"},
+                                        {
+                                            "items": {
+                                                "type": "string",
+                                                "description": "Plugin name",
+                                            },
+                                            "type": "array",
+                                            "uniqueItems": True,
+                                        },
+                                    ],
+                                    "description": "List of plugins under the prefix, or select an item of $files to apply plugins",
+                                    "title": "Plugins",
+                                },
+                            },
+                            "required": ["key"],
+                            "title": "Prefix Config",
+                            "type": "object",
+                        },
+                        "type": "array",
+                    },
+                    "$prelude": {
+                        "type": "array",
+                        "items": {"type": "string", "description": "Plugin name"},
+                        "description": "List of prelude plugins to load",
+                        "default": [],
+                        "uniqueItems": True,
+                    },
+                    "$files": {
+                        "type": "array",
+                        "items": {"type": "string", "description": "File path"},
+                        "description": "List of configuration files to load",
+                        "default": [],
+                        "uniqueItems": True,
+                    },
+                    **plugin_schemas,
+                },
+            },
+            "adapters": {
+                "type": "array",
+                "description": "Adapter configurations",
+                "items": {
+                    "type": "object",
+                    "description": "Adapter configuration",
+                    "properties": {
+                        "$path": {
+                            "type": "string",
+                            "description": "Adapter Module Path",
+                        },
+                    },
+                    "required": ["$path"],
+                    "additionalProperties": True,
+                },
+            },
+        },
+        "additionalProperties": False,
+        "required": ["basic"],
+    }
 
 
-class ConfigSetDeleteResponseData(BaseModel):
-  reloaded: bool
+def get_watcher() -> Watcher | None:
+    auto_reload = plugin_service.plugins.get("arclet.entari.builtins.auto_reload")
+    if not auto_reload:
+        return None
+    return it(Launart).get_component(auto_reload.module.Watcher)
 
 
-async def handle_config_set(request: Request) -> Response:
-  if response := authenticate(request):
-    return response
-  try:
-    data = ConfigSetRequestData.model_validate(request.json)
-  except ValidationError as e:
-    return ResponseData.res_error(400, str(e))
-  name = request.url.query.get("name", "")
-  config = None
-  if name.startswith("config/"):
-    path = Path(await run_sync(os.path.abspath, CONFIG_DIR / name[7:]))
-    if not path.is_relative_to(CONFIG_DIR) or path == CONFIG_DIR:
-      return ResponseData.res_error(400, "无效配置名")
-    rel = path.relative_to(CONFIG_DIR)
-    if len(rel.parts) == 2 and rel.parts[0] == "idhagnbot" and rel.suffix == ".yaml":
-      config = SharedConfig.all.get(rel.stem)
-  else:
-    path = await Path(name).resolve()
-    cwd = await Path.cwd()
-    if not (path.name == ".env" or path.name.startswith(".env.")) or path.parent != cwd:
-      return ResponseData.res_error(400, "无效配置名")
-  async with await path.open("w") as f:
-    await f.write(data.config)
-  reloaded = False
-  if config and config.reloadable is not Reloadable.FALSE:
-    reloaded = True
-    config.reload()
-  return ResponseData.res_success(ConfigSetDeleteResponseData(reloaded=reloaded))
+async def reload() -> None:
+    watcher = get_watcher()
+    if watcher and watcher.config.watch_config:
+        return
+    old_basic = asdict(EntariConfig.instance.basic)
+    old_plugin = EntariConfig.instance.plugin.copy()
+    if not EntariConfig.instance.reload():
+        return
+    logger.info(f"Detected change in {EntariConfig.path.name!r}, reloading config...")
+    new_basic = asdict(EntariConfig.instance.basic)
+    for key in old_basic:
+        if key in new_basic and old_basic[key] != new_basic[key]:
+            logger.debug(
+                f"Basic config <y>{key!r}</y> changed from <r>{old_basic[key]!r}</r> "
+                f"to <g>{new_basic[key]!r}</g>",
+            )
+            await publish(ConfigReload("basic", key, new_basic[key], old_basic[key]))
+    for key in set(new_basic) - set(old_basic):
+        logger.debug(f"Basic config <y>{key!r}</y> appended")
+        await publish(ConfigReload("basic", key, new_basic[key]))
+    for plugin_name in old_plugin:
+        if plugin_name.startswith("$"):
+            continue
+        pid = plugin_name.replace("::", "arclet.entari.builtins.")
+        if plugin_name not in EntariConfig.instance.plugin:
+            if plg := find_plugin(pid):
+                if plg.is_static:
+                    logger.info(f"Plugin <y>{plg.id!r}</y> is static, ignored.")
+                else:
+                    del plg
+                    await unload_plugin_async(pid)
+                    logger.info(f"Disposed plugin <blue>{pid!r}</blue>")
+            continue
+        old_conf = EntariConfig._clean(old_plugin[plugin_name])
+        new_conf = EntariConfig.instance.plugin[plugin_name]
+        if old_conf == new_conf:
+            continue
+        plg = find_plugin(pid)
+        if not plg:
+            logger.info(f"Detected <blue>{pid!r}</blue> appended, loading...")
+            load_plugin(plugin_name, new_conf)
+            continue
+        added = set(new_conf) - set(old_conf)
+        removed = set(old_conf) - set(new_conf)
+        changed = {
+            k for k in set(new_conf) & set(old_conf) if new_conf[k] != old_conf[k]
+        }
+        changes = added | removed | changed
+        if "$disable" in changes:
+            plg.check_disable()
+            changes.remove("$disable")
+        if "$dry" in changes:
+            changes.remove("$dry")
+            if new_conf.get("$dry", False):
+                logger.debug(f"Plugin <y>{plg.id!r}</y> is dry, ignored.")
+                continue
+        if not changes:
+            continue
+        logger.debug(
+            f"Plugin <y>{plugin_name!r}</y> config changed from <r>{old_conf!r}</r> "
+            f"to <g>{new_conf!r}</g>",
+        )
+        res = await post(ConfigReload("plugin", plugin_name, new_conf, old_conf))
+        if res and res.value:
+            logger.debug(f"Plugin <y>{pid!r}</y> config change handled by itself.")
+            continue
+        if plg.is_static:
+            logger.info(f"Plugin <y>{plg.id!r}</y> is static, ignored.")
+            continue
+        logger.info(f"Detected config of <blue>{pid!r}</blue> changed, reloading...")
+        plugin_file = str(plg.module.__file__)
+        _conf = plg.config.copy()
+
+        async def load_one(
+            pid: str = pid,
+            plugin_name: str = plugin_name,
+            new_conf: dict[str, Any] = new_conf,
+            plugin_file: str = plugin_file,
+            _conf: dict[str, Any] = _conf,
+        ) -> None:
+            await unload_plugin_async(pid)
+            if plg := load_plugin(plugin_name, new_conf):
+                logger.info(f"Reloaded <blue>{plg.id!r}</blue>")
+                del plg
+            else:
+                logger.error(f"Failed to reload <blue>{plugin_name!r}</blue>")
+                if watcher:
+                    watcher.fail[plugin_file] = (pid, _conf)
+
+        await asyncio.shield(load_one())
+    if new := (set(EntariConfig.instance.plugin) - set(old_plugin)):
+        for plugin_name in new:
+            if plugin_name.startswith(("$", "~")):
+                continue
+            if not (plg := load_plugin(plugin_name)):
+                continue
+            del plg
 
 
-async def handle_config_delete(request: Request) -> Response:
-  if response := authenticate(request):
-    return response
-  name = request.url.query.get("name", "")
-  config = None
-  if name.startswith("config/"):
-    path = Path(await run_sync(os.path.abspath, CONFIG_DIR / name[7:]))
-    if not path.is_relative_to(CONFIG_DIR) or path == CONFIG_DIR:
-      return ResponseData.res_error(400, "无效配置名")
-    rel = path.relative_to(CONFIG_DIR)
-    if len(rel.parts) == 2 and rel.parts[0] == "idhagnbot" and rel.suffix == ".yaml":
-      config = SharedConfig.all.get(rel.stem)
-  else:
-    path = await Path(name).resolve()
-    cwd = await Path.cwd()
-    if not (path.name == ".env" or path.name.startswith(".env.")) or path.parent != cwd:
-      return ResponseData.res_error(400, "无效配置名")
-  await path.unlink(missing_ok=True)
-  reloaded = False
-  if config and config.reloadable is not Reloadable.FALSE:
-    reloaded = True
-    config.reload()
-  return ResponseData.res_success(ConfigSetDeleteResponseData(reloaded=reloaded))
+async def get_config() -> Response:
+    async with await Path(EntariConfig.instance.path).open() as file:
+        config = await file.read()
+    schema = generate_schema_with_subplugins()
+    return ResponseData.res_success(ConfigGetResponseData(config=config, schema=schema))
 
 
-def setup(driver: ASGIMixin) -> None:
-  driver.setup_http_server(
-    HTTPServerSetup(
-      URL("/idhagnbot-api/configs"),
-      "GET",
-      "IdhagnBot Config Editor List Configs",
-      handle_configs,
-    ),
-  )
-  driver.setup_http_server(
-    HTTPServerSetup(
-      URL("/idhagnbot-api/config"),
-      "GET",
-      "IdhagnBot Config Editor Get Config",
-      handle_config_get,
-    ),
-  )
-  driver.setup_http_server(
-    HTTPServerSetup(
-      URL("/idhagnbot-api/config"),
-      "POST",
-      "IdhagnBot Config Editor Set Config",
-      handle_config_set,
-    ),
-  )
-  driver.setup_http_server(
-    HTTPServerSetup(
-      URL("/idhagnbot-api/config"),
-      "DELETE",
-      "IdhagnBot Config Editor Delete Config",
-      handle_config_delete,
-    ),
-  )
+class SaveConfigRequestData(BaseModel):
+    config: str
+
+
+async def save_config(data: SaveConfigRequestData) -> Response:
+    async with await Path(EntariConfig.instance.path).open("w") as file:
+        await file.write(data.config)
+    await reload()
+    return ResponseData.res_success(None)
+
+
+async def reload_config() -> Response:
+    await reload()
+    async with await Path(EntariConfig.instance.path).open() as file:
+        config = await file.read()
+    schema = generate_schema_with_subplugins()
+    return ResponseData.res_success(ConfigGetResponseData(config=config, schema=schema))
+
+
+def setup(app: FastAPI) -> None:
+    router = APIRouter(prefix="/config", dependencies=[Depends(authorize)])
+    router.get("")(get_config)
+    router.post("")(save_config)
+    router.post("/reload")(reload_config)
+    app.include_router(router)

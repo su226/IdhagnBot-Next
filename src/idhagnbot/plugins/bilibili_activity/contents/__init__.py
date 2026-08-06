@@ -25,80 +25,79 @@
 # 4311: DYNAMIC_TYPE_SUBSCRIPTION_NEW
 
 from collections.abc import Awaitable, Callable
-from typing import Any, TypeVar
+from typing import Any
 
-import nonebot
+from arclet.entari import MessageChain, Text
 
 from idhagnbot.plugins.bilibili_activity.common import IgnoredException
 from idhagnbot.plugins.bilibili_activity.contents import (
-  article,
-  audio,
-  blocked,
-  common,
-  forward,
-  image,
-  opus,
-  text,
-  video,
+    article,
+    audio,
+    blocked,
+    common,
+    forward,
+    image,
+    opus,
+    text,
+    video,
 )
 from idhagnbot.third_party.bilibili_activity import (
-  Activity,
-  ContentArticle,
-  ContentAudio,
-  ContentBlocked,
-  ContentCommon,
-  ContentForward,
-  ContentImage,
-  ContentLiveRcmd,
-  ContentOpus,
-  ContentText,
-  ContentVideo,
+    Activity,
+    ContentArticle,
+    ContentAudio,
+    ContentBlocked,
+    ContentCommon,
+    ContentForward,
+    ContentImage,
+    ContentLiveRcmd,
+    ContentOpus,
+    ContentText,
+    ContentVideo,
 )
 
-nonebot.require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna.uniseg import Segment, Text, UniMessage
+
+async def format_unknown(activity: Activity[object, object]) -> MessageChain:
+    return MessageChain(
+        Text(
+            f"{activity.name} 发布了动态\n"
+            f"IdhagnBot 暂不支持解析此类动态（{activity.type}）\n"
+            f"https://t.bilibili.com/{activity.id}",
+        ),
+    )
 
 
-async def format_unknown(activity: Activity[object, object]) -> UniMessage[Segment]:
-  return UniMessage(
-    Text(
-      f"{activity.name} 发布了动态\n"
-      f"IdhagnBot 暂不支持解析此类动态（{activity.type}）\n"
-      f"https://t.bilibili.com/{activity.id}",
-    ),
-  )
+async def ignore(
+    activity: Activity[object, object],
+    can_ignore: bool,
+) -> MessageChain:
+    if can_ignore:
+        raise IgnoredException(activity.type)
+    return await format_unknown(activity)
 
 
-async def ignore(activity: Activity[object, object], can_ignore: bool) -> UniMessage[Segment]:
-  if can_ignore:
-    raise IgnoredException(activity.type)
-  return await format_unknown(activity)
-
-
-TContent = TypeVar("TContent")
-Formatter = tuple[
-  type[TContent],
-  Callable[[Activity[TContent, object], bool], Awaitable[UniMessage[Segment]]],
+type Formatter[TContent] = tuple[
+    type[TContent],
+    Callable[[Activity[TContent, object], bool], Awaitable[MessageChain]],
 ]
 FORMATTERS: list[Formatter[Any]] = [
-  (ContentText, text.format_activity),
-  (ContentImage, image.format_activity),
-  (ContentOpus, opus.format_activity),
-  (ContentVideo, video.format_activity),
-  (ContentArticle, article.format_activity),
-  (ContentAudio, audio.format_activity),
-  (ContentCommon, common.format_activity),
-  (ContentForward, forward.format_activity),
-  (ContentLiveRcmd, ignore),
-  (ContentBlocked, blocked.format_activity),
+    (ContentText, text.format_activity),
+    (ContentImage, image.format_activity),
+    (ContentOpus, opus.format_activity),
+    (ContentVideo, video.format_activity),
+    (ContentArticle, article.format_activity),
+    (ContentAudio, audio.format_activity),
+    (ContentCommon, common.format_activity),
+    (ContentForward, forward.format_activity),
+    (ContentLiveRcmd, ignore),
+    (ContentBlocked, blocked.format_activity),
 ]
 
 
 async def format_activity(
-  activity: Activity[object, object],
-  can_ignore: bool = True,
-) -> UniMessage[Segment]:
-  for activity_type, formatter in FORMATTERS:
-    if isinstance(activity.content, activity_type):
-      return await formatter(activity, can_ignore)
-  return await format_unknown(activity)
+    activity: Activity[object, object],
+    can_ignore: bool = True,
+) -> MessageChain:
+    for activity_type, formatter in FORMATTERS:
+        if isinstance(activity.content, activity_type):
+            return await formatter(activity, can_ignore)
+    return await format_unknown(activity)

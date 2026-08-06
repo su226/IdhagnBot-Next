@@ -1,336 +1,369 @@
+import asyncio
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any, TypeVar
+from typing import Any
 
-import nonebot
-from anyio.to_thread import run_sync
+from arclet.entari import MessageChain, Text
 from PIL import Image
+from satori.element import Br
 
-from idhagnbot import image as images
-from idhagnbot.asyncio import gather
+from idhagnbot.image import to_segment
 from idhagnbot.image.card import Card, CardAuthor, CardCover, CardLine, CardText
 from idhagnbot.plugins.bilibili_activity.common import (
-  CONFIG,
-  IgnoredException,
-  check_ignore,
-  fetch_image,
+    CONFIG,
+    IgnoredException,
+    check_ignore,
+    fetch_image,
 )
 from idhagnbot.plugins.bilibili_activity.contents.article import (
-  get_appender as get_article_appender,
+    get_appender as get_article_appender,
 )
-from idhagnbot.plugins.bilibili_activity.contents.audio import get_appender as get_audio_appender
-from idhagnbot.plugins.bilibili_activity.contents.common import get_appender as get_common_appender
-from idhagnbot.plugins.bilibili_activity.contents.image import get_appender as get_image_appender
-from idhagnbot.plugins.bilibili_activity.contents.opus import get_appender as get_opus_appender
-from idhagnbot.plugins.bilibili_activity.contents.text import get_appender as get_text_appender
-from idhagnbot.plugins.bilibili_activity.contents.video import get_appender as get_video_appender
+from idhagnbot.plugins.bilibili_activity.contents.audio import (
+    get_appender as get_audio_appender,
+)
+from idhagnbot.plugins.bilibili_activity.contents.common import (
+    get_appender as get_common_appender,
+)
+from idhagnbot.plugins.bilibili_activity.contents.image import (
+    get_appender as get_image_appender,
+)
+from idhagnbot.plugins.bilibili_activity.contents.opus import (
+    get_appender as get_opus_appender,
+)
+from idhagnbot.plugins.bilibili_activity.contents.text import (
+    get_appender as get_text_appender,
+)
+from idhagnbot.plugins.bilibili_activity.contents.video import (
+    get_appender as get_video_appender,
+)
 from idhagnbot.plugins.bilibili_activity.extras import format_extra
 from idhagnbot.third_party.bilibili_activity import (
-  Activity,
-  ActivityCourse,
-  ActivityForward,
-  ActivityImage,
-  ActivityLive,
-  ActivityLiveRcmd,
-  ActivityOpus,
-  ActivityPGC,
-  ActivityPlaylist,
-  ActivityText,
-  ContentArticle,
-  ContentAudio,
-  ContentCommon,
-  ContentCourse,
-  ContentImage,
-  ContentLive,
-  ContentLiveRcmd,
-  ContentOpus,
-  ContentPGC,
-  ContentPlaylist,
-  ContentText,
-  ContentVideo,
-  RichTextLottery,
+    Activity,
+    ActivityCourse,
+    ActivityForward,
+    ActivityImage,
+    ActivityLive,
+    ActivityLiveRcmd,
+    ActivityOpus,
+    ActivityPGC,
+    ActivityPlaylist,
+    ActivityText,
+    ContentArticle,
+    ContentAudio,
+    ContentCommon,
+    ContentCourse,
+    ContentImage,
+    ContentLive,
+    ContentLiveRcmd,
+    ContentOpus,
+    ContentPGC,
+    ContentPlaylist,
+    ContentText,
+    ContentVideo,
+    RichTextLottery,
 )
-from idhagnbot.third_party.bilibili_activity.card import CardRichText, CardTopic, fetch_emotions
+from idhagnbot.third_party.bilibili_activity.card import (
+    CardRichText,
+    CardTopic,
+    fetch_emojis,
+)
 
-nonebot.require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna.uniseg import Segment, Text, UniMessage
-
-TContent = TypeVar("TContent")
-Checker = tuple[type[TContent], Callable[[TContent], None]]
-TitleFormatter = tuple[type[TContent], Callable[[TContent], str]]
-AppenderGetter = tuple[type[TContent], Callable[[TContent], Awaitable[Callable[[Card], None]]]]
+type Checker[TContent] = tuple[type[TContent], Callable[[TContent], None]]
+type TitleFormatter[TContent] = tuple[type[TContent], Callable[[TContent], str]]
+type AppenderGetter[TContent] = tuple[
+    type[TContent],
+    Callable[[TContent], Awaitable[Callable[[Card], None]]],
+]
 
 
 def make_title_formatter(label: str) -> Callable[[Activity[object, object]], str]:
-  def title_formatter(activity: Activity[object, object]) -> str:
-    return f" {activity.name} 的{label}"
+    def title_formatter(activity: Activity[object, object]) -> str:
+        return f" {activity.name} 的{label}"
 
-  return title_formatter
+    return title_formatter
 
 
 def pgc_title_formatter(activity: ActivityPGC[object]) -> str:
-  prefix = activity.content.label or ""
-  return prefix + " " + activity.content.season_name
+    prefix = activity.content.label or ""
+    return prefix + " " + activity.content.season_name
 
 
 def checker(
-  activity: ActivityText[object] | ActivityImage[object] | ActivityOpus[object],
+    activity: ActivityText[object] | ActivityImage[object] | ActivityOpus[object],
 ) -> None:
-  config = CONFIG()
-  if config.ignore_forward_lottery:
-    for node in activity.content.richtext:
-      if isinstance(node, RichTextLottery):
-        raise IgnoredException(node)
-  for regex in config.ignore_forward_regexs:
-    if regex.search(activity.content.text):
-      raise IgnoredException(regex)
+    if CONFIG.ignore_forward_lottery:
+        for node in activity.content.richtext:
+            if isinstance(node, RichTextLottery):
+                raise IgnoredException(node)
+    for regex in CONFIG.ignore_forward_regexs:
+        if regex.search(activity.content.text):
+            raise IgnoredException(regex)
 
 
 async def get_pgc_appender(activity: ActivityPGC[object]) -> Callable[[Card], None]:
-  async def fetch_season_cover() -> Image.Image | None:
-    if activity.avatar:
-      return await fetch_image(activity.avatar)
-    if activity.content.season_cover:
-      return await fetch_image(activity.content.season_cover)
-    return None
+    async def fetch_season_cover() -> Image.Image | None:
+        if activity.avatar:
+            return await fetch_image(activity.avatar)
+        if activity.content.season_cover:
+            return await fetch_image(activity.content.season_cover)
+        return None
 
-  season_cover, episode_cover, append_extra = await gather(
-    fetch_season_cover(),
-    fetch_image(activity.content.episode_cover),
-    format_extra(activity.extra),
-  )
+    season_cover, episode_cover, append_extra = await asyncio.gather(
+        fetch_season_cover(),
+        fetch_image(activity.content.episode_cover),
+        format_extra(activity.extra),
+    )
 
-  def appender(card: Card) -> None:
-    block = Card()
-    if season_cover:
-      block.add(CardAuthor(season_cover, activity.content.season_name))
-    else:
-      block.add(CardText(activity.content.season_name, size=32, lines=1))
-    block.add(CardTopic(activity.topic))
-    block.add(CardText(activity.content.episode_name, size=40, lines=2))
-    card.add(block)
-    card.add(CardCover(episode_cover))
-    append_extra(card, block=True)
+    def appender(card: Card) -> None:
+        block = Card()
+        if season_cover:
+            block.add(CardAuthor(season_cover, activity.content.season_name))
+        else:
+            block.add(CardText(activity.content.season_name, size=32, lines=1))
+        block.add(CardTopic(activity.topic))
+        block.add(CardText(activity.content.episode_name, size=40, lines=2))
+        card.add(block)
+        card.add(CardCover(episode_cover))
+        append_extra(card, block=True)
 
-  return appender
+    return appender
 
 
 async def get_live_appender(activity: ActivityLive[object]) -> Callable[[Card], None]:
-  avatar, cover, append_extra = await gather(
-    fetch_image(activity.avatar),
-    fetch_image(activity.content.cover),
-    format_extra(activity.extra),
-  )
-
-  def appender(card: Card) -> None:
-    block = Card()
-    block.add(CardAuthor(avatar, activity.name))
-    block.add(CardTopic(activity.topic))
-    block.add(CardText(activity.content.title, size=40, lines=2))
-    streaming = "直播中" if activity.content.streaming else "已下播"
-    block.add(CardText(f"{activity.content.category} {streaming}", size=32, lines=0))
-    card.add(block)
-    card.add(CardCover(cover))
-    append_extra(card, block=True)
-
-  return appender
-
-
-async def get_live_rcmd_appender(activity: ActivityLiveRcmd[object]) -> Callable[[Card], None]:
-  avatar, cover, append_extra = await gather(
-    fetch_image(activity.avatar),
-    fetch_image(activity.content.cover),
-    format_extra(activity.extra),
-  )
-
-  def appender(card: Card) -> None:
-    block = Card()
-    block.add(CardAuthor(avatar, activity.name))
-    block.add(CardTopic(activity.topic))
-    block.add(CardText(activity.content.title, size=40, lines=2))
-    start_time = time.strftime("%m-%d %H:%M", time.localtime(activity.content.start_time))
-    block.add(
-      CardText(
-        (
-          f"{activity.content.parent_category}/{activity.content.category} "
-          f"{activity.content.watching} 人看过\n"
-          f"{start_time} 开播"
-        ),
-        size=32,
-        lines=0,
-      ),
+    avatar, cover, append_extra = await asyncio.gather(
+        fetch_image(activity.avatar),
+        fetch_image(activity.content.cover),
+        format_extra(activity.extra),
     )
-    card.add(block)
-    card.add(CardCover(cover))
-    append_extra(card, block=True)
 
-  return appender
+    def appender(card: Card) -> None:
+        block = Card()
+        block.add(CardAuthor(avatar, activity.name))
+        block.add(CardTopic(activity.topic))
+        block.add(CardText(activity.content.title, size=40, lines=2))
+        streaming = "直播中" if activity.content.streaming else "已下播"
+        block.add(
+            CardText(f"{activity.content.category} {streaming}", size=32, lines=0),
+        )
+        card.add(block)
+        card.add(CardCover(cover))
+        append_extra(card, block=True)
 
-
-async def get_course_appender(activity: ActivityCourse[object]) -> Callable[[Card], None]:
-  async def fetch_avatar() -> Image.Image | None:
-    if activity.avatar:
-      return await fetch_image(activity.avatar)
-    return None
-
-  avatar, cover, append_extra = await gather(
-    fetch_avatar(),
-    fetch_image(activity.content.cover),
-    format_extra(activity.extra),
-  )
-
-  def appender(card: Card) -> None:
-    block = Card()
-    if avatar:
-      block.add(CardAuthor(avatar, activity.name))
-    else:
-      block.add(CardText("@" + activity.name, size=32, lines=1))
-    block.add(CardTopic(activity.topic))
-    block.add(CardText(activity.content.title, size=40, lines=2))
-    block.add(CardText(activity.content.stat, size=32, lines=0))
-    card.add(block)
-    card.add(CardCover(cover))
-    block = Card()
-    block.add(CardText(activity.content.desc, size=32, lines=3))
-    append_extra(block, block=False)
-    card.add(block)
-
-  return appender
+    return appender
 
 
-async def get_playlist_appender(activity: ActivityPlaylist[object]) -> Callable[[Card], None]:
-  avatar, cover, append_extra = await gather(
-    fetch_image(activity.avatar),
-    fetch_image(activity.content.cover),
-    format_extra(activity.extra),
-  )
+async def get_live_rcmd_appender(
+    activity: ActivityLiveRcmd[object],
+) -> Callable[[Card], None]:
+    avatar, cover, append_extra = await asyncio.gather(
+        fetch_image(activity.avatar),
+        fetch_image(activity.content.cover),
+        format_extra(activity.extra),
+    )
 
-  def appender(card: Card) -> None:
-    block = Card()
-    block.add(CardAuthor(avatar, activity.name))
-    block.add(CardTopic(activity.topic))
-    block.add(CardText(activity.content.title, size=40, lines=2))
-    block.add(CardText(activity.content.stat, size=32, lines=0))
-    card.add(block)
-    card.add(CardCover(cover))
-    append_extra(card, block=True)
+    def appender(card: Card) -> None:
+        block = Card()
+        block.add(CardAuthor(avatar, activity.name))
+        block.add(CardTopic(activity.topic))
+        block.add(CardText(activity.content.title, size=40, lines=2))
+        start_time = time.strftime(
+            "%m-%d %H:%M",
+            time.localtime(activity.content.start_time),
+        )
+        block.add(
+            CardText(
+                (
+                    f"{activity.content.parent_category}/{activity.content.category} "
+                    f"{activity.content.watching} 人看过\n"
+                    f"{start_time} 开播"
+                ),
+                size=32,
+                lines=0,
+            ),
+        )
+        card.add(block)
+        card.add(CardCover(cover))
+        append_extra(card, block=True)
 
-  return appender
+    return appender
+
+
+async def get_course_appender(
+    activity: ActivityCourse[object],
+) -> Callable[[Card], None]:
+    async def fetch_avatar() -> Image.Image | None:
+        if activity.avatar:
+            return await fetch_image(activity.avatar)
+        return None
+
+    avatar, cover, append_extra = await asyncio.gather(
+        fetch_avatar(),
+        fetch_image(activity.content.cover),
+        format_extra(activity.extra),
+    )
+
+    def appender(card: Card) -> None:
+        block = Card()
+        if avatar:
+            block.add(CardAuthor(avatar, activity.name))
+        else:
+            block.add(CardText("@" + activity.name, size=32, lines=1))
+        block.add(CardTopic(activity.topic))
+        block.add(CardText(activity.content.title, size=40, lines=2))
+        block.add(CardText(activity.content.stat, size=32, lines=0))
+        card.add(block)
+        card.add(CardCover(cover))
+        block = Card()
+        block.add(CardText(activity.content.desc, size=32, lines=3))
+        append_extra(block, block=False)
+        card.add(block)
+
+    return appender
+
+
+async def get_playlist_appender(
+    activity: ActivityPlaylist[object],
+) -> Callable[[Card], None]:
+    avatar, cover, append_extra = await asyncio.gather(
+        fetch_image(activity.avatar),
+        fetch_image(activity.content.cover),
+        format_extra(activity.extra),
+    )
+
+    def appender(card: Card) -> None:
+        block = Card()
+        block.add(CardAuthor(avatar, activity.name))
+        block.add(CardTopic(activity.topic))
+        block.add(CardText(activity.content.title, size=40, lines=2))
+        block.add(CardText(activity.content.stat, size=32, lines=0))
+        card.add(block)
+        card.add(CardCover(cover))
+        append_extra(card, block=True)
+
+    return appender
 
 
 async def get_deleted_appender(reason: str) -> Callable[[Card], None]:
-  def appender(card: Card) -> None:
-    block = Card()
-    message = "源动态已失效"
-    if reason:
-      message += f"（{reason}）"
-    block.add(CardText(message, size=32, lines=0))
-    card.add(block)
+    def appender(card: Card) -> None:
+        block = Card()
+        message = "源动态已失效"
+        if reason:
+            message += f"（{reason}）"
+        block.add(CardText(message, size=32, lines=0))
+        card.add(block)
 
-  return appender
+    return appender
 
 
-async def get_unknown_appender(activity: Activity[object, object]) -> Callable[[Card], None]:
-  def appender(card: Card) -> None:
-    block = Card()
-    block.add(CardText(f"IdhagnBot 暂不支持解析此类动态（{activity.type}）", size=32, lines=0))
-    card.add(block)
+async def get_unknown_appender(
+    activity: Activity[object, object],
+) -> Callable[[Card], None]:
+    def appender(card: Card) -> None:
+        block = Card()
+        block.add(
+            CardText(
+                f"IdhagnBot 暂不支持解析此类动态（{activity.type}）",
+                size=32,
+                lines=0,
+            ),
+        )
+        card.add(block)
 
-  return appender
+    return appender
 
 
 GENERIC_TITLE = make_title_formatter("动态")
 CHECKERS: list[Checker[Any]] = [
-  (ContentText, checker),
-  (ContentImage, checker),
-  (ContentOpus, checker),
+    (ContentText, checker),
+    (ContentImage, checker),
+    (ContentOpus, checker),
 ]
 TITLE_FORMATTERS: list[TitleFormatter[Any]] = [
-  (ContentVideo, make_title_formatter("视频")),
-  (ContentAudio, make_title_formatter("音频")),
-  (ContentArticle, make_title_formatter("专栏")),
-  (ContentPGC, pgc_title_formatter),
-  (ContentLive, make_title_formatter("直播")),
-  (ContentLiveRcmd, make_title_formatter("直播")),
-  (ContentCourse, make_title_formatter("课程")),
-  (ContentPlaylist, make_title_formatter("合集")),
+    (ContentVideo, make_title_formatter("视频")),
+    (ContentAudio, make_title_formatter("音频")),
+    (ContentArticle, make_title_formatter("专栏")),
+    (ContentPGC, pgc_title_formatter),
+    (ContentLive, make_title_formatter("直播")),
+    (ContentLiveRcmd, make_title_formatter("直播")),
+    (ContentCourse, make_title_formatter("课程")),
+    (ContentPlaylist, make_title_formatter("合集")),
 ]
 CARD_APPENDERS: list[AppenderGetter[Any]] = [
-  (ContentText, get_text_appender),
-  (ContentImage, get_image_appender),
-  (ContentOpus, get_opus_appender),
-  (ContentVideo, get_video_appender),
-  (ContentAudio, get_audio_appender),
-  (ContentArticle, get_article_appender),
-  (ContentCommon, get_common_appender),
-  (ContentPGC, get_pgc_appender),
-  (ContentLive, get_live_appender),
-  (ContentLiveRcmd, get_live_rcmd_appender),
-  (ContentCourse, get_course_appender),
-  (ContentPlaylist, get_playlist_appender),
+    (ContentText, get_text_appender),
+    (ContentImage, get_image_appender),
+    (ContentOpus, get_opus_appender),
+    (ContentVideo, get_video_appender),
+    (ContentAudio, get_audio_appender),
+    (ContentArticle, get_article_appender),
+    (ContentCommon, get_common_appender),
+    (ContentPGC, get_pgc_appender),
+    (ContentLive, get_live_appender),
+    (ContentLiveRcmd, get_live_rcmd_appender),
+    (ContentCourse, get_course_appender),
+    (ContentPlaylist, get_playlist_appender),
 ]
 
 
 async def format_activity(
-  activity: ActivityForward[object],
-  can_ignore: bool,
-) -> UniMessage[Segment]:
-  if can_ignore:
-    check_ignore(activity.content.text)
-
-  if activity.content.activity is None:
-    title_label = "失效动态"
-  else:
+    activity: ActivityForward[object],
+    can_ignore: bool,
+) -> MessageChain:
     if can_ignore:
-      for activity_type, checker in CHECKERS:
-        if isinstance(activity.content.activity.content, activity_type):
-          checker(activity.content.activity)
-          break
+        check_ignore(activity.content.text)
 
-    for activity_type, formatter in TITLE_FORMATTERS:
-      if isinstance(activity.content.activity.content, activity_type):
-        title_label = formatter(activity.content.activity)
-        break
+    if activity.content.activity is None:
+        title_label = "失效动态"
     else:
-      title_label = GENERIC_TITLE(activity.content.activity)
+        if can_ignore:
+            for activity_type, checker in CHECKERS:
+                if isinstance(activity.content.activity.content, activity_type):
+                    checker(activity.content.activity)
+                    break
 
-  if activity.content.activity is None:
-    appender_coro = get_deleted_appender(activity.content.error_text)
-  else:
-    for activity_type, getter in CARD_APPENDERS:
-      if isinstance(activity.content.activity.content, activity_type):
-        appender_coro = getter(activity.content.activity)
-        break
+        for activity_type, formatter in TITLE_FORMATTERS:
+            if isinstance(activity.content.activity.content, activity_type):
+                title_label = formatter(activity.content.activity)
+                break
+        else:
+            title_label = GENERIC_TITLE(activity.content.activity)
+
+    if activity.content.activity is None:
+        appender_coro = get_deleted_appender(activity.content.error_text)
     else:
-      appender_coro = get_unknown_appender(activity.content.activity)
+        for activity_type, getter in CARD_APPENDERS:
+            if isinstance(activity.content.activity.content, activity_type):
+                appender_coro = getter(activity.content.activity)
+                break
+        else:
+            appender_coro = get_unknown_appender(activity.content.activity)
 
-  avatar, appender, emotions, append_extras = await gather(
-    fetch_image(activity.avatar),
-    appender_coro,
-    fetch_emotions(activity.content.richtext),
-    format_extra(activity.extra),
-  )
-
-  def make() -> UniMessage[Segment]:
-    card = Card(0)
-    block = Card()
-    block.add(CardAuthor(avatar, activity.name))
-    block.add(CardTopic(activity.topic))
-    block.add(CardRichText(activity.content.richtext, emotions, 32, 3))
-    append_extras(block, block=False)
-    card.add(block)
-    card.add(CardLine())
-    appender(card)
-    im = Image.new("RGB", (card.get_width(), card.get_height()), (255, 255, 255))
-    card.render(im, 0, 0)
-    return UniMessage(
-      [
-        Text(f"{activity.name} 转发了{title_label}"),
-        Text.br(),
-        images.to_segment(im),
-        Text.br(),
-        Text(f"https://t.bilibili.com/{activity.id}"),
-      ],
+    avatar, appender, emotions, append_extras = await asyncio.gather(
+        fetch_image(activity.avatar),
+        appender_coro,
+        fetch_emojis(activity.content.richtext),
+        format_extra(activity.extra),
     )
 
-  return await run_sync(make)
+    def make() -> MessageChain:
+        card = Card(0)
+        block = Card()
+        block.add(CardAuthor(avatar, activity.name))
+        block.add(CardTopic(activity.topic))
+        block.add(CardRichText(activity.content.richtext, emotions, 32, 3))
+        append_extras(block, block=False)
+        card.add(block)
+        card.add(CardLine())
+        appender(card)
+        im = Image.new("RGB", (card.get_width(), card.get_height()), (255, 255, 255))
+        card.render(im, 0, 0)
+        return MessageChain(
+            [
+                Text(f"{activity.name} 转发了{title_label}"),
+                Br(),
+                to_segment(im),
+                Br(),
+                Text(f"https://t.bilibili.com/{activity.id}"),
+            ],
+        )
+
+    return await asyncio.to_thread(make)

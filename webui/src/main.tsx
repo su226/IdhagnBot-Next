@@ -71,7 +71,7 @@ const router = createBrowserRouter([
     ],
   },
 ], {
-  basename: "/idhagnbot-webui",
+  basename: "/idhagnbot",
 });
 
 const theme = createTheme({

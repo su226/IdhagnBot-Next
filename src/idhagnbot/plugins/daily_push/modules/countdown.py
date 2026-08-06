@@ -1,35 +1,33 @@
 from datetime import date
+from typing import override
 
-import nonebot
+from arclet.entari import MessageChain, Text
 from pydantic import BaseModel
-from typing_extensions import override
 
 from idhagnbot.plugins.daily_push.module import SimpleModule
 
-nonebot.require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import Segment, Text, UniMessage
-
 
 class Countdown(BaseModel):
-  date: date
-  before: str = ""
-  exact: str = ""
-  after: str = ""
+    date: date
+    before: str = ""
+    exact: str = ""
+    after: str = ""
 
 
 class CountdownModule(SimpleModule):
-  countdowns: list[Countdown]
+    type = "countdown"
+    countdowns: list[Countdown]
 
-  @override
-  async def format(self) -> list[UniMessage[Segment]]:
-    lines = ["今天是："]
-    today = date.today()
-    for countdown in self.countdowns:
-      delta = (countdown.date - today).days
-      if delta > 0 and countdown.before:
-        lines.append(countdown.before.format(delta))
-      elif delta == 0 and countdown.exact:
-        lines.append(countdown.exact)
-      elif delta < 0 and countdown.after:
-        lines.append(countdown.after.format(-delta))
-    return [UniMessage(Text("\n".join(lines)))]
+    @override
+    async def format(self) -> list[MessageChain]:
+        lines = ["今天是："]
+        today = date.today()
+        for countdown in self.countdowns:
+            delta = (countdown.date - today).days
+            if delta > 0 and countdown.before:
+                lines.append(countdown.before.format(delta))
+            elif delta == 0 and countdown.exact:
+                lines.append(countdown.exact)
+            elif delta < 0 and countdown.after:
+                lines.append(countdown.after.format(-delta))
+        return [MessageChain(Text("\n".join(lines)))]

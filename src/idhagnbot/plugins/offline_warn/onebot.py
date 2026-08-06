@@ -1,39 +1,50 @@
-import time
-from typing import Literal
+from typing import Any
 
-import nonebot
-from nonebot import logger
-from nonebot.adapters.onebot.v11 import Adapter, NoticeEvent
+from arclet import letoderea
+from arclet.entari import Account
+from arclet.entari.event.base import (
+    InternalEvent,
+    OriginEvent,
+    SatoriEvent,
+    register_internal_event,
+)
+from loguru import logger
 
 from idhagnbot.plugins.offline_warn.common import queue_message
 
 
-class NapCatOfflineEvent(NoticeEvent):
-  notice_type: Literal["bot_offline"]
-  user_id: int
-  tag: str
-  message: str
+class NapCatOfflineEvent(InternalEvent):
+    """NapCat / SnowLuma 的掉线事件"""
+
+    self_id: int
+    tag: str
+    message: str
+
+    def __init__(self, account: Account, origin: OriginEvent) -> None:
+        super().__init__(account, origin)
+        if not origin._data:
+            raise ValueError("Not an internal event.")
+        self.self_id = origin._data["self_id"]
+        self.tag = origin._data["tag"]
+        self.message = origin._data["message"]
 
 
-class LagrangeOfflineEvent(NoticeEvent):
-  notice_type: Literal["notify"]
-  sub_type: Literal["bot_offline"]
-  tag: str
-  message: str
+@register_internal_event
+def parse_napcat_offline_event(
+    event_type: str,
+    internal_type: str,
+    internal_data: dict[str, Any],
+) -> type[SatoriEvent] | None:
+    if internal_type == "notice.bot_offline":
+        return NapCatOfflineEvent
+    return None
 
 
-Adapter.add_custom_model(NapCatOfflineEvent)
-Adapter.add_custom_model(LagrangeOfflineEvent)
-
-
-offline = nonebot.on_type((NapCatOfflineEvent, LagrangeOfflineEvent))
-
-
-@offline.handle()
-async def handle_offline(*, event: NapCatOfflineEvent | LagrangeOfflineEvent) -> None:
-  now_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(event.time))
-  tag = event.tag
-  message = event.message
-  prefix = f"后端 OneBot V11 {event.self_id} 在 {now_str} 左右下线，{tag=} {message=}"
-  logger.warning(prefix + "，将发送警告！")
-  await queue_message(prefix + "，请注意！")
+@letoderea.on(NapCatOfflineEvent)
+async def handle_offline(event: NapCatOfflineEvent) -> None:
+    now_str = event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+    tag = event.tag
+    message = event.message
+    prefix = f"后端 OneBot V11 {event.self_id} 在 {now_str} 左右下线，{tag=} {message=}"
+    logger.warning(prefix + "，将发送警告！")
+    await queue_message(prefix + "，请注意！")

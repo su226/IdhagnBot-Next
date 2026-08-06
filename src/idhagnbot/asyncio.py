@@ -1,382 +1,170 @@
-from collections.abc import Awaitable, Callable, Iterable, Mapping
-from contextlib import AbstractAsyncContextManager, AbstractContextManager
-from dataclasses import dataclass
-from types import TracebackType
-from typing import Any, Generic, Literal, TypeVar, cast, overload
+import asyncio
+from collections.abc import Awaitable, Callable, Coroutine, Iterable, Mapping
+from datetime import datetime, timedelta
+from inspect import iscoroutine
+from typing import Any
 
-import anyio
-import nonebot
-from anyio.to_thread import run_sync
-from nonebot import logger
-from typing_extensions import override
+from loguru import logger
 
-__all__ = [
-  "AsyncContextWrapper",
-  "background_exception_handler",
-  "create_background_task",
-  "first",
-  "first_success",
-  "gather",
-  "gather_map",
-  "gather_seq",
-]
-_T = TypeVar("_T")
-_T1 = TypeVar("_T1")
-_T2 = TypeVar("_T2")
-_T3 = TypeVar("_T3")
-_T4 = TypeVar("_T4")
-_T5 = TypeVar("_T5")
-_T6 = TypeVar("_T6")
-_driver = nonebot.get_driver()
-BackgroundExceptionHandler = Callable[[Exception], Awaitable[None]]
-TBackgroundExceptionHandler = TypeVar(
-  "TBackgroundExceptionHandler",
-  bound=BackgroundExceptionHandler,
-)
-_background_exception_handlers = list[BackgroundExceptionHandler]()
+type BackgroundExceptionHandler = Callable[[BaseException, str, str], Awaitable[None]]
+type HandlerFn = Callable[[], Awaitable[Any]]
+type DisposeFn = Callable[[], None]
+_background_tasks: set[asyncio.Task[None]] = set()
+_background_exception_handlers: set[BackgroundExceptionHandler] = set()
 
 
-async def _background_task_wrapper(coro: Awaitable[_T]) -> None:
-  try:
-    await coro
-  except Exception as e:
+async def _coroutine_wrapper[T](coro: Awaitable[T]) -> T:
+    return await coro
+
+
+def ensure_coroutine[T](coro: Awaitable[T]) -> Coroutine[Any, Any, T]:
+    if iscoroutine(coro):
+        return coro  # ty:ignore[invalid-return-type]
+    return _coroutine_wrapper(coro)
+
+
+async def _call_background_exception_handler(
+    e: BaseException,
+    module: str,
+    name: str,
+) -> None:
+    logger.exception("后台任务出错")
     try:
-      async with anyio.create_task_group() as tg:
-        for handler in _background_exception_handlers:
-          tg.start_soon(handler, e)
+        async with asyncio.TaskGroup() as tg:
+            for handler in _background_exception_handlers:
+                tg.create_task(ensure_coroutine(handler(e, module, name)))
+    except asyncio.CancelledError:
+        pass
     except BaseException:
-      logger.exception("运行后台任务错误回调时出错")
+        logger.exception("运行后台任务错误回调时出错")
 
 
-# 不要直接使用 asyncio.create_task
-# 参见 https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
-def create_background_task(coro: Awaitable[_T]) -> None:
-  _driver.task_group.start_soon(_background_task_wrapper, coro)
-
-
-def background_exception_handler(func: TBackgroundExceptionHandler) -> TBackgroundExceptionHandler:
-  _background_exception_handlers.append(func)
-  return func
-
-
-@overload
-async def gather(
-  coro_or_future1: Awaitable[_T1],
-  /,
-  *,
-  return_exceptions: Literal[False] = False,
-) -> tuple[_T1]: ...
-@overload
-async def gather(
-  coro_or_future1: Awaitable[_T1],
-  coro_or_future2: Awaitable[_T2],
-  /,
-  *,
-  return_exceptions: Literal[False] = False,
-) -> tuple[_T1, _T2]: ...
-@overload
-async def gather(
-  coro_or_future1: Awaitable[_T1],
-  coro_or_future2: Awaitable[_T2],
-  coro_or_future3: Awaitable[_T3],
-  /,
-  *,
-  return_exceptions: Literal[False] = False,
-) -> tuple[_T1, _T2, _T3]: ...
-@overload
-async def gather(
-  coro_or_future1: Awaitable[_T1],
-  coro_or_future2: Awaitable[_T2],
-  coro_or_future3: Awaitable[_T3],
-  coro_or_future4: Awaitable[_T4],
-  /,
-  *,
-  return_exceptions: Literal[False] = False,
-) -> tuple[_T1, _T2, _T3, _T4]: ...
-@overload
-async def gather(
-  coro_or_future1: Awaitable[_T1],
-  coro_or_future2: Awaitable[_T2],
-  coro_or_future3: Awaitable[_T3],
-  coro_or_future4: Awaitable[_T4],
-  coro_or_future5: Awaitable[_T5],
-  /,
-  *,
-  return_exceptions: Literal[False] = False,
-) -> tuple[_T1, _T2, _T3, _T4, _T5]: ...
-@overload
-async def gather(
-  coro_or_future1: Awaitable[_T1],
-  coro_or_future2: Awaitable[_T2],
-  coro_or_future3: Awaitable[_T3],
-  coro_or_future4: Awaitable[_T4],
-  coro_or_future5: Awaitable[_T5],
-  coro_or_future6: Awaitable[_T6],
-  /,
-  *,
-  return_exceptions: Literal[False] = False,
-) -> tuple[_T1, _T2, _T3, _T4, _T5, _T6]: ...
-@overload
-async def gather(
-  *coros: Awaitable[_T],
-  return_exceptions: Literal[False] = False,
-) -> tuple[_T, ...]: ...
-@overload
-async def gather(
-  coro1: Awaitable[_T1],
-  /,
-  *,
-  return_exceptions: Literal[True],
-) -> tuple[_T1 | BaseException]: ...
-@overload
-async def gather(
-  coro1: Awaitable[_T1],
-  coro2: Awaitable[_T2],
-  /,
-  *,
-  return_exceptions: Literal[True],
-) -> tuple[
-  _T1 | BaseException,
-  _T2 | BaseException,
-]: ...
-@overload
-async def gather(
-  coro1: Awaitable[_T1],
-  coro2: Awaitable[_T2],
-  coro3: Awaitable[_T3],
-  /,
-  *,
-  return_exceptions: Literal[True],
-) -> tuple[
-  _T1 | BaseException,
-  _T2 | BaseException,
-  _T3 | BaseException,
-]: ...
-@overload
-async def gather(
-  coro1: Awaitable[_T1],
-  coro2: Awaitable[_T2],
-  coro3: Awaitable[_T3],
-  coro4: Awaitable[_T4],
-  /,
-  *,
-  return_exceptions: Literal[True],
-) -> tuple[
-  _T1 | BaseException,
-  _T2 | BaseException,
-  _T3 | BaseException,
-  _T4 | BaseException,
-]: ...
-@overload
-async def gather(
-  coro1: Awaitable[_T1],
-  coro2: Awaitable[_T2],
-  coro3: Awaitable[_T3],
-  coro4: Awaitable[_T4],
-  coro5: Awaitable[_T5],
-  /,
-  *,
-  return_exceptions: Literal[True],
-) -> tuple[
-  _T1 | BaseException,
-  _T2 | BaseException,
-  _T3 | BaseException,
-  _T4 | BaseException,
-  _T5 | BaseException,
-]: ...
-@overload
-async def gather(
-  coro1: Awaitable[_T1],
-  coro2: Awaitable[_T2],
-  coro3: Awaitable[_T3],
-  coro4: Awaitable[_T4],
-  coro5: Awaitable[_T5],
-  coro6: Awaitable[_T6],
-  /,
-  *,
-  return_exceptions: Literal[True],
-) -> tuple[
-  _T1 | BaseException,
-  _T2 | BaseException,
-  _T3 | BaseException,
-  _T4 | BaseException,
-  _T5 | BaseException,
-  _T6 | BaseException,
-]: ...
-@overload
-async def gather(
-  *coros: Awaitable[_T],
-  return_exceptions: Literal[True],
-) -> tuple[_T | BaseException, ...]: ...
-async def gather(
-  *coros: Awaitable[_T],
-  return_exceptions: bool = False,
-) -> tuple[_T, ...] | tuple[_T | BaseException, ...]:
-  async def wrapper(i: int, coro: Awaitable[_T]) -> None:
+async def _background_task_wrapper(coro: Awaitable[None]) -> None:
     try:
-      results[i] = await coro
+        await coro
+    except asyncio.CancelledError:
+        pass
     except BaseException as e:
-      if return_exceptions:
-        results[i] = e
-      else:
-        raise
-
-  results: list[_T | BaseException | None] = [None for _ in coros]
-
-  async with anyio.create_task_group() as tg:
-    for i, coro in enumerate(coros):
-      tg.start_soon(wrapper, i, coro)
-
-  return cast("Any", tuple(results))
+        module = getattr(coro, "__module__", "<unknown>")
+        name = getattr(coro, "__name__", "<unknown>")
+        await _call_background_exception_handler(e, module, name)
 
 
-@overload
-async def gather_seq(
-  coros: Iterable[Awaitable[_T]],
-  return_exceptions: Literal[False] = False,
-) -> tuple[_T, ...]: ...
-@overload
-async def gather_seq(
-  coros: Iterable[Awaitable[_T]],
-  return_exceptions: Literal[True],
-) -> tuple[_T, ...]: ...
-async def gather_seq(
-  coros: Iterable[Awaitable[_T]],
-  return_exceptions: bool = False,
-) -> tuple[_T, ...] | tuple[_T | BaseException, ...]:
-  return await gather(*coros, return_exceptions=return_exceptions)  # ty:ignore[no-matching-overload]
+def create_background_task(
+    coro: Awaitable[None],
+    label: str | None = None,
+) -> DisposeFn:
+    task = asyncio.create_task(_background_task_wrapper(coro))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+    def dispose() -> None:
+        task.cancel()
+        _background_tasks.discard(task)
+
+    return dispose
 
 
-@overload
-async def gather_map(
-  coros: Mapping[_T1, Awaitable[_T2]],
-  return_exceptions: Literal[False] = False,
-) -> dict[_T1, _T2]: ...
-@overload
-async def gather_map(
-  coros: Mapping[_T1, Awaitable[_T2]],
-  return_exceptions: Literal[True],
-) -> dict[_T1, _T2 | BaseException]: ...
-async def gather_map(
-  coros: Mapping[_T1, Awaitable[_T2]],
-  return_exceptions: bool = False,
-) -> dict[_T1, _T2] | dict[_T1, _T2 | BaseException]:
-  async def wrapper(k: _T1, coro: Awaitable[_T2]) -> None:
-    try:
-      results[k] = await coro
-    except BaseException as e:
-      if return_exceptions:
-        results[k] = e
-      else:
-        raise
+def delayed(
+    delay: datetime | timedelta,
+    label: str | None = None,
+) -> Callable[[HandlerFn], DisposeFn]:
+    def wrapper(fn: HandlerFn) -> DisposeFn:
+        async def do_execute() -> None:
+            try:
+                await fn()
+            except asyncio.CancelledError:
+                pass
+            except BaseException as e:
+                module = getattr(fn, "__module__", "<unknown>")
+                name = getattr(fn, "__name__", "<unknown>")
+                await _call_background_exception_handler(e, module, name)
 
-  results: dict[_T1, _T2 | BaseException | None] = dict.fromkeys(coros)
+        def execute() -> None:
+            nonlocal current_task
+            current_task = asyncio.create_task(do_execute())
 
-  async with anyio.create_task_group() as tg:
-    for k, coro in coros.items():
-      tg.start_soon(wrapper, k, coro)
+        loop = asyncio.get_running_loop()
+        current_task: asyncio.Task[None] | None = None
+        if isinstance(delay, timedelta):
+            current_timer = loop.call_later(delay.total_seconds(), execute)
+        else:
+            current_timer = loop.call_at(delay.timestamp(), execute)
 
-  return cast("Any", results)
+        def dispose() -> None:
+            nonlocal current_timer, current_task
+            current_timer.cancel()
+            if current_task:
+                current_task.cancel()
 
+        return dispose
 
-TEnter_co = TypeVar("TEnter_co", covariant=True)
-TExit_co = TypeVar("TExit_co", covariant=True, bound=bool | None)
-
-
-class AsyncContextWrapper(AbstractAsyncContextManager[TEnter_co, TExit_co]):
-  def __init__(self, sync: AbstractContextManager[TEnter_co, TExit_co], /) -> None:
-    self.__sync = sync
-
-  @override
-  async def __aenter__(self) -> TEnter_co:
-    return await run_sync(self.__sync.__enter__)
-
-  @override
-  async def __aexit__(
-    self,
-    exc_type: type[BaseException] | None,
-    exc_value: BaseException | None,
-    traceback: TracebackType | None,
-  ) -> TExit_co:
-    return await run_sync(self.__sync.__exit__, exc_type, exc_value, traceback)
+    return wrapper
 
 
-@dataclass
-class _Ok(Generic[_T1]):
-  value: _T1
+def delayed_loop(
+    delay: timedelta,
+    immediate: bool = False,
+    label: str | None = None,
+) -> Callable[[HandlerFn], DisposeFn]:
+    """
+    执行完成等待一段时间间隔后再次执行，比如一个函数执行 5 秒，间隔 10 秒，
+    周期就是 15 秒 而非 10 秒。
+    """
+    seconds = delay.total_seconds()
+
+    def wrapper(fn: HandlerFn) -> DisposeFn:
+        async def do_execute() -> None:
+            cancelled = False
+            try:
+                await fn()
+            except asyncio.CancelledError:
+                cancelled = True
+            except BaseException as e:
+                module = fn.__module__
+                name = getattr(fn, "__name__", "<unknown>")
+                await _call_background_exception_handler(e, module, name)
+            finally:
+                if not cancelled:
+                    nonlocal current_timer
+                    current_timer = loop.call_later(seconds, execute)
+
+        def execute() -> None:
+            nonlocal current_task
+            current_task = asyncio.create_task(do_execute())
+
+        loop = asyncio.get_running_loop()
+        if immediate:
+            current_timer = None
+            current_task = asyncio.create_task(do_execute())
+        else:
+            current_timer = loop.call_later(seconds, execute)
+            current_task = None
+
+        def dispose() -> None:
+            nonlocal current_timer, current_task
+            if current_timer:
+                current_timer.cancel()
+            if current_task:
+                current_task.cancel()
+
+        return dispose
+
+    return wrapper
 
 
-@dataclass
-class _Err:
-  error: BaseException
+def background_exception_handler(
+    func: BackgroundExceptionHandler,
+) -> Callable[[], None]:
+    _background_exception_handlers.add(func)
+    return lambda: _background_exception_handlers.discard(func)
 
 
-@overload
-async def first() -> None: ...
-@overload
-async def first(coro: Awaitable[_T], /, *coros: Awaitable[_T]) -> _T: ...
-async def first(*coros: Awaitable[_T]) -> _T | None:
-  async def wrapper(coro: Awaitable[_T]) -> None:
-    nonlocal result
-    try:
-      result1 = _Ok(await coro)
-    except BaseException as e:
-      result1 = _Err(e)
-    if not event.is_set():
-      result = result1
-      event.set()
-
-  if not coros:
-    return None
-
-  result: _Ok[_T] | _Err | None = None
-  event = anyio.Event()
-
-  async with anyio.create_task_group() as tg:
-    for coro in coros:
-      tg.start_soon(wrapper, coro)
-    await event.wait()
-    tg.cancel_scope.cancel()
-
-  assert result is not None
-
-  if isinstance(result, _Ok):
-    return result.value
-  raise result.error
+def gather_seq[T](coros: Iterable[Awaitable[T]]) -> asyncio.Future[list[T]]:
+    return asyncio.gather(*coros)
 
 
-@overload
-async def first_success() -> None: ...
-@overload
-async def first_success(coro: Awaitable[_T], /, *coros: Awaitable[_T]) -> _T: ...
-async def first_success(*coros: Awaitable[_T]) -> _T | None:
-  async def wrapper(coro: Awaitable[_T]) -> None:
-    nonlocal result
-    try:
-      result1 = await coro
-    except BaseException as e:
-      exceptions.append(e)
-      if len(exceptions) == len(coros):
-        event.set()
-    else:
-      if not event.is_set():
-        result = _Ok(result1)
-        event.set()
-
-  if not coros:
-    return None
-
-  result: _Ok[_T] | None = None
-  exceptions = list[BaseException]()
-  event = anyio.Event()
-
-  async with anyio.create_task_group() as tg:
-    for coro in coros:
-      tg.start_soon(wrapper, coro)
-    await event.wait()
-    tg.cancel_scope.cancel()
-
-  if result is None:
-    raise BaseExceptionGroup("所有任务都失败了", exceptions)
-
-  return result.value
+async def gather_map[K, V](coros: Mapping[K, Awaitable[V]]) -> dict[K, V]:
+    async with asyncio.TaskGroup() as tg:
+        tasks = {k: tg.create_task(ensure_coroutine(v)) for k, v in coros.items()}
+    return {k: v.result() for k, v in tasks.items()}
