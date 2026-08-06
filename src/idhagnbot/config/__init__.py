@@ -8,9 +8,8 @@ import nonebot
 from nonebot import logger
 from pydantic import BaseModel
 
+from idhagnbot.config import json, yaml
 from idhagnbot.config.driver import Driver
-from idhagnbot.config.json import JsonDriver
-from idhagnbot.config.yaml import YamlDriver
 
 nonebot.require("nonebot_plugin_localstore")
 from nonebot_plugin_localstore import get_cache_dir, get_config_dir, get_data_dir
@@ -125,7 +124,7 @@ class SharedConfig(Generic[TModel]):
     model: type[TModel],
     reloadable: Reloadable = Reloadable.LAZY,
   ) -> None:
-    self.__loader = SharedLoader("配置", CONFIG_DIR / name, YamlDriver, model, reloadable)
+    self.__loader = SharedLoader("配置", CONFIG_DIR / name, yaml, model, reloadable)
     self.all[name] = self
 
   @property
@@ -160,7 +159,7 @@ class SharedData(Generic[TModel]):
     model: type[TModel],
     reloadable: Reloadable = Reloadable.LAZY,
   ) -> None:
-    self.__loader = SharedLoader("数据", DATA_DIR / name, JsonDriver, model, reloadable)
+    self.__loader = SharedLoader("数据", DATA_DIR / name, json, model, reloadable)
     self.all[name] = self
 
   @property
@@ -198,7 +197,7 @@ class SharedCache(Generic[TModel]):
     model: type[TModel],
     reloadable: Reloadable = Reloadable.LAZY,
   ) -> None:
-    self.__loader = SharedLoader("缓存", CACHE_DIR / name, JsonDriver, model, reloadable)
+    self.__loader = SharedLoader("缓存", CACHE_DIR / name, json, model, reloadable)
     self.all[name] = self
 
   @property

@@ -5,10 +5,9 @@ import anyio
 import nonebot
 from arclet.alconna._internal._util import levenshtein
 from nonebot.adapters import Event
-from nonebot.exception import ActionFailed
 from nonebot.typing import T_State
 
-from idhagnbot.context import get_bot_id
+from idhagnbot.context import get_bot_id, get_member, get_members, get_user
 from idhagnbot.http import get_session
 from idhagnbot.image import normalize_url
 from idhagnbot.message.common import ReplyInfo
@@ -22,7 +21,7 @@ from nonebot_plugin_alconna import (
   Text,
   image_fetch,
 )
-from nonebot_plugin_uninfo import Interface, Member, SceneType, Session, User
+from nonebot_plugin_uninfo import Interface, Member, Scene, Session
 
 MemeParam = Text | Image | At
 
@@ -34,40 +33,27 @@ class MemeImage:
   gender: str
 
 
-async def get_member(
-  interface: Interface,
-  scene_type: SceneType,
-  scene_id: str,
-  user_id: str,
-) -> Member | None:
-  try:
-    return await interface.get_member(scene_type, scene_id, user_id)
-  except (ActionFailed, ValueError):
-    return None
-
-
-async def get_user(interface: Interface, user_id: str) -> User | None:
-  try:
-    return await interface.get_user(user_id)
-  except (ActionFailed, ValueError):
-    return None
-
-
 async def fuzzy_get_member(
   interface: Interface,
-  scene_type: SceneType,
-  scene_id: str,
+  scene: Scene,
   criterion: str,
   threshold: float = 0.8,
 ) -> Member | None:
-  try:
-    members = await interface.get_members(scene_type, scene_id)
-  except ActionFailed:
-    return None
   matches = list[tuple[Member, float]]()
-  for member in members:
-    nick = member.nick or member.user.nick or member.user.name or member.id
-    if (score := levenshtein(nick, criterion)) >= threshold:
+  for member in await get_members(interface, scene):
+    if member.nick is not None and (score := levenshtein(member.nick, criterion)) >= threshold:
+      matches.append((member, score))
+    if (
+      member.user.nick is not None
+      and (score := levenshtein(member.user.nick, criterion)) >= threshold
+    ):
+      matches.append((member, score))
+    if (
+      member.user.name is not None
+      and (score := levenshtein(member.user.name, criterion)) >= threshold
+    ):
+      matches.append((member, score))
+    if member.id is not None and (score := levenshtein(member.id, criterion)) >= threshold:
       matches.append((member, score))
   if not matches:
     return None
@@ -91,7 +77,7 @@ async def user_fetch(
     user_id = session.user.id
   elif user_id == "机器人":
     user_id = await get_bot_id(interface.bot)
-  if member := await get_member(interface, session.scene.type, session.scene.id, user_id):
+  if member := await get_member(interface, session.scene, user_id):
     nick = member.nick or member.user.nick or member.user.name or member.id
     gender = member.user.gender
     avatar = member.user.avatar
@@ -99,7 +85,7 @@ async def user_fetch(
     nick = user.nick or user.name or user.id
     gender = user.gender
     avatar = user.avatar
-  elif member := await fuzzy_get_member(interface, session.scene.type, session.scene.id, user_id):
+  elif member := await fuzzy_get_member(interface, session.scene, user_id):
     nick = member.nick or member.user.nick or member.user.name or member.id
     gender = member.user.gender
     avatar = member.user.avatar

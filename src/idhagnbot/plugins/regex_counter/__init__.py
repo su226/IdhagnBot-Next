@@ -3,25 +3,37 @@ from collections.abc import Generator
 from datetime import datetime, timedelta
 
 import nonebot
-from nonebot.adapters import Event
+from anyio.to_thread import run_sync
+from nonebot.adapters import Bot, Event
 from nonebot.matcher import Matcher
 from nonebot.typing import T_State
+from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Mapped, mapped_column
 
+from idhagnbot.asyncio import gather_seq
 from idhagnbot.command import COMMAND_LIKE_KEY, CommandBuilder
 from idhagnbot.config import Reloadable, SharedConfig
-from idhagnbot.context import SceneId, SceneIdRaw, get_scene
+from idhagnbot.context import SceneId, SceneIdRaw, get_member, get_user
 from idhagnbot.datetime import DATE_ARGS_USAGE, parse_date_range
+from idhagnbot.image import get_scale_resample, normalize_url, open_url, resize_height, to_segment
+from idhagnbot.image.bar_chart import (
+  DEFAULT_STRIPE_PATTERN,
+  BarChart,
+  Item,
+  material_palette_from_icon,
+  material_pattern_stripe_from_icon,
+)
 from idhagnbot.message import EventTime, UniMsg
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_orm")
 nonebot.require("nonebot_plugin_uninfo")
 from nonebot_plugin_alconna import Alconna, Args, CommandMeta, UniMessage
+from nonebot_plugin_alconna import Image as ImageSeg
 from nonebot_plugin_orm import Model, async_scoped_session
-from nonebot_plugin_uninfo import Interface, QryItrface, SceneType
+from nonebot_plugin_uninfo import Interface, QryItrface, Scene, Uninfo
 
 
 class Counter(BaseModel):
@@ -66,17 +78,22 @@ def _(prev: Config | None, curr: Config) -> None:
     matchers.extend(register(counter))
 
 
-async def get_member_name(
+async def open_avatar(url: str | None, bot: Bot) -> Image.Image | None:
+  return await open_url(normalize_url(url, bot)) if url else None
+
+
+async def get_name_and_avatar(
   interface: Interface,
-  scene_type: SceneType,
-  scene_id: str,
+  scene: Scene,
   user_id: str,
-) -> str:
-  if member := await interface.get_member(scene_type, scene_id, user_id):
-    return member.nick or member.user.nick or member.user.name or member.user.id
-  if user := await interface.get_user(user_id):
-    return user.nick or user.name or user.id
-  return user_id
+) -> tuple[str, Image.Image | None]:
+  if member := await get_member(interface, scene, user_id):
+    name = member.nick or member.user.nick or member.user.name or member.user.id
+    return name, await open_avatar(member.user.avatar, interface.bot)
+  if user := await get_user(interface, user_id):
+    name = user.nick or user.name or user.id
+    return name, await open_avatar(user.avatar, interface.bot)
+  return user_id, None
 
 
 def register(counter: Counter) -> Generator[type[Matcher], None, None]:
@@ -132,6 +149,7 @@ def register(counter: Counter) -> Generator[type[Matcher], None, None]:
   async def handle_group_statistics(
     start: str | None,
     end: str | None,
+    session: Uninfo,
     scene_id: SceneId,
     state: T_State,
     sql: async_scoped_session,
@@ -150,11 +168,8 @@ def register(counter: Counter) -> Generator[type[Matcher], None, None]:
     )
     count = result.scalar_one()
     end_date -= timedelta(seconds=1)
-    scene = await get_scene(scene_id)
-    if not scene:
-      raise ValueError("获取群信息失败")
     await UniMessage(
-      f"{scene.name} 内 {start_date:%Y-%m-%d %H:%M:%S} 到 {end_date:%Y-%m-%d %H:%M:%S} "
+      f"{session.scene.name} 内 {start_date:%Y-%m-%d %H:%M:%S} 到 {end_date:%Y-%m-%d %H:%M:%S} "
       f"的{counter.name}次数为 {count}。",
     ).send()
 
@@ -179,9 +194,9 @@ def register(counter: Counter) -> Generator[type[Matcher], None, None]:
     start: str | None,
     end: str | None,
     event: Event,
+    session: Uninfo,
     scene_id: SceneId,
     state: T_State,
-    interface: QryItrface,
     sql: async_scoped_session,
   ) -> None:
     counter: Counter = state["counter"]
@@ -200,12 +215,12 @@ def register(counter: Counter) -> Generator[type[Matcher], None, None]:
     )
     count = result.scalar_one()
     end_date -= timedelta(seconds=1)
-    scene = await get_scene(scene_id)
-    if not scene:
-      raise ValueError("获取群信息失败")
-    member_name = await get_member_name(interface, scene.type, scene.id, user_id)
+    if session.member and session.member.nick:
+      member_name = session.member.nick
+    else:
+      member_name = session.user.nick or session.user.name or session.user.id
     await UniMessage(
-      f"{member_name} 在 {scene.name} 内 {start_date:%Y-%m-%d %H:%M:%S} 到 "
+      f"{member_name} 在 {session.scene.name} 内 {start_date:%Y-%m-%d %H:%M:%S} 到 "
       f"{end_date:%Y-%m-%d %H:%M:%S} 的{counter.name}次数为 {count}。",
     ).send()
 
@@ -229,6 +244,7 @@ def register(counter: Counter) -> Generator[type[Matcher], None, None]:
   async def handle_user_rank(
     start: str | None,
     end: str | None,
+    session: Uninfo,
     scene_id: SceneId,
     state: T_State,
     interface: QryItrface,
@@ -246,19 +262,39 @@ def register(counter: Counter) -> Generator[type[Matcher], None, None]:
       )
       .group_by(Counted.user_id)
       .order_by(count.desc())
-      .limit(10),
+      .limit(20),
     )
-    scene = await get_scene(scene_id)
-    if not scene:
-      raise ValueError("获取群信息失败")
-    lines = [
-      f"{scene.name} 内 {start_date:%Y-%m-%d %H:%M:%S} 到 {end_date:%Y-%m-%d %H:%M:%S} "
-      f"的{counter.name}次数排行",
-    ]
-    for rank, (user_id, count) in enumerate(result, 1):
-      member_name = await get_member_name(interface, scene.type, scene.id, user_id)
-      lines.append(f"{rank}. {member_name} × {count} 条")
-    await UniMessage("\n".join(lines)).send()
+    result = result.all()
+    end_date -= timedelta(seconds=1)
+    if not result:
+      await UniMessage(
+        f"{start_date:%Y-%m-%d %H:%M:%S} 到 {end_date:%Y-%m-%d %H:%M:%S} 内没有数据",
+      ).finish()
+    names_and_avatars = await gather_seq(
+      get_name_and_avatar(interface, session.scene, user_id) for user_id, _ in result
+    )
+
+    def make() -> ImageSeg:
+      chart = BarChart()
+      chart.title = (
+        f"{session.scene.name}\n{start_date:%Y-%m-%d %H:%M:%S} 到 {end_date:%Y-%m-%d %H:%M:%S} "
+        f"的{counter.name}次数排行"
+      )
+      chart.integral_splits = True
+      items = list[Item]()
+      for (_, count), (name, avatar) in zip(result, names_and_avatars, strict=True):
+        avatar1 = avatar
+        if avatar1 is not None:
+          avatar1 = resize_height(avatar1, chart.bar_width)
+          palette = material_palette_from_icon(avatar1)
+        else:
+          avatar1 = None
+          palette = None
+        items.append(Item(count, name=name, icon=avatar1, palette=palette))
+      chart.extend(items)
+      return to_segment(chart.render())
+
+    await UniMessage(await run_sync(make)).send()
 
   matcher = (
     CommandBuilder()
@@ -282,9 +318,11 @@ def register(counter: Counter) -> Generator[type[Matcher], None, None]:
     async def handle_match_rank_group(
       start: str | None,
       end: str | None,
+      session: Uninfo,
       scene_id: SceneId,
       state: T_State,
       sql: async_scoped_session,
+      bot: Bot,
     ) -> None:
       counter: Counter = state["counter"]
       start_date, end_date = parse_date_range(start, end)
@@ -298,15 +336,36 @@ def register(counter: Counter) -> Generator[type[Matcher], None, None]:
         )
         .group_by(Counted.match)
         .order_by(count.desc())
-        .limit(10),
+        .limit(20),
       )
-      scene = await get_scene(scene_id)
-      if not scene:
-        raise ValueError("获取群信息失败")
-      lines = [f"{scene.name} 内的{counter.name}内容排行"]
-      for rank, (match, count) in enumerate(result, 1):
-        lines.append(f"{rank}. {match} × {count} 条")
-      await UniMessage("\n".join(lines)).send()
+      result = result.all()
+      end_date -= timedelta(seconds=1)
+      if not result:
+        await UniMessage(
+          f"{start_date:%Y-%m-%d %H:%M:%S} 到 {end_date:%Y-%m-%d %H:%M:%S} 内没有数据",
+        ).finish()
+      avatar = (
+        await open_url(
+          normalize_url(session.scene.avatar, bot),
+          process=lambda im: ImageOps.fit(im, (64, 64), get_scale_resample()),
+        )
+        if session.scene.avatar
+        else None
+      )
+
+      def make() -> ImageSeg:
+        chart = BarChart([Item(count, name=match) for match, count in result])
+        chart.title = (
+          f"{session.scene.name}\n{start_date:%Y-%m-%d %H:%M:%S} 到 "
+          f"{end_date:%Y-%m-%d %H:%M:%S} 的{counter.name}内容排行"
+        )
+        chart.integral_splits = True
+        chart.pattern = (
+          material_pattern_stripe_from_icon(avatar) if avatar else DEFAULT_STRIPE_PATTERN
+        )
+        return to_segment(chart.render())
+
+      await UniMessage(await run_sync(make)).send()
 
     matcher = (
       CommandBuilder()
@@ -329,10 +388,11 @@ def register(counter: Counter) -> Generator[type[Matcher], None, None]:
       start: str | None,
       end: str | None,
       event: Event,
+      session: Uninfo,
       scene_id: SceneId,
       state: T_State,
-      interface: QryItrface,
       sql: async_scoped_session,
+      bot: Bot,
     ) -> None:
       counter: Counter = state["counter"]
       user_id = event.get_user_id()
@@ -348,19 +408,39 @@ def register(counter: Counter) -> Generator[type[Matcher], None, None]:
         )
         .group_by(Counted.match)
         .order_by(count.desc())
-        .limit(10),
+        .limit(20),
       )
-      scene = await get_scene(scene_id)
-      if not scene:
-        raise ValueError("获取群信息失败")
-      member_name = await get_member_name(interface, scene.type, scene.id, user_id)
-      lines = [
-        f"{member_name} 在 {scene.name} 内 {start_date:%Y-%m-%d %H:%M:%S} 到 "
-        f"{end_date:%Y-%m-%d %H:%M:%S} 的{counter.name}内容排行",
-      ]
-      for rank, (match, count) in enumerate(result, 1):
-        lines.append(f"{rank}. {match} × {count} 条")
-      await UniMessage("\n".join(lines)).send()
+      end_date -= timedelta(seconds=1)
+      if not result:
+        await UniMessage(
+          f"{start_date:%Y-%m-%d %H:%M:%S} 到 {end_date:%Y-%m-%d %H:%M:%S} 内没有数据",
+        ).finish()
+      avatar = (
+        await open_url(
+          normalize_url(session.user.avatar, bot),
+          process=lambda im: ImageOps.fit(im, (64, 64), get_scale_resample()),
+        )
+        if session.user.avatar
+        else None
+      )
+      if session.member and session.member.nick:
+        member_name = session.member.nick
+      else:
+        member_name = session.user.nick or session.user.name or session.user.id
+
+      def make() -> ImageSeg:
+        chart = BarChart([Item(count, name=match) for match, count in result])
+        chart.title = (
+          f"{member_name} 在 {session.scene.name} 内\n{start_date:%Y-%m-%d %H:%M:%S} 到 "
+          f"{end_date:%Y-%m-%d %H:%M:%S} 的{counter.name}内容排行"
+        )
+        chart.integral_splits = True
+        chart.pattern = (
+          material_pattern_stripe_from_icon(avatar) if avatar else DEFAULT_STRIPE_PATTERN
+        )
+        return to_segment(chart.render())
+
+      await UniMessage(await run_sync(make)).send()
 
     matcher = (
       CommandBuilder()

@@ -75,6 +75,7 @@ async def message_id(bot: Bot, event: Event) -> str | None:
 
 
 MessageId = Annotated[str, Depends(message_id)]
+MaybeMessageId = Annotated[str | None, Depends(message_id)]
 
 
 async def event_time(bot: Bot, event: Event) -> datetime:

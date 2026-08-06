@@ -3,21 +3,31 @@ from functools import cached_property
 
 import nonebot
 from nonebot.adapters import Bot
-from nonebot.matcher import current_event
-from nonebot.message import event_preprocessor
+from nonebot.consts import PREFIX_KEY, RAW_CMD_KEY
+from nonebot.matcher import Matcher, current_event
+from nonebot.message import event_preprocessor, run_preprocessor
+from nonebot.rule import CommandRule, Rule, ShellCommandRule
+from nonebot.typing import T_State
 from sqlalchemy import func, select
 from sqlalchemy.orm import Mapped, mapped_column
 
-from idhagnbot.context import SceneId, UserId, get_bot_id, get_target_id
+from idhagnbot.context import MaybeSceneIdRaw, SceneId, UserId, get_bot_id, get_target_id
 from idhagnbot.hook import on_message_sent
 from idhagnbot.hook.common import SentMessage
 from idhagnbot.message import EventTime, MessageId, OrigUniMsg
-from idhagnbot.message.common import message_id
+from idhagnbot.message.common import MaybeMessageId, message_id
 from idhagnbot.webui.dashboard import OverviewNumber, register
 
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_orm")
-from nonebot_plugin_alconna import Segment, Target, UniMessage
+from nonebot_plugin_alconna import (
+  ALCONNA_RESULT,
+  AlconnaMatcher,
+  CommandResult,
+  Segment,
+  Target,
+  UniMessage,
+)
 from nonebot_plugin_orm import Model, get_session
 
 
@@ -35,6 +45,20 @@ class Message(Model):
   @cached_property
   def unimessage(self) -> UniMessage[Segment]:
     return UniMessage.load(self.content)
+
+
+class MatcherCall(Model):
+  __tablename__ = "idhagnbot_chat_record_matcher_call"
+  record_id: Mapped[int] = mapped_column(primary_key=True)
+  time: Mapped[datetime]
+  matcher_type: Mapped[str]
+  scene_id: Mapped[str | None]
+  message_id: Mapped[str | None]
+  plugin_id: Mapped[str | None]
+  module_name: Mapped[str | None]
+  lineno: Mapped[int | None]
+  command_name: Mapped[str | None]
+  command_alias: Mapped[str | None]
 
 
 @event_preprocessor
@@ -84,6 +108,59 @@ async def _(
           caused_by=caused_by,
         ),
       )
+    await sql.commit()
+
+
+def extract_command_name_from_rule(rule: Rule) -> str:
+  for checker in rule.checkers:
+    if isinstance(checker.call, (CommandRule, ShellCommandRule)):
+      sep = next(iter(nonebot.get_driver().config.command_sep))
+      return sep.join(checker.call.cmds[0])
+  raise ValueError("无法提取命令名")
+
+
+@run_preprocessor
+async def _(
+  matcher: Matcher,
+  state: T_State,
+  scene_id: MaybeSceneIdRaw,
+  message_id: MaybeMessageId,
+  event_time: EventTime,
+) -> None:
+  # on_alconna 的 type 为空字符串
+  matcher_type = "alconna" if isinstance(matcher, AlconnaMatcher) else matcher.type
+  if source := matcher._source:
+    plugin_id = source.plugin_id
+    module_name = source.module_name
+    lineno = source.lineno
+  else:
+    plugin_id = None
+    module_name = None
+    lineno = None
+  result: CommandResult | None = state.get(ALCONNA_RESULT)
+  if result:
+    command_name = result.source.name
+    command_alias = result.result.header_match.origin
+  elif raw_cmd := state[PREFIX_KEY][RAW_CMD_KEY]:
+    command_name = extract_command_name_from_rule(matcher.rule)
+    command_alias = raw_cmd
+  else:
+    command_name = None
+    command_alias = None
+  async with get_session() as sql:
+    sql.add(
+      MatcherCall(
+        time=event_time,
+        matcher_type=matcher_type,
+        scene_id=scene_id,
+        message_id=message_id,
+        plugin_id=plugin_id,
+        module_name=module_name,
+        lineno=lineno,
+        command_name=command_name,
+        command_alias=command_alias,
+      ),
+    )
     await sql.commit()
 
 

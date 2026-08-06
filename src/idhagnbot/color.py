@@ -1,4 +1,5 @@
 import colorsys
+import math
 import re
 
 NAMES = {
@@ -883,13 +884,22 @@ def blend(fg: RGB, bg: RGB, r: float, gamma: float = 2) -> RGB:
   r2 = 1 - r
   if gamma == 1:
     return (
-      int(fg[0] * r + bg[0] * r2),
-      int(fg[1] * r + bg[1] * r2),
-      int(fg[2] * r + bg[2] * r2),
+      round(fg[0] * r + bg[0] * r2),
+      round(fg[1] * r + bg[1] * r2),
+      round(fg[2] * r + bg[2] * r2),
     )
   igamma = 1 / gamma
   return (
-    int(((fg[0] / 255) ** gamma * r + (bg[0] / 255) ** gamma * r2) ** igamma * 255),
-    int(((fg[1] / 255) ** gamma * r + (bg[1] / 255) ** gamma * r2) ** igamma * 255),
-    int(((fg[2] / 255) ** gamma * r + (bg[2] / 255) ** gamma * r2) ** igamma * 255),
+    round(
+      math.pow((math.pow(fg[0] / 255, gamma) * r + math.pow(bg[0] / 255, gamma) * r2), igamma)
+      * 255,
+    ),
+    round(
+      math.pow((math.pow(fg[1] / 255, gamma) * r + math.pow(bg[1] / 255, gamma) * r2), igamma)
+      * 255,
+    ),
+    round(
+      math.pow((math.pow(fg[2] / 255, gamma) * r + math.pow(bg[2] / 255, gamma) * r2), igamma)
+      * 255,
+    ),
   )

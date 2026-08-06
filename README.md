@@ -1,5 +1,9 @@
 # 🐱🤖✨ IdhagnBot-Next
 
+:::warning
+基于 NoneBot2 的 IdhagnBot-Next 已停更，请使用基于 Entari 的 IdhagnBot-Next（`ib3` 分支）。
+:::
+
 一个以娱乐功能为主的机器人，跨平台 [IdhagnBot](https://github.com/su226/IdhagnBot) 移植版，目前支持 OneBot 和 Satori 协议，支持 QQ（userbot）和 Telegram 平台。
 
 *本项目以[我的兽设](https://legacy.su226.eu.org/2021/07/24/my-fursona/)命名，主要服务我自己的 [QQ 群](https://qm.qq.com/cgi-bin/qm/qr?k=USDC9Yc0PPxBHHIVp5KIoHYSmuBHJK2u) 和 [TG 群](https://t.me/@su226g)，也会往我的 [TG 频道](https://t.me/@su226c) 里推送白嫖资讯。*
@@ -61,6 +65,7 @@ uvx --from nb-cli nb run
 ## 特别感谢
 
 IdhagnBot-Next 的诞生离不开以下项目带来的启发和参考。
+
 * [NoneBot2](https://v2.nonebot.dev/)
 * [nonebot-plugin-alconna](https://github.com/nonebot/plugin-alconna)、[nonebot-plugin-uninfo](http://github.com/RF-Tar-Railt/nonebot-plugin-uninfo)，极大地简化了跨平台开发的难度。
 * [meme-generator](https://github.com/MemeCrafters/meme-generator)、[Emoji Kitchen](https://github.com/xsalazar/emoji-kitchen)

@@ -1,0 +1,102 @@
+{
+  "idhagn": {
+    "name": "撸伊哈根",
+    "do": "爵士豪猫",
+    "dont": "已有哈根"
+  },
+  "bot": {
+    "name": "玩机器人",
+    "do": "机器人大乱斗",
+    "dont": "会被管理禁言"
+  },
+  "coding": {
+    "name": "古法编程",
+    "do": "不出 Bug",
+    "dont": "全是 Bug"
+  },
+  "vibe": {
+    "name": "Vibe Coding",
+    "do": "今天的模型格外智能",
+    "dont": "Token 烧得嘎嘎快"
+  },
+  "algorithm": {
+    "name": "刷算法题",
+    "do": "100 Accepted",
+    "dont": "看不懂题解"
+  },
+  "celeste": {
+    "name": "打蔚蓝",
+    "do": "202 soon",
+    "dont": "炼金必翻倒一"
+  },
+  "gregtech": {
+    "name": "打格雷科技",
+    "do": "核电轻而易举啊",
+    "dont": "坏了，坏了坏了"
+  },
+  "stardew_valley": {
+    "name": "打星露谷",
+    "do": "精灵今天非常开心",
+    "dont": "精灵今天十分不满"
+  },
+  "draw": {
+    "name": "画稿子",
+    "do": "板子自己画画",
+    "dont": "赶不上截稿日"
+  },
+  "masturbate": {
+    "name": "🦌",
+    "do": "🐍",
+    "dont": "💥"
+  },
+  "watermelon": {
+    "name": "买瓜",
+    "do": "两毛钱一斤",
+    "dont": "全是生瓜蛋子"
+  },
+  "basketball": {
+    "name": "打篮球",
+    "do": "鸡你太美！",
+    "dont": "会白带异常"
+  },
+  "windows": {
+    "name": "用 Windows",
+    "do": "没有更新打扰",
+    "dont": "更一次等一天"
+  },
+  "linux": {
+    "name": "用 Linux",
+    "do": "今日一切安好",
+    "dont": "P0 级事故"
+  },
+  "macos": {
+    "name": "用 macOS",
+    "do": "丝般顺滑",
+    "dont": "会五国"
+  },
+  "streaming": {
+    "name": "开直播",
+    "do": "会收到很多礼物",
+    "dont": "会被超管针对"
+  },
+  "video": {
+    "name": "发视频",
+    "do": "会爆火",
+    "dont": "会被限流"
+  },
+  "group_chat": {
+    "name": "水群",
+    "do": "群友和谐有爱",
+    "dont": "群友都在搬史"
+  },
+  "shit_post": {
+    "name": "搬史",
+    "do": "免税精品",
+    "dont": "会被扣税"
+  },
+  "bar": {
+    "name": "开酒吧",
+    "do": "没有人点炒饭",
+    "dont": "会有人点炒饭"
+  }
+}

@@ -6,6 +6,7 @@ from typing import Annotated
 
 import nonebot
 from nonebot.adapters import Bot
+from nonebot.exception import ActionFailed
 from nonebot.params import Depends
 from pydantic import BaseModel, Field
 
@@ -14,7 +15,18 @@ from idhagnbot.config import SharedData
 nonebot.require("nonebot_plugin_alconna")
 nonebot.require("nonebot_plugin_uninfo")
 from nonebot_plugin_alconna import Target, get_bot
-from nonebot_plugin_uninfo import Member, QryItrface, Scene, SceneType, Uninfo, User, get_interface
+from nonebot_plugin_uninfo import (
+  Interface,
+  Member,
+  QryItrface,
+  Scene,
+  SceneType,
+  Session,
+  Uninfo,
+  UniSession,
+  User,
+  get_interface,
+)
 
 try:
   from nonebot.adapters.satori import Bot as SatoriBot
@@ -43,9 +55,12 @@ CHANNEL_RE = re.compile(r"^(?P<platform>[^:]+):channel:(?P<channel>[^:]+)$")
 GUILD_CHANNEL_RE = re.compile(
   r"^(?P<platform>[^:]+):guild:(?P<guild>[^:]+):channel:(?P<channel>[^:]+)$",
 )
+MaybeUninfo = Annotated[Session | None, UniSession()]
 
 
-def get_scene_id_raw(session: Uninfo) -> str:
+def get_scene_id_raw(session: MaybeUninfo) -> str | None:
+  if session is None:
+    return None
   scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
   if session.scene.type == SceneType.PRIVATE:
     return f"{scope}:private:{session.scene.id}"
@@ -61,8 +76,8 @@ def get_scene_id_raw(session: Uninfo) -> str:
   return f"{scope}:channel:{session.scene.id}"
 
 
-def get_scene_id(session: Uninfo) -> str:
-  if session.scene.type == SceneType.PRIVATE:
+def get_scene_id(session: MaybeUninfo) -> str | None:
+  if session is not None and session.scene.type == SceneType.PRIVATE:
     scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
     data = DATA().contexts.get(f"{scope}:{session.user.id}")
     if data:
@@ -70,8 +85,8 @@ def get_scene_id(session: Uninfo) -> str:
   return get_scene_id_raw(session)
 
 
-def get_scene_id_one_private(session: Uninfo) -> str:
-  if session.scene.type == SceneType.PRIVATE:
+def get_scene_id_one_private(session: MaybeUninfo) -> str | None:
+  if session is not None and session.scene.type == SceneType.PRIVATE:
     scope = session.scope._name_ if isinstance(session.scope, Enum) else session.scope
     return f"{scope}:private"
   return get_scene_id_raw(session)
@@ -81,6 +96,7 @@ def get_user_id(session: Uninfo) -> str:
   return session.member.id if session.member else session.user.id
 
 
+MaybeSceneIdRaw = Annotated[str | None, Depends(get_scene_id_raw)]
 SceneIdRaw = Annotated[str, Depends(get_scene_id_raw)]
 SceneId = Annotated[str, Depends(get_scene_id)]
 SceneIdOnePrivate = Annotated[str, Depends(get_scene_id_one_private)]
@@ -181,23 +197,49 @@ async def get_bot_id(bot: Bot) -> str:
 BotId = Annotated[str, Depends(get_bot_id)]
 
 
+async def get_members(interface: Interface, scene: Scene) -> list[Member]:
+  current = scene
+  while current:
+    try:
+      if members := await interface.get_members(scene.type, scene.id):
+        return members
+    except (ActionFailed, ValueError):
+      pass
+    current = scene.parent
+  return []
+
+
+async def get_member(
+  interface: Interface,
+  scene: Scene,
+  user_id: str,
+) -> Member | None:
+  current = scene
+  while current:
+    try:
+      if member := await interface.get_member(scene.type, scene.id, user_id):
+        return member
+    except (ActionFailed, ValueError):
+      pass
+    current = scene.parent
+  return None
+
+
+async def get_user(interface: Interface, user_id: str) -> User | None:
+  try:
+    return await interface.get_user(user_id)
+  except (ActionFailed, ValueError):
+    return None
+
+
 async def get_bot_member_or_user(
   interface: QryItrface,
   self_id: BotId,
   session: Uninfo,
 ) -> Member | User | None:
-  toplevel_scene = session.scene
-  while toplevel_scene.parent:
-    toplevel_scene = toplevel_scene.parent
-  if session.scene is not toplevel_scene and (
-    member := await interface.get_member(toplevel_scene.type, toplevel_scene.id, self_id)
-  ):
+  if member := await get_member(interface, session.scene, self_id):
     return member
-  if session.scene.type != SceneType.PRIVATE and (
-    member := await interface.get_member(session.scene.type, session.scene.id, self_id)
-  ):
-    return member
-  if user := await interface.get_user(self_id):
+  if user := await get_user(interface, self_id):
     return user
   return None
 

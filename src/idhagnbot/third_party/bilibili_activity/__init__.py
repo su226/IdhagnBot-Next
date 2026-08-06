@@ -72,6 +72,7 @@ class ApiReserveButton(TypedDict):
 
 class ApiReserveDesc(TypedDict):
   text: str
+  jump_url: NotRequired[str]
 
 
 class ApiReserve(TypedDict):
@@ -82,6 +83,7 @@ class ApiReserve(TypedDict):
   title: str
   desc1: ApiReserveDesc
   desc2: ApiReserveDesc
+  desc3: NotRequired[ApiReserveDesc | None]
   reserve_total: int
   jump_url: str
 
@@ -952,7 +954,7 @@ class ExtraReserve(ExtraParser["ExtraReserve"]):
       reserve["desc2"]["text"],
       reserve["reserve_total"],
       desc3["text"] if desc3 else "",
-      desc3["jump_url"] if desc3 else "",
+      desc3.get("jump_url", "") if desc3 else "",
       reserve_type,
       status,
       reserve["jump_url"],

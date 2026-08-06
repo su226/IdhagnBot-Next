@@ -259,6 +259,7 @@ async def post_event(
       if similarity >= config.min_similarity:
         fallback += f"\n{L('bad_command_suggestion', locale)}{prefix}{command}"
     await UniMessage(Text(fallback)).send(event, bot)
+    return
   if (
     event.is_tome()
     and config.show_im_bot[scene_id]
