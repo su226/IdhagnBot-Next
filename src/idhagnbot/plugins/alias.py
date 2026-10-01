@@ -1,7 +1,9 @@
+from collections.abc import Sequence
 from typing import Any
 
 from arclet import letoderea
 from arclet.entari import (
+    Element,
     MessageChain,
     MessageEvent,
     Session,
@@ -67,7 +69,10 @@ def get_prefixes(platform: str) -> set[str]:
     return set(EntariConfig.instance.basic.prefix) - disabled
 
 
-def has_command_prefix(platform: str, message: MessageChain) -> tuple[str, str] | None:
+def has_command_prefix(
+    platform: str,
+    message: Sequence[Element],
+) -> tuple[str, str] | None:
     prefixes = get_prefixes(platform)
     if not message or not isinstance(message[0], Text):
         return None

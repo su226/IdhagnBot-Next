@@ -1,6 +1,7 @@
 from base64 import urlsafe_b64decode
+from collections.abc import Sequence
 
-from arclet.entari import Image, MessageChain
+from arclet.entari import Element, Image
 from yarl import URL
 
 from idhagnbot.plugins.repeat.common import COMPARATOR_REGISTRY
@@ -18,7 +19,7 @@ def _extract_image_hash(raw_url: str) -> str:
     return raw_url
 
 
-def comparator(a: MessageChain, b: MessageChain) -> bool:
+def comparator(a: Sequence[Element], b: Sequence[Element]) -> bool:
     if len(a) != len(b):
         return False
     for seg1, seg2 in zip(a, b, strict=True):
