@@ -19,7 +19,7 @@ async def _coroutine_wrapper[T](coro: Awaitable[T]) -> T:
 
 def ensure_coroutine[T](coro: Awaitable[T]) -> Coroutine[Any, Any, T]:
     if iscoroutine(coro):
-        return coro  # ty:ignore[invalid-return-type]
+        return coro
     return _coroutine_wrapper(coro)
 
 

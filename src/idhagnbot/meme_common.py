@@ -251,6 +251,6 @@ def flatten_exception_group[T: BaseException](
 ) -> Generator[T]:
     for exc in excgroup.exceptions:
         if isinstance(exc, BaseExceptionGroup):
-            yield from flatten_exception_group(exc)  # ty:ignore[invalid-argument-type]
+            yield from flatten_exception_group(exc)
         else:
             yield exc

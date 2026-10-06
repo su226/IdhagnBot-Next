@@ -106,7 +106,7 @@ class NeteaseMusic(Music):
 
     @classmethod
     @override
-    async def search(cls, keyword: str) -> SearchResult[Self]:  # ty:ignore[invalid-method-override]
+    async def search(cls, keyword: str) -> SearchResult[Self]:
         http = get_session()
         keyword = encodeuri(keyword)
         adapter = TypeAdapter(ApiSearch)
