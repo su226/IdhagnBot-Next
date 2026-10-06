@@ -1016,14 +1016,14 @@ def hook_commands(plugin_id: str, subscriber: Subscriber) -> None:
             recorded_subscriber.reset(token)
 
     logger.trace(f"Hooking {subscriber} for recording runs.")
-    orig_supply = propagator._callable_target
-    propagator._callable_target = supply
+    orig_supply = propagator.callable_target
+    propagator.callable_target = supply
     execute_recorder = AlconnaExecuteRecorder(plugin_id, subscriber)
     PLUGIN.collect(subscriber.propagate(execute_recorder))
 
     @PLUGIN.collect
     def restore_suppiler() -> None:
-        propagator._callable_target = orig_supply
+        propagator.callable_target = orig_supply
 
 
 @register("chat_record:message_incoming")
