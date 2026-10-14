@@ -301,6 +301,32 @@ async def record_generic(
     record_role: bool = True,
     record_emoji: bool = True,
 ) -> None:
+    if record_login:
+        await db.merge(
+            construct(
+                User,
+                platform=event.login.platform,
+                id=event.login.user.id,
+                name=event.login.user._raw_data.get("name", ...),
+                nick=event.login.user._raw_data.get("nick", ...),
+                avatar=event.login.user._raw_data.get("avatar", ...),
+                is_bot=event.login.user._raw_data.get("is_bot", ...),
+                updated_at=event.timestamp,
+            ),
+        )
+    if record_user and event.user is not None:
+        await db.merge(
+            construct(
+                User,
+                platform=event.login.platform,
+                id=event.user.id,
+                name=event.user._raw_data.get("name", ...),
+                nick=event.user._raw_data.get("nick", ...),
+                avatar=event.user._raw_data.get("avatar", ...),
+                is_bot=event.user._raw_data.get("is_bot", ...),
+                updated_at=event.timestamp,
+            ),
+        )
     if record_guild and event.guild is not None:
         await db.merge(
             construct(
@@ -326,32 +352,6 @@ async def record_generic(
                 user_id=event.user.id if event.user and not event.guild else None,
                 updated_at=event.timestamp,
                 removed_at=None,
-            ),
-        )
-    if record_login:
-        await db.merge(
-            construct(
-                User,
-                platform=event.login.platform,
-                id=event.login.user.id,
-                name=event.login.user._raw_data.get("name", ...),
-                nick=event.login.user._raw_data.get("nick", ...),
-                avatar=event.login.user._raw_data.get("avatar", ...),
-                is_bot=event.login.user._raw_data.get("is_bot", ...),
-                updated_at=event.timestamp,
-            ),
-        )
-    if record_user and event.user is not None:
-        await db.merge(
-            construct(
-                User,
-                platform=event.login.platform,
-                id=event.user.id,
-                name=event.user._raw_data.get("name", ...),
-                nick=event.user._raw_data.get("nick", ...),
-                avatar=event.user._raw_data.get("avatar", ...),
-                is_bot=event.user._raw_data.get("is_bot", ...),
-                updated_at=event.timestamp,
             ),
         )
     if (
