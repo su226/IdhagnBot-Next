@@ -25,7 +25,7 @@ class ApiMediaItem(TypedDict):
 
 
 class ApiMedia(TypedDict):
-    card16x9: ApiMediaItem
+    card16x9: NotRequired[ApiMediaItem]
 
 
 class ApiDiscount(TypedDict):
