@@ -13,7 +13,7 @@ from satori.exception import ActionFailed
 
 from idhagnbot.http import get_session
 
-type MemeParam = Text | Image | At
+MemeParam = Text | Image | At  # nepattern 不支持 type 关键字
 MAX_SIZE = 10485760
 
 
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
     type MemberWithUser = Intersection[Member, WithUser]
 else:
-    MemberWithUser = Member
+    type MemberWithUser = Member
 
 
 def validate_member_with_user(member: Member) -> MemberWithUser:
