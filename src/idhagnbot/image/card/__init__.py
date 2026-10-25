@@ -70,7 +70,7 @@ class CardText(Render):
     def __init__(
         self,
         content: textutil.Layout | str,
-        font: str = "sans-serif",
+        font: str = "sans",
         size: float = 32,
         *args: Any,
         color: imutil.Color = (0, 0, 0),
