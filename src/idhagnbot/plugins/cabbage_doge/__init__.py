@@ -40,7 +40,7 @@ async def handle_cabbage_doge(*, colors: tuple[str, ...]) -> str | MessageChain:
         value = parse(i)
         if value is None:
             return f"无效的颜色: {i}"
-        color_values.append(split_rgb(value))
+        color_values.append(value)
     if not color_values:
         color_values.append(split_rgb(random.randint(0, 0xFFFFFF)))
 

@@ -9,7 +9,7 @@ from arclet.letoderea import propagate
 from entari_plugin_database import AsyncSession, select  # entari: plugin
 from entari_plugin_permission import require_permission
 from PIL import Image, ImageOps
-from sqlalchemy import func
+from sqlalchemy import NotNullable, func
 
 from idhagnbot.asyncio import gather_seq
 from idhagnbot.datetime import DATE_ARGS_USAGE, parse_date_range
@@ -163,7 +163,7 @@ async def handle_command_leaderboard(
 ) -> str | MessageChain:
     start_date, end_date = parse_date_range(start.result, end.result)
     result = await db.execute(
-        select(Run.command_name, count := func.count(Run.command_name))
+        select(NotNullable(Run.command_name), count := func.count(Run.command_name))
         .join(
             Channel,
             (Run.platform == Channel.platform) & (Run.channel_id == Channel.id),
@@ -238,6 +238,8 @@ async def handle_hourly_statistics(db: AsyncSession, session: Session) -> Messag
     )
     start_date = end_date - timedelta(7)
     engine = db.bind
+    if engine is None:
+        raise ValueError("无法确定数据库方言。")
     if engine.dialect.name == "sqlite":
         date_func = func.strftime("%Y-%m-%d %H:00:00", MessageRevision.created_at)
     elif engine.dialect.name == "mysql":

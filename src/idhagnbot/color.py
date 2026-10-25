@@ -837,47 +837,57 @@ HSL_RE = re.compile(
 )
 
 RGB = tuple[int, int, int]
+HSL = tuple[float, float, float]
 
 
-def parse(src: str) -> int | None:
+def parse(src: str) -> RGB | None:
     if src in VALUES:
-        return VALUES[src]
+        return split_rgb(VALUES[src])
     if match := LONG_HEX_RE.match(src):
-        return int(match[1], 16)
+        return split_rgb(int(match[1], 16))
     if match := SHORT_HEX_RE.match(src):
         v = int(match[1], 16)
         r = v >> 8
         g = (v >> 4) & 0xF
         b = v & 0xF
-        return r << 20 | r << 16 | g << 12 | g << 8 | b << 4 | b
+        return r << 4 | r, g << 4 | g, b << 4 | b
     if match := RGB_RE.match(src):
         r = int(match[1])
         g = int(match[2])
         b = int(match[3])
-        return r << 16 | g << 8 | b
+        return r, g, b
     if match := HSL_RE.match(src):
         h = float(match[1]) % 360 / 360
         s = float(match[2]) / 100
         l = float(match[3]) / 100
-        return hsl2rgb(h, s, l)
+        return hsl2rgb((h, s, l))
     return None
 
 
-def hsl2rgb(h: float, s: float, l: float) -> int:
-    r, g, b = colorsys.hls_to_rgb(h, l, s)
-    return round(r * 255) << 16 | round(g * 255) << 8 | round(b * 255)
+def to_hex(rgb: RGB) -> str:
+    return f"{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
 
 
-def rgb2hsl(r: int, g: int, b: int) -> tuple[float, float, float]:
-    return colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
+def hsl2rgb(hsl: HSL) -> RGB:
+    r, g, b = colorsys.hls_to_rgb(hsl[0], hsl[2], hsl[1])
+    return round(r * 255), round(g * 255), round(b * 255)
+
+
+def rgb2hsl(rgb: RGB) -> HSL:
+    hls = colorsys.rgb_to_hls(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255)
+    return hls[0], hls[2], hls[1]
 
 
 def split_rgb(v: int) -> RGB:
     return (v >> 16 & 0xFF, v >> 8 & 0xFF, v & 0xFF)
 
 
-def luminance(r: int, g: int, b: int) -> float:
-    return 0.3 * (r / 255) + 0.59 * (g / 255) + 0.11 * (b / 255)
+def merge_rgb(rgb: RGB) -> int:
+    return rgb[0] << 16 | rgb[1] << 8 | rgb[2]
+
+
+def luminance(rgb: RGB) -> float:
+    return 0.3 * (rgb[0] / 255) + 0.59 * (rgb[1] / 255) + 0.11 * (rgb[2] / 255)
 
 
 def blend(fg: RGB, bg: RGB, r: float, gamma: float = 2) -> RGB:

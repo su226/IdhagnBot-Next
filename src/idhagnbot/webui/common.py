@@ -74,7 +74,10 @@ class ResponseData[T](BaseModel):
     def res_success(cls, data: T) -> JSONResponse:
         return JSONResponse(
             status_code=200,
-            content=cls(code="success", message="", data=data).model_dump(mode="json"),
+            content=cls(code="success", message="", data=data).model_dump(
+                mode="json",
+                by_alias=True,
+            ),
         )
 
     @classmethod
@@ -86,7 +89,10 @@ class ResponseData[T](BaseModel):
     ) -> JSONResponse:
         return JSONResponse(
             status_code=status,
-            content=cls(code=code, message=message, data=None).model_dump(mode="json"),
+            content=cls(code=code, message=message, data=None).model_dump(
+                mode="json",
+                by_alias=True,
+            ),
         )
 
 

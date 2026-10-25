@@ -273,8 +273,8 @@ async def handle_luck(session: Session, db: AsyncSession) -> MessageChain:
         )
         paste(im, text_im, (im.width // 2, ARC_BOTTOM), (0.5, 1))
 
-        do_color = to_hex(*COLOR_GREEN)
-        dont_color = to_hex(*COLOR_RED)
+        do_color = to_hex(COLOR_GREEN)
+        dont_color = to_hex(COLOR_RED)
 
         if not dont:
             text_im = render(

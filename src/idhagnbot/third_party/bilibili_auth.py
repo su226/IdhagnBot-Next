@@ -95,4 +95,4 @@ def validate_biligame_result[TData](
     parsed = adapter.validate_python(result)
     if "data" not in parsed:
         raise ApiError(parsed["code"], parsed["message"])
-    return parsed["data"]
+    return parsed["data"]  # ty: ignore[invalid-return-type]
