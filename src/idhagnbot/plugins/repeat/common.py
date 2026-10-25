@@ -9,8 +9,10 @@ from arclet.entari import MessageChain, MessageCreatedEvent, metadata, plugin_co
 from entari_plugin_database import Base, get_session  # entari: plugin
 from pydantic import BaseModel, Field
 from satori import Element, Text
-from sqlalchemy import delete
+from sqlalchemy import ForeignKeyConstraint, delete
 from sqlalchemy.orm import Mapped, mapped_column
+
+from idhagnbot.plugins.record import Channel
 
 
 class OverridableConfigPartial(BaseModel):
@@ -137,6 +139,12 @@ class LastMessage(Base):
     received_count: Mapped[int]
     sending_count: Mapped[int]
     sent_count: Mapped[int]
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ("platform", "channel_id"),
+            (Channel.platform, Channel.id),
+        ),
+    )
 
     @cached_property
     def chain(self) -> MessageChain:

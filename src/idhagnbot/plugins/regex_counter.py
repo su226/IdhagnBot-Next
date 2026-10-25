@@ -21,7 +21,7 @@ from entari_plugin_database import AsyncSession, Base  # entari: plugin
 from entari_plugin_permission import require_permission
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import ForeignKeyConstraint, func, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from idhagnbot.asyncio import gather_seq
@@ -41,6 +41,7 @@ from idhagnbot.image.bar_chart import (
 )
 from idhagnbot.meme_common import get_member, get_user
 from idhagnbot.plugins.alias import has_command_prefix
+from idhagnbot.plugins.record import Channel, User
 
 
 class Counter(BaseModel):
@@ -65,6 +66,13 @@ class Counted(Base):
     counter_id: Mapped[str]
     user_id: Mapped[str]
     match: Mapped[str]
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ("platform", "channel_id"),
+            (Channel.platform, Channel.id),
+        ),
+        ForeignKeyConstraint(("platform", "user_id"), (User.platform, User.id)),
+    )
 
 
 metadata("", config=Config)

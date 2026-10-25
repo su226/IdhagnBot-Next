@@ -24,10 +24,11 @@ from entari_plugin_database import (
 from entari_plugin_permission import require_permission  # entari: plugin
 from PIL import Image
 from satori import Element
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import ForeignKeyConstraint, UniqueConstraint
 
 from idhagnbot.http import get_session
 from idhagnbot.image import contain_down, paste, to_segment
+from idhagnbot.plugins.record import Guild
 from idhagnbot.plugins.redirect import GuildId
 from idhagnbot.text import render
 
@@ -38,7 +39,10 @@ class Aspect(Base):
     platform: Mapped[str]
     guild_id: Mapped[str]
     title: Mapped[str]
-    __table_args__ = (UniqueConstraint("platform", "guild_id", "title"),)
+    __table_args__ = (
+        UniqueConstraint("platform", "guild_id", "title"),
+        ForeignKeyConstraint(("platform", "guild_id"), (Guild.platform, Guild.id)),
+    )
 
 
 COLUMNS = 5

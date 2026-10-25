@@ -182,6 +182,7 @@ async def handle_button(event: ManagedButtonEvent) -> None:
         message.append(button)
         await register_button(
             prev_id,
+            event.account.platform,
             event.channel.id,
             event.user.id,
             event.message.id,
@@ -195,6 +196,7 @@ async def handle_button(event: ManagedButtonEvent) -> None:
         message.append(button)
         await register_button(
             next_id,
+            event.account.platform,
             event.channel.id,
             event.user.id,
             event.message.id,
@@ -273,6 +275,7 @@ async def handle_help(
     if prev_id is not None:
         await register_button(
             prev_id,
+            session.account.platform,
             session.channel.id,
             session.user.id,
             receipt.id,
@@ -282,6 +285,7 @@ async def handle_help(
     if next_id is not None:
         await register_button(
             next_id,
+            session.account.platform,
             session.channel.id,
             session.user.id,
             receipt.id,

@@ -22,6 +22,7 @@ from PIL import Image
 from pydantic import BaseModel
 from satori import Element
 from satori.element import Br
+from sqlalchemy import ForeignKeyConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from idhagnbot.asyncio import gather_seq
@@ -33,6 +34,7 @@ from idhagnbot.plugins.link_parser.contents import (
     bilibili_video,
     github,
 )
+from idhagnbot.plugins.record import Channel
 from idhagnbot.url import extract_url
 
 
@@ -51,6 +53,12 @@ class LastState(Base):
     platform: Mapped[str] = mapped_column(primary_key=True)
     channel_id: Mapped[str] = mapped_column(primary_key=True)
     last_state: Mapped[str]
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ("platform", "channel_id"),
+            (Channel.platform, Channel.id),
+        ),
+    )
 
 
 def extract_links(message: MessageChain[Element]) -> Generator[str]:

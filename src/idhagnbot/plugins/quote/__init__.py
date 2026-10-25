@@ -15,7 +15,7 @@ from PIL import Image
 from satori import Emoji
 from satori import select as satori_select
 from satori.element import Br
-from sqlalchemy import select
+from sqlalchemy import ForeignKeyConstraint, select
 from sqlalchemy.orm import Mapped, aliased, mapped_column
 
 from idhagnbot import text
@@ -50,6 +50,12 @@ class SentQuote(Base):
     channel_id: Mapped[str] = mapped_column(primary_key=True)
     message_id: Mapped[str] = mapped_column(primary_key=True)
     quote_id: Mapped[UUID]
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ("platform", "channel_id", "message_id"),
+            (Message.platform, Message.channel_id, Message.id),
+        ),
+    )
 
 
 def get_dirname(platform: str, channel_id: str) -> Path:

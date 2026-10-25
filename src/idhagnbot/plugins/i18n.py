@@ -21,10 +21,12 @@ from entari_plugin_permission import (
     require_permission,
     system,
 )  # entari: plugin
+from sqlalchemy import ForeignKeyConstraint
 from tarina import LRU, lang
 
 from idhagnbot.i18n import bound_lang, current_locale, get_full_name, get_name
 from idhagnbot.permission import ADMIN
+from idhagnbot.plugins.record import Guild, User
 
 
 class UserLocale(Base):
@@ -32,6 +34,9 @@ class UserLocale(Base):
     platform: Mapped[str] = mapped_column(primary_key=True)
     user_id: Mapped[str] = mapped_column(primary_key=True)
     locale: Mapped[str]
+    __table_args__ = (
+        ForeignKeyConstraint(("platform", "user_id"), (User.platform, User.id)),
+    )
 
 
 class GuildLocale(Base):
@@ -40,6 +45,9 @@ class GuildLocale(Base):
     guild_id: Mapped[str] = mapped_column(primary_key=True)
     locale: Mapped[str]
     force: Mapped[bool]
+    __table_args__ = (
+        ForeignKeyConstraint(("platform", "guild_id"), (Guild.platform, Guild.id)),
+    )
 
 
 # TypeError: type '_lru_c.LRU' is not subscriptable

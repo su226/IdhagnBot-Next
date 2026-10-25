@@ -51,7 +51,7 @@ from PIL import Image
 from pydantic import BaseModel, Field
 from satori.element import escape as satori_escape
 from satori.exception import ActionFailed
-from sqlalchemy import delete
+from sqlalchemy import ForeignKeyConstraint, delete
 from tarina.trie import Trie
 
 from idhagnbot.hook import hook_subscribers
@@ -59,7 +59,7 @@ from idhagnbot.i18n import bound_lang
 from idhagnbot.image import paste, to_segment
 from idhagnbot.permission import ADMIN
 from idhagnbot.plugins.alias import get_aliases, get_prefix, has_command_prefix
-from idhagnbot.plugins.record import recorded_non_command
+from idhagnbot.plugins.record import Guild, User, recorded_non_command
 from idhagnbot.plugins.redirect import GuildId, in_or_redirected_to_guild
 from idhagnbot.text import escape, render
 from idhagnbot.third_party.bilibili_auth import ApiError
@@ -88,7 +88,7 @@ registered_exception_explains: list[ExceptionExplain] = []
 
 scope = None
 prefixes = None
-for scope, prefixes in CONFIG.ignore_prefix:
+for scope, prefixes in CONFIG.ignore_prefix.items():
     ignore_prefix[scope] = Trie((x, None) for x in prefixes)
 del scope, prefixes
 
@@ -129,6 +129,9 @@ class ImBotSuppressedUser(Base):
     __tablename__ = "idhagnbot_fallback_im_bot_suppressed_user"
     platform: Mapped[str] = mapped_column(primary_key=True)
     user_id: Mapped[str] = mapped_column(primary_key=True)
+    __table_args__ = (
+        ForeignKeyConstraint(("platform", "user_id"), (User.platform, User.id)),
+    )
 
 
 class ExceptionSuppressedGuild(Base):
@@ -136,6 +139,9 @@ class ExceptionSuppressedGuild(Base):
     platform: Mapped[str] = mapped_column(primary_key=True)
     guild_id: Mapped[str] = mapped_column(primary_key=True)
     until: Mapped[datetime]
+    __table_args__ = (
+        ForeignKeyConstraint(("platform", "guild_id"), (Guild.platform, Guild.id)),
+    )
 
 
 async def is_exception_suppressed_in(platform: str, guild_id: str) -> bool:

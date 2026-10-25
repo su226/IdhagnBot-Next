@@ -17,10 +17,11 @@ from entari_plugin_permission import require_permission
 from entari_plugin_user import User  # entari: plugin
 from entari_plugin_user.models import Bind
 from satori.exception import ActionFailed
-from sqlalchemy import delete
+from sqlalchemy import ForeignKeyConstraint, delete
 
 from idhagnbot.i18n import bound_lang
 from idhagnbot.plugins.record import Channel, Guild
+from idhagnbot.plugins.record import User as IBUser
 from idhagnbot.support import get_bot_on
 
 L = bound_lang("idhagnbot_redirect")
@@ -34,6 +35,17 @@ class Redirect(Base):
     target_guild: Mapped[str]
     target_channel: Mapped[str | None]
     expire_at: Mapped[datetime]
+    __table_args__ = (
+        ForeignKeyConstraint(("platform", "user_id"), (IBUser.platform, IBUser.id)),
+        ForeignKeyConstraint(
+            ("target_platform", "target_guild"),
+            (Guild.platform, Guild.id),
+        ),
+        ForeignKeyConstraint(
+            ("target_platform", "target_channel"),
+            (Channel.platform, Channel.id),
+        ),
+    )
 
 
 redirect_alc = Alconna(

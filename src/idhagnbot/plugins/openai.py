@@ -17,12 +17,13 @@ from arclet.letoderea import propagate
 from entari_plugin_database import AsyncSession, Base
 from entari_plugin_permission import require_permission
 from pydantic import BaseModel, HttpUrl, SecretStr, TypeAdapter
-from sqlalchemy import desc, select
+from sqlalchemy import ForeignKeyConstraint, desc, select
 from sqlalchemy.orm import Mapped, mapped_column
 from typing_extensions import TypedDict
 
 from idhagnbot.http import get_session
 from idhagnbot.plugins.fallback import register_exception_explain
+from idhagnbot.plugins.record import Channel
 
 
 class Config(BaseModel):
@@ -70,6 +71,12 @@ class History(Base):
     content: Mapped[str]
     time: Mapped[datetime]
     ignored: Mapped[bool]
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ("platform", "channel_id"),
+            (Channel.platform, Channel.id),
+        ),
+    )
 
 
 class Ignore(Base):
@@ -77,6 +84,12 @@ class Ignore(Base):
     platform: Mapped[str] = mapped_column(primary_key=True)
     channel_id: Mapped[str] = mapped_column(primary_key=True)
     time: Mapped[datetime]
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ("platform", "channel_id"),
+            (Channel.platform, Channel.id),
+        ),
+    )
 
 
 class ResMessage(TypedDict):

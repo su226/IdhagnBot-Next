@@ -13,25 +13,37 @@ from entari_plugin_database import (
     get_session,
     mapped_column,
 )  # entari: plugin
-from sqlalchemy import delete
+from satori.client import Account
+from sqlalchemy import ForeignKeyConstraint, delete
 
 from idhagnbot.asyncio import delayed
+from idhagnbot.plugins.record import Message as IBMessage
+from idhagnbot.plugins.record import User as IBUser
 
 
 class Button(Base):
     __tablename__ = "idhagnbot_button_button"
     id: Mapped[UUID] = mapped_column(primary_key=True)
+    platform: Mapped[str]
     channel_id: Mapped[str]
     user_id: Mapped[str]
     message_id: Mapped[str]
     type: Mapped[str]
     data: Mapped[str]
     expire_at: Mapped[datetime | None]
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ("platform", "channel_id", "message_id"),
+            (IBMessage.platform, IBMessage.channel_id, IBMessage.id),
+        ),
+        ForeignKeyConstraint(("platform", "user_id"), (IBUser.platform, IBUser.id)),
+    )
 
 
 @letoderea.make_event(name="idhagnbot/managed_button")
 class ManagedButtonEvent:
     origin: InteractionButtonEvent
+    account: Account
     channel: Channel
     user: User
     message: MessageObject
@@ -51,6 +63,7 @@ async def handle_button(event: InteractionButtonEvent, db: AsyncSession) -> None
     data = await db.get(Button, uuid)
     if (
         data is None
+        or data.platform != event.account.platform
         or data.channel_id != event.channel.id
         or data.user_id != event.user.id
         or data.message_id != event.message.id
@@ -59,6 +72,7 @@ async def handle_button(event: InteractionButtonEvent, db: AsyncSession) -> None
         return
     managed = ManagedButtonEvent(
         event,
+        event.account,
         event.channel,
         event.user,
         event.message,
@@ -76,6 +90,7 @@ async def expire_button(button_id: UUID) -> None:
 
 async def register_button(
     button_id: UUID,
+    platform: str,
     channel_id: str,
     user_id: str,
     message_id: str,
@@ -87,6 +102,7 @@ async def register_button(
     async with get_session() as db:
         button = Button(
             id=button_id,
+            platform=platform,
             channel_id=channel_id,
             user_id=user_id,
             message_id=message_id,
