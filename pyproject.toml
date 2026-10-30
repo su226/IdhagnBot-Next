@@ -8,12 +8,14 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
-    "arclet-entari[cron]>=0.19.3",
+    "arclet-entari[cron]>=0.19.4",
+    "entari-plugin-browser>=0.6.2",
     "entari-plugin-database>=0.4.2",
+    "entari-plugin-llm>=0.5.0rc4",
     "entari-plugin-permission>=0.2.0",
-    "entari-plugin-server[fastapi]>=0.8.1",
+    "entari-plugin-server[fastapi]>=0.8.2",
     "pillow>=13.0.0",
-    "pydantic>=2.14.1",
+    "pydantic>=2.14.2",
     "pygobject>=3.58.1",
     "sqlalchemy[asyncio]>=2.1.6",
 ]
@@ -91,8 +93,8 @@ ignore = [
 
 [dependency-groups]
 lint = [
-    "ruff>=0.17.2",
-    "ty>=0.0.91",
+    "ruff>=0.17.3",
+    "ty>=0.0.95",
 ]
 stubs = [
     "pygobject-stubs>=2.20.0",

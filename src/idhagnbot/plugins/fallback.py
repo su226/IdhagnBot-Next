@@ -306,8 +306,7 @@ async def check_bad_command(
     return False
 
 
-@letoderea.on(MessageCreatedEvent, priority=995)
-@letoderea.on(InteractionCommandMessageEvent, priority=995)
+@letoderea.on(MessageCreatedEvent, priority=1995)
 @letoderea.propagate(require_permission("idhagnbot.fallback.show_bad_command"))
 @recorded_non_command()
 @enter_if(check_bad_command)
@@ -347,8 +346,7 @@ async def check_im_bot(
     )
 
 
-@letoderea.on(MessageCreatedEvent, priority=1000)
-@letoderea.on(InteractionCommandMessageEvent, priority=1000)
+@letoderea.on(MessageCreatedEvent, priority=2000)
 @letoderea.propagate(require_permission("idhagnbot.fallback.show_im_bot"))
 @recorded_non_command()
 @enter_if(check_im_bot)
