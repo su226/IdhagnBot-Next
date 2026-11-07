@@ -13,10 +13,7 @@ from idhagnbot.plugins.link_parser.common import (
 )
 from idhagnbot.third_party.bilibili_activity import Activity, get
 
-RE = re.compile(
-    r"^(?:[Hh][Tt][Tt][Pp][Ss]?://)?(?:[Tt]\.[Bb][Ii][Ll][Ii][Bb][Ii][Ll][Ii]\.[Cc][Oo][Mm]|"
-    r"(?:[Ww][Ww][Ww]\.|[Mm]\.)?[Bb][Ii][Ll][Ii][Bb][Ii][Ll][Ii]\.[Cc][Oo][Mm]/opus)/(\d+)/?(?:\?|#|$)",
-)
+RE = re.compile(r"^(?:https?://)?(?:t\.bilibili\.com|(?:www\.|m\.)?bilibili\.com/opus)/(\d+)/?(?:\?|#|$)")
 
 
 class LastState(TypedDict):

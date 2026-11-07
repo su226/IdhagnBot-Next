@@ -17,10 +17,7 @@ from idhagnbot.plugins.link_parser.common import (
 from idhagnbot.plugins.link_parser.contents import bilibili_activity, bilibili_video
 from idhagnbot.url import clear_url
 
-RE = re.compile(
-    r"^(?:[Hh][Tt][Tt][Pp][Ss]?://)?(?:[Bb]23\.[Tt][Vv]|[Bb][Ii][Ll][Ii]2233\.[Cc][Nn])/"
-    r"([A-Za-z0-9]{7})(?:\?|#|$)",
-)
+RE = re.compile(r"^(?i:https?://)?(?i:b23\.tv|bili2233\.cn)/([A-Za-z0-9]{7})(?:\?|#|$)")
 EXCLUDE_RE = re.compile(r"^av\d{5}$")
 CONTENTS: list[Content[Any]] = [bilibili_activity, bilibili_video]
 
