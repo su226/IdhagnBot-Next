@@ -40,7 +40,7 @@ from idhagnbot.image.bar_chart import (
     material_pattern_stripe_from_icon,
 )
 from idhagnbot.meme_common import get_member, get_user
-from idhagnbot.plugins.alias import has_command_prefix
+from idhagnbot.plugins.alias import has_command_prefix_cached
 from idhagnbot.plugins.record import Channel, User
 
 
@@ -100,8 +100,12 @@ async def get_name_and_avatar(
 class CounterHandlers:
     counter: Counter
 
-    async def check_count(self, session: Session, ctx: Contexts) -> bool:
-        if has_command_prefix(session.account.platform, session.elements):
+    async def check_count(
+        self,
+        session: Session[MessageCreatedEvent],
+        ctx: Contexts,
+    ) -> bool:
+        if has_command_prefix_cached(session.event):
             return False
         matches = list[str]()
         for text in session.elements[Text]:
