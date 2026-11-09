@@ -1003,7 +1003,7 @@ def hook_commands(plugin_id: str, subscriber: Subscriber) -> None:
     except ValueError:
         return
 
-    async def supply(
+    async def execute(
         message: MessageChain,
         origin: MessageObject | None = None,
         session: Session | None = None,
@@ -1011,19 +1011,19 @@ def hook_commands(plugin_id: str, subscriber: Subscriber) -> None:
     ) -> Any:
         token = recorded_subscriber.set((plugin_id, subscriber))
         try:
-            return await orig_supply(message, origin, session, reply)
+            return await orig_execute(message, origin, session, reply)
         finally:
             recorded_subscriber.reset(token)
 
     logger.trace(f"Hooking {subscriber} for recording runs.")
-    orig_supply = propagator.callable_target
-    propagator.callable_target = supply
+    orig_execute = propagator._execute
+    propagator._execute = execute
     execute_recorder = AlconnaExecuteRecorder(plugin_id, subscriber)
     PLUGIN.collect(subscriber.propagate(execute_recorder))
 
     @PLUGIN.collect
     def restore_suppiler() -> None:
-        propagator.callable_target = orig_supply
+        propagator._execute = orig_execute
 
 
 @register("chat_record:message_incoming")
