@@ -14,7 +14,7 @@ def get_bot_on(platform: str) -> Account | None:
 
 
 def support_batch_forward(platform: str) -> bool:
-    return platform in ("onebot", "milky")
+    return platform == "qq-client"
 
 
 def support_button(platform: str) -> bool:
