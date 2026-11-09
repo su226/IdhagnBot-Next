@@ -891,14 +891,14 @@ def to_segment(
             else:
                 frames[0].save(f, afmt, append_images=frames[1:], duration=duration)
             mime = mimetypes.suffix_map.get(f".{afmt}", "image/gif")
-            return ImageSeg.of(raw=f, name=f"image.{afmt}", mimetype=mime)
+            return ImageSeg.of(raw=f, name=f"image.{afmt}", mime=mime)
         im = im[0]
     fmt = fmt.lower()
     if isinstance(im, cairo.ImageSurface):
         if fmt == "png":
             im.write_to_png(f)
-            return ImageSeg.of(raw=f, name="image.png", mimetype="image/png")
+            return ImageSeg.of(raw=f, name="image.png", mime="image/png")
         im = from_cairo(im)
     im.save(f, fmt, **kw)
     mime = mimetypes.suffix_map.get(f".{fmt}", "image/png")
-    return ImageSeg.of(raw=f, name=f"image.{fmt}", mimetype=mime)
+    return ImageSeg.of(raw=f, name=f"image.{fmt}", mime=mime)

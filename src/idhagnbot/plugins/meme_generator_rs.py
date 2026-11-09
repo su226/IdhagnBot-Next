@@ -266,7 +266,7 @@ async def handle_meme_key(
         data = await response.read()
         mime = response.content_type
 
-    return MessageChain(Image.of(raw=data, mimetype=mime))
+    return MessageChain(Image.of(raw=data, mime=mime))
 
 
 @dataclass
