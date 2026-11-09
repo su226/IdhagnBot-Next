@@ -23,7 +23,7 @@ class Config(BaseModel):
     proxy: HttpUrl | None = None
 
 
-CONFIG = plugin_config(Config, bind=True)
+CONFIG = plugin_config(Config)
 DIR = local_data.get_cache_dir("idhagnbot") / "pre_download"
 DIR.mkdir(parents=True, exist_ok=True)
 HasPoster = Video | Audio | FileEl
@@ -36,7 +36,11 @@ def _extract_poster(poster: str | None) -> str | None:
 
 
 async def _download(src: str, timeout: float | None) -> Path:  # noqa: ASYNC109
-    async with get_session().get(src, timeout=ClientTimeout(timeout)) as response:
+    async with get_session().get(
+        src,
+        proxy=str(CONFIG.proxy),
+        timeout=ClientTimeout(timeout),
+    ) as response:
         extension = guess_extension(response.content_type)
         fd, path = await mkstemp(extension, dir=str(DIR))
         file = await open_file(fd, "wb")
