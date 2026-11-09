@@ -56,6 +56,7 @@ from arclet.entari.event.base import (
 )
 from arclet.entari.event.command import CommandOutput, CommandParse
 from arclet.letoderea import SUBSCRIBER, Contexts, Propagator, Subscriber
+from arclet.letoderea.scope import SubscriberSlot
 from entari_plugin_database import (
     AsyncSession,
     Base,
@@ -997,7 +998,8 @@ PLUGIN = Plugin.current()
 
 @PLUGIN.collect
 @hook_subscribers
-def hook_commands(plugin_id: str, subscriber: Subscriber) -> None:
+def hook_commands(plugin_id: str, slot: SubscriberSlot) -> None:
+    subscriber = slot.subscriber
     try:
         propagator = subscriber.get_propagator(AlconnaSuppiler.supply)
     except ValueError:

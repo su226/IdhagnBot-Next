@@ -5,6 +5,7 @@ from arclet import letoderea
 from arclet.entari import (
     Element,
     MessageChain,
+    MessageCreatedEvent,
     MessageEvent,
     Session,
     Text,
@@ -89,6 +90,15 @@ def has_command_prefix(
     if longest_prefix_len > 0:
         return (first[:longest_prefix_len], first[longest_prefix_len:])
     return None
+
+
+def has_command_prefix_cached(event: MessageCreatedEvent) -> tuple[str, str] | None:
+    cached = getattr(event, "idhagnbot_has_command_prefix", ...)
+    if cached is not ...:
+        return cached
+    value = has_command_prefix(event.account.platform, event.content)
+    setattr(event, "idhagnbot_has_command_prefix", value)
+    return value
 
 
 @letoderea.on(CommandReceive)

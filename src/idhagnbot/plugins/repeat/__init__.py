@@ -21,7 +21,7 @@ from arclet.letoderea import Contexts, on
 from entari_plugin_database import AsyncSession  # entari: plugin
 from satori.exception import ActionFailed
 
-from idhagnbot.plugins.alias import has_command_prefix
+from idhagnbot.plugins.alias import has_command_prefix_cached
 from idhagnbot.plugins.repeat.common import (
     ALREADY_COUNTED,
     CONDITION_REGISTRY,
@@ -92,7 +92,7 @@ async def can_repeat(
     channel_id = session.event.channel.id
     message = session.event.message.message
     if (
-        not has_command_prefix(platform, message)
+        not has_command_prefix_cached(session.event)
         and not CONFIG.is_ignored_in(platform, guild_id, channel_id, message)
         and check_condition(platform, message)
         and (last := await db.get(LastMessage, (platform, channel_id)))

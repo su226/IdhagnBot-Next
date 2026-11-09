@@ -20,7 +20,6 @@ from arclet.entari import Image as ImageSeg
 from arclet.entari.command import AlconnaSuppiler
 from arclet.entari.config import EntariConfig
 from arclet.entari.event.base import (
-    InteractionCommandMessageEvent,
     MessageCreatedEvent,
     SatoriEvent,
 )
@@ -31,8 +30,8 @@ from arclet.letoderea import (
     Contexts,
     ExceptionEvent,
     ExitState,
-    Subscriber,
 )
+from arclet.letoderea.scope import SubscriberSlot
 from entari_plugin_database import (
     AsyncSession,
     Base,
@@ -58,7 +57,11 @@ from idhagnbot.hook import hook_subscribers
 from idhagnbot.i18n import bound_lang
 from idhagnbot.image import paste, to_segment
 from idhagnbot.permission import ADMIN
-from idhagnbot.plugins.alias import get_aliases, get_prefix, has_command_prefix
+from idhagnbot.plugins.alias import (
+    get_aliases,
+    get_prefix,
+    has_command_prefix_cached,
+)
 from idhagnbot.plugins.record import Guild, User, recorded_non_command
 from idhagnbot.plugins.redirect import GuildId, in_or_redirected_to_guild
 from idhagnbot.text import escape, render
@@ -265,7 +268,7 @@ def get_commands(session: Session[Any], prefix: str) -> list[str]:
 
 
 async def set_executed(
-    session: Session[MessageCreatedEvent | InteractionCommandMessageEvent],
+    session: Session[MessageCreatedEvent],
 ) -> None:
     setattr(session.event, "idhagnbot_executed", True)
 
@@ -275,30 +278,29 @@ PLUGIN = Plugin.current()
 
 @PLUGIN.collect
 @hook_subscribers
-def hook_commands(plugin_id: str, subscriber: Subscriber) -> None:
+def hook_commands(plugin_id: str, slot: SubscriberSlot) -> None:
     try:
-        subscriber.get_propagator(AlconnaSuppiler)
+        slot.subscriber.get_propagator(AlconnaSuppiler)
     except ValueError:
         return
 
-    logger.trace(f"Hooking {subscriber} for set executed.")
+    logger.trace(f"Hooking {slot.subscriber} for set executed.")
     PLUGIN.collect(
-        subscriber.propagate(set_executed, prepend=True, priority=85),
+        slot.subscriber.propagate(set_executed, prepend=True, priority=85),
     )
 
 
 async def check_bad_command(
-    session: Session[MessageCreatedEvent | InteractionCommandMessageEvent],
+    session: Session[MessageCreatedEvent],
     is_reply_me: bool,
     is_notice_me: bool,
     contexts: Contexts,
 ) -> bool:
-    platform = session.account.platform
     if (
         not getattr(session.event, "idhagnbot_executed", False)
         and not is_ignored_user(session)
         and not has_ignored_prefix(session)
-        and (match := has_command_prefix(platform, session.elements))
+        and (match := has_command_prefix_cached(session.event))
         and await show_invalid_command(session, is_reply_me, is_notice_me)
     ):
         contexts["idhagnbot_command_prefix_match"] = match
@@ -311,7 +313,7 @@ async def check_bad_command(
 @recorded_non_command()
 @enter_if(check_bad_command)
 async def send_bad_command(
-    session: Session[MessageCreatedEvent | InteractionCommandMessageEvent],
+    session: Session[MessageCreatedEvent],
     contexts: Contexts,
 ) -> ExitState:
     message = L("bad_command")
@@ -331,7 +333,7 @@ async def send_bad_command(
 
 
 async def check_im_bot(
-    session: Session[MessageCreatedEvent | InteractionCommandMessageEvent],
+    session: Session[MessageCreatedEvent],
     is_reply_me: bool,
     is_notice_me: bool,
 ) -> bool:
@@ -350,9 +352,7 @@ async def check_im_bot(
 @letoderea.propagate(require_permission("idhagnbot.fallback.show_im_bot"))
 @recorded_non_command()
 @enter_if(check_im_bot)
-async def send_im_bot(
-    session: Session[MessageCreatedEvent | InteractionCommandMessageEvent],
-) -> ExitState:
+async def send_im_bot(session: Session[MessageCreatedEvent]) -> ExitState:
     message = L("im_a_bot").format(prefix=get_prefix(session.account.platform))
     await session.send(satori_escape(message))
     return BLOCK
